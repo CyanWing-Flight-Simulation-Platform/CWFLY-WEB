@@ -197,7 +197,13 @@ select:not([class]) option:hover {
 }
 .table-wrap table th,
 .table-wrap table td {
-  width: 8%;
+  width: auto;
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+.table-wrap table td a {
+  word-break: break-all;
 }
 
 /* 政策/协议页表格：允许单元格换行，避免长链接/中文在 nowrap 下互相重叠 */
@@ -246,7 +252,9 @@ th, td {
   text-align: left;
   border-bottom: 1px solid var(--glass-border);
   font-size: 14px;
-  white-space: nowrap;
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 th {
   font-weight: 600;
