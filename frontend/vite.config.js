@@ -1,6 +1,26 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { fileURLToPath, URL } from 'node:url'
+import { writeFileSync } from 'node:fs'
+import { join } from 'node:path'
+
+/** 每次构建生成唯一版本号，前端用它轮询 version.json 判断是否需要提示刷新 */
+const BUILD_ID = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
+
+/** 构建产物中包含 version.json，供已打开的旧页面检测新版本 */
+function cwflyVersionPlugin() {
+  return {
+    name: 'cwfly-version',
+    apply: 'build',
+    config() {
+      return { define: { __CWFLY_BUILD_ID__: JSON.stringify(BUILD_ID) } }
+    },
+    writeBundle(options) {
+      if (!options.dir) return
+      writeFileSync(join(options.dir, 'version.json'), JSON.stringify({ buildId: BUILD_ID }))
+    }
+  }
+}
 
 /**
  * 重型第三方依赖分包策略（manualChunks 函数形式）
@@ -34,7 +54,7 @@ function manualChunks(id) {
 }
 
 export default defineConfig({
-  plugins: [vue()],
+  plugins: [vue(), cwflyVersionPlugin()],
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url))

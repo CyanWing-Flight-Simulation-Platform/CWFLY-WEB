@@ -16,6 +16,8 @@
   <FloatingButton />
   <!-- 全局红色横幅（错误 / 登录过期提示） -->
   <ToastBanner />
+  <!-- 站点更新提示（构建 version.json 轮询，提示用户刷新） -->
+  <UpdateBanner />
   <!-- 全局动作横幅（密码输入等控件，右侧滑入无进度条） -->
   <ActionBanner />
   <!-- 隐身 PoW：不渲染任何 DOM，后台静默完成人机验证 -->
@@ -31,6 +33,7 @@ import { profileApi } from '@/api'
 import { getTimeBgState, getUpcomingBg } from '@/utils/timeBg'
 import { themeMode, isDarkTheme, scheduleApplyTheme } from '@/utils/theme'
 import FloatingButton from '@/components/FloatingButton.vue'
+import UpdateBanner from '@/components/UpdateBanner.vue'
 // 动效层：主题圆形扩散 / reduced-motion 全站降级 / 回顶按钮过渡
 import '@/styles/motion.css'
 
