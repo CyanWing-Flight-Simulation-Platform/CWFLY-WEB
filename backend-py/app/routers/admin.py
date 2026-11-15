@@ -308,7 +308,8 @@ def _as_int(value: Any) -> int:
 
 def _paging(page: Any, page_size: Any) -> tuple[int, int]:
     """返回 (skip, take)：Node `(Number(page)-1)*Number(pageSize), Number(pageSize)`。"""
-    take = _as_int(page_size)
+    # 安全(P2-6)：限制单页最大条数，避免 take=9999999 打满内存/数据库
+    take = min(max(_as_int(page_size), 1), 200)
     skip = (_as_int(page) - 1) * take
     if skip < 0:
         raise ValueError("negative skip")
@@ -441,7 +442,7 @@ async def list_users(
         await db.execute(
             text(
                 "SELECT `userId`, `ip`, `deviceFp`, `createdAt` FROM `LoginLog` "
-                "ORDER BY `createdAt` DESC"
+                "ORDER BY `createdAt` DESC LIMIT 200"
             )
         )
     ).all()

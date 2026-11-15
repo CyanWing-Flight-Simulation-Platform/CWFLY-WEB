@@ -24,11 +24,14 @@ import secrets
 import time
 from typing import Any
 
-import jwt as pyjwt
 from fastapi import APIRouter, Depends, Request
 
 from app.deps import AuthFailure
-from app.services.key_rotation import get_signing_key, get_verifying_keys
+from app.services.token import (
+    TokenError,
+    sign_pow_token,
+    verify_pow_token,
+)
 from app.utils.json_compat import JSJSONResponse
 
 log = logging.getLogger("cwfly.captcha")
@@ -128,27 +131,21 @@ def _sha256_leading_zeros(raw: str, difficulty: int) -> bool:
 
 
 def _sign_pow_token(sid: str) -> str:
-    iat = int(time.time())
-    payload = {
-        "typ": "pow",
-        "sid": sid,
-        "iat": iat,
-        "exp": iat + POW_TOKEN_TTL_SECONDS,
-    }
-    return pyjwt.encode(payload, get_signing_key(), algorithm="HS256")
+    """签发 PoW 令牌。
+
+    安全（P0-3）：改用**独立派生密钥** `HMAC(JWT_SECRET, "pow")`（见
+    `app/services/token.py:derive_pow_key`）。历史上这里与 access token 共用时段密钥，
+    导致 PoW 令牌可当登录令牌使用（认证绕过）。密钥域隔离后，即使 access token 校验
+    出现遗漏，签名本身也互不承认。
+    """
+    return sign_pow_token(sid, POW_TOKEN_TTL_SECONDS)
 
 
 def _verify_pow_token(token: str) -> dict[str, Any]:
-    last: Exception | None = None
-    for key in get_verifying_keys():
-        try:
-            decoded = pyjwt.decode(token, key, algorithms=["HS256"])
-            if decoded.get("typ") != "pow":
-                raise pyjwt.InvalidTokenError("not pow token")
-            return decoded
-        except pyjwt.InvalidTokenError as exc:
-            last = exc
-    raise AuthFailure(403, "人机验证已过期，请刷新页面后重试")
+    try:
+        return verify_pow_token(token)
+    except TokenError:
+        raise AuthFailure(403, "人机验证已过期，请刷新页面后重试") from None
 
 
 # ===== 接口 =====

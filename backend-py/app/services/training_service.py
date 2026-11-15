@@ -53,6 +53,69 @@ def normalize_exam(row: Any) -> dict[str, Any]:
     return dict(row._mapping)
 
 
+# ===== 考试答案剥离（安全审计 P1-3）=====
+# 考试详情接口会把题目下发给前端渲染；`correctIndex` 等判分/解析字段一旦随包下发，
+# 任意登录用户（含通过 PoW 令牌绕过认证的匿名者）即可满分通过考核。
+# 因此**普通用户**的详情响应必须剥离答案字段；仅管理/教员（rating >= 11）可显式取回。
+ANSWER_FIELD_NAMES: frozenset[str] = frozenset(
+    {
+        "correctindex",
+        "correctindexes",
+        "correct",
+        "correctanswer",
+        "correctanswers",
+        "answer",
+        "answers",
+        "answerindex",
+        "answerindexes",
+        "expected",
+        "expectedindex",
+        "explanation",
+        "explanations",
+        "analysis",
+        "rationale",
+        "solution",
+        "gradingnote",
+        "gradingnotes",
+        "isanswer",
+    }
+)
+
+
+def is_answer_field(key: Any) -> bool:
+    """字段名是否属于「答案/解析」类敏感字段（大小写不敏感）。"""
+    return str(key).strip().lower() in ANSWER_FIELD_NAMES
+
+
+def strip_exam_answers(exam: dict[str, Any]) -> dict[str, Any]:
+    """返回剥离了答案/解析字段的考试详情（保持 `questions` 的原始序列化类型）。"""
+    data = dict(exam)
+    raw_questions = data.get("questions")
+    questions = parse_questions(raw_questions)
+
+    cleaned: list[Any] = []
+    for question in questions:
+        if isinstance(question, dict):
+            cleaned.append(
+                {key: value for key, value in question.items() if not is_answer_field(key)}
+            )
+        else:
+            cleaned.append(question)
+
+    # 保持与入参一致的序列化类型：字符串列仍回字符串，已解析的仍回列表。
+    # （前端 `TrainingExam.vue` 依赖既有的字段形态，此处不改变类型以免破坏已上线页面）
+    if isinstance(raw_questions, (str, bytes, bytearray)):
+        data["questions"] = json.dumps(cleaned, ensure_ascii=False)
+    else:
+        data["questions"] = cleaned
+
+    # 顶层若也带答案字段（冗余结构）同样剥离
+    for key in list(data.keys()):
+        if key != "questions" and is_answer_field(key):
+            data.pop(key, None)
+    return data
+
+
 def normalize_schedule(row: Any) -> dict[str, Any]:
     return dict(row._mapping)
 
@@ -272,6 +335,7 @@ __all__ = [
     "RECORD_COLUMNS",
     "EXAM_COLUMNS",
     "SCHEDULE_COLUMNS",
+    "ANSWER_FIELD_NAMES",
     "as_bool",
     "normalize_course",
     "normalize_record",
@@ -279,6 +343,8 @@ __all__ = [
     "normalize_schedule",
     "parse_questions",
     "js_strict_equal",
+    "is_answer_field",
+    "strip_exam_answers",
     "list_courses",
     "find_record",
     "create_record",

@@ -167,9 +167,27 @@ async def list_records(
 
 
 # ==================== 考试 ====================
+# 安全（P1-3）：判分答案字段只对管理/教员（rating >= 11）开放。
+# 普通用户详情响应剥离 `correctIndex` 等答案/解析字段；判分仍由服务端按题号比对。
+ANSWER_VIEW_MIN_RATING = 11
+
+
+def _wants_answers(include_answers: Any) -> bool:
+    return str(include_answers or "").strip().lower() in ("1", "true", "yes", "on")
+
+
 @router.get("/exams/{exam_id}")
-async def get_exam(exam_id: str, db: AsyncSession = Depends(get_db)) -> JSJSONResponse:
-    """考试详情（Node L41）。"""
+async def get_exam(
+    exam_id: str,
+    includeAnswers: str = "",
+    db: AsyncSession = Depends(get_db),
+    current: CurrentUser = Depends(get_current_user),
+) -> JSJSONResponse:
+    """考试详情（Node L41）。
+
+    安全（P1-3）：默认**不含答案**；仅 `rating >= 11` 且显式 `includeAnswers=1`
+    时返回完整题目（供教员/管理员编辑复核）。
+    """
     try:
         parsed = _as_int_id(exam_id)
         if parsed is None:
@@ -177,7 +195,9 @@ async def get_exam(exam_id: str, db: AsyncSession = Depends(get_db)) -> JSJSONRe
         exam = await ts.get_exam(db, parsed)
         if not exam:
             return _fail(404, "考试不存在")
-        return _ok(exam)
+        if _wants_answers(includeAnswers) and (current.rating or 0) >= ANSWER_VIEW_MIN_RATING:
+            return _ok(exam)
+        return _ok(ts.strip_exam_answers(exam))
     except Exception as exc:  # noqa: BLE001
         log.error("[training.py] %s", exc)
         return _fail(500, "查询失败")

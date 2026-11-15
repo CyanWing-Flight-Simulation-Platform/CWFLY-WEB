@@ -12,7 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from app.main import app  # noqa: E402
 
-NODE_ROUTES = Path(r"D:\CWFLY\backend\src\routes")
+NODE_ROUTES = Path(r"D:\CWFLY\_archive-20261115\backend-legacy\src\routes")
 INDEX = NODE_ROUTES / "index.js"
 
 METHOD_RE = re.compile(r"router\.(get|post|put|patch|delete)\(\s*['\"]([^'\"]*)['\"]")

@@ -95,8 +95,14 @@ async def get_current_user(
     except TokenError:
         raise AuthFailure(401, MESSAGE_INVALID)
 
+    cid = str(decoded.get("cid") or "").strip()
+    if not cid:
+        # 安全（P0-3 纵深防御）：verify_token 已强制 cid 非空，这里再挡一次，
+        # 避免任何解码路径（含未来新增的宽松校验）把「空 cid 身份」放进业务层。
+        raise AuthFailure(401, MESSAGE_INVALID)
+
     user = CurrentUser(
-        cid=str(decoded.get("cid") or ""),
+        cid=cid,
         username=decoded.get("username") or "",
         rating=int(decoded.get("rating") or 0),
         permissions=decoded.get("permissions") or "",
@@ -126,10 +132,44 @@ async def get_current_user(
     return user
 
 
-def require_rating(min_level: int = 8) -> Callable[..., Any]:
-    """对齐 Node `requireRating(minLevel)`。"""
+async def get_verified_user(
+    request: Request,
+    response: Response,
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+) -> CurrentUser:
+    """敏感权限判定专用：**每请求查库**取最新 rating/permissions/fsdLevel。
 
-    async def _dep(user: CurrentUser = Depends(get_current_user)) -> CurrentUser:
+    安全（P1-1）：JWT 里的 `rating/permissions` 有 7 天有效期，若被无条件信任，
+    降权/封禁/删号后旧 token 仍拥有原权限。所有「敏感动作」（管理后台、rating>=11/12
+    的操作、管理权限）改为走本依赖，保证权限变更即时生效。
+
+    查库失败按 401 处理（fail-closed）：敏感动作宁可不做，也不要用过期声明放行。
+    """
+    try:
+        fresh = await users.find_user_public(db, user.cid)
+    except Exception:  # noqa: BLE001 - 数据库故障时不放行敏感动作
+        raise AuthFailure(401, MESSAGE_INVALID) from None
+    if not fresh:
+        # 用户已删除/注销
+        raise AuthFailure(401, MESSAGE_INVALID)
+
+    verified = CurrentUser(
+        cid=str(fresh.get("cid") or user.cid),
+        username=str(fresh.get("username") or ""),
+        rating=int(fresh.get("rating") or 0),
+        permissions=fresh.get("permissions") or "",
+        fsdLevel=int(fresh.get("fsdLevel") or 0),
+        claims=user.claims,
+    )
+    request.state.user = verified.as_dict()
+    return verified
+
+
+def require_rating(min_level: int = 8) -> Callable[..., Any]:
+    """对齐 Node `requireRating(minLevel)`（每请求查库，降权即时生效）。"""
+
+    async def _dep(user: CurrentUser = Depends(get_verified_user)) -> CurrentUser:
         if (user.rating or 0) < min_level:
             raise AuthFailure(
                 403, f"权限不足，需要等级 >= {min_level}，当前等级 = {user.rating or 0}"
@@ -142,7 +182,7 @@ def require_rating(min_level: int = 8) -> Callable[..., Any]:
 def require_permission(perm: str) -> Callable[..., Any]:
     """对齐 Node `requirePermission(perm)`（rating >= 11 自动拥有全部权限）。"""
 
-    async def _dep(user: CurrentUser = Depends(get_current_user)) -> CurrentUser:
+    async def _dep(user: CurrentUser = Depends(get_verified_user)) -> CurrentUser:
         if has_permission({"rating": user.rating, "permissions": user.permissions}, perm):
             return user
         raise AuthFailure(403, f"权限不足，需要「{perm}」权限")
@@ -150,8 +190,8 @@ def require_permission(perm: str) -> Callable[..., Any]:
     return _dep
 
 
-async def require_admin_access(user: CurrentUser = Depends(get_current_user)) -> CurrentUser:
-    """对齐 Node `requireAdminAccess`：rating >= 8 且有任意细分权限。"""
+async def require_admin_access(user: CurrentUser = Depends(get_verified_user)) -> CurrentUser:
+    """对齐 Node `requireAdminAccess`：rating >= 8 且有任意细分权限（每请求查库）。"""
     if (user.rating or 0) >= 8 and has_any_permission(
         {"rating": user.rating, "permissions": user.permissions}
     ):
@@ -168,6 +208,7 @@ __all__ = [
     "AuthFailure",
     "CurrentUser",
     "get_current_user",
+    "get_verified_user",
     "require_rating",
     "require_permission",
     "require_admin_access",

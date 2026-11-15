@@ -24,14 +24,40 @@ from app.deps import CurrentUser, get_current_user
 from app.services import mailer
 from app.services import profile_store as ps
 from app.services import profile_uploads as pu
+from app.services import token_state
+from app.services.token import sign_token
 from app.services.zh_time_service import zh_locale
 from app.utils.json_compat import JSJSONResponse
-from app.utils.security import hash_password, sha256_hex, verify_password
+from app.utils.security import hash_password, sha256_hex, validate_password, verify_password
 
 log = logging.getLogger("cwfly.profile")
 router = APIRouter(prefix="/profile", tags=["profile"])
 
 MESSAGE_OPERATION_FAILED = "操作失败"
+
+# 安全（P2-9）：头像只允许站内上传目录前缀（或服务端生成的 QQ 头像），
+# 防止把任意 URL 写进数据库后被前端当链接/HTML 渲染。
+ALLOWED_AVATAR_PREFIXES = ("/uploads/avatars/",)
+ALLOWED_AVATAR_HOSTS = ("q1.qlogo.cn", "q.qlogo.cn")
+
+
+def is_allowed_avatar(value: Any) -> bool:
+    """头像字段白名单：空串（恢复默认）/ `/uploads/avatars/...` / QQ 头像 CDN。"""
+    if not isinstance(value, str):
+        return False
+    text = value.strip()
+    if text == "":
+        return True
+    if text.startswith(ALLOWED_AVATAR_PREFIXES):
+        # 目录内文件名不含该前缀时拒绝（防 `/uploads/avatars/../../x`）
+        rest = text[len("/uploads/avatars/") :]
+        return rest != "" and "/" not in rest and "\\" not in rest and ".." not in rest
+    if text.startswith("https://"):
+        from urllib.parse import urlparse
+
+        host = (urlparse(text).hostname or "").lower()
+        return host in ALLOWED_AVATAR_HOSTS
+    return False
 
 
 def _ok(data: Any = None, message: str | None = None) -> JSJSONResponse:
@@ -137,12 +163,30 @@ async def update_password(
             if not verify_password(old_password, stored_hash):
                 return _fail(400, "当前密码错误")
 
-        if new_password:
+            # 安全（P2-1）：改密同样要过密码策略（历史上只有注册/重置走了校验）
+            pw_err = validate_password(new_password)
+            if pw_err:
+                return _fail(400, pw_err)
+
             await ps.update_password(
                 db,
                 current.cid,
                 hash_password(new_password),
                 sha256_hex(new_password),
+            )
+            # 安全（P1-2）：改密后前移 token_epoch → 该用户全部旧 token 立即失效
+            # （被盗 token 无法继续使用，也无法通过 /auth/refresh 续期）。
+            token_state.bump_token_epoch(current.cid)
+            # 同时签发一枚新 token 返回，让「本次改密」的会话可以平滑继续：
+            # 前端可选采用 data.token；不采用则下次请求 401 → 重新登录。
+            fresh_token = sign_token(
+                {
+                    "cid": user.get("cid") or current.cid,
+                    "username": user.get("username") or "",
+                    "rating": user.get("rating") or 0,
+                    "permissions": user.get("permissions") or "",
+                    "fsdLevel": user.get("fsdLevel") or 0,
+                }
             )
             # 发送密码修改安全通知（失败静默）
             email = user.get("email")
@@ -161,6 +205,14 @@ async def update_password(
                         },
                     )
                 )
+            return JSJSONResponse(
+                {
+                    "success": True,
+                    "message": "更新成功",
+                    "data": {"token": fresh_token},
+                },
+                headers={"X-Renewed-Token": fresh_token},
+            )
 
         return _ok(message="更新成功")
     except Exception as exc:  # noqa: BLE001
@@ -214,6 +266,9 @@ async def update_info(
         if "avatar" in body:
             if body.get("avatar") is None:
                 return _fail(500, MESSAGE_OPERATION_FAILED)  # Prisma 非空列写入 null → 抛错
+            # 安全（P2-9）：只允许站内头像目录/服务端生成的 QQ 头像，禁止任意 URL
+            if not is_allowed_avatar(body.get("avatar")):
+                return _fail(400, "头像地址不合法，请通过上传接口更新头像")
             data["avatar"] = body["avatar"]
 
         if "qq" in body:
@@ -341,11 +396,14 @@ async def send_verify(
         # Node: resetCode = `${email.toLowerCase()}|${code}`
         await ps.store_reset_code(db, current.cid, f"{email.lower()}|{code}", expires)
 
-        # 发送邮件（SMTP 未配置/发送失败不影响主流程，Node 同样不会让请求失败）
-        try:
-            await mailer.send_verify_code(str(email), code, "邮箱验证")
-        except Exception as mail_exc:  # noqa: BLE001
-            log.warning("[profile.py] 验证码邮件发送失败: %s", mail_exc)
+        # 发送邮件放到后台任务：接口先返回，SMTP 延迟不再计入用户等待
+        async def _mail_job() -> None:
+            try:
+                await mailer.send_verify_code(str(email), code, "邮箱验证")
+            except Exception as mail_exc:  # noqa: BLE001
+                log.warning("[profile.py] 验证码邮件发送失败: %s", mail_exc)
+
+        mailer.fire_and_forget_thread(_mail_job)
 
         return _ok(message="验证码已发送")
     except Exception as exc:  # noqa: BLE001

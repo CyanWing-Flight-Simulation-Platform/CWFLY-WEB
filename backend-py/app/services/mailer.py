@@ -7,7 +7,9 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import secrets
+import threading
 import time
 from typing import Any
 
@@ -17,6 +19,8 @@ from email.message import EmailMessage
 from app.config import settings
 from app.db.session import SessionLocal
 from app.services import users
+
+log = logging.getLogger("cwfly.mailer")
 
 CODE_TTL_MS = 600_000  # 10 分钟
 MAX_ATTEMPTS = 5
@@ -86,7 +90,7 @@ async def _smtp_send(to: str, subject: str, html: str, text_body: str = "") -> N
         password=settings.SMTP_PASSWORD or None,
         use_tls=settings.SMTP_PORT == 465,
         start_tls=settings.SMTP_PORT == 587,
-        timeout=20,
+        timeout=12,
     )
 
 
@@ -97,6 +101,21 @@ async def send_verify_code(to: str, code: str, purpose: str = "验证") -> None:
         f"<p>10 分钟内有效，请勿泄露给他人。</p>"
     )
     await _smtp_send(to, f"{settings.SMTP_FROM_NAME} {purpose}验证码", html, f"验证码：{code}")
+
+
+def fire_and_forget_thread(coro_factory: Any) -> None:
+    """在独立线程 + 独立事件循环里发信。
+
+    aiosmtplib 的 DNS/握手在部分环境下会拖住共享事件循环（表现为第二个请求整体卡 10s+），
+    因此验证码邮件一律扔到独立线程：SMTP 再慢也不阻塞 API 响应。
+    """
+    def _run() -> None:
+        try:
+            asyncio.run(coro_factory())
+        except Exception as exc:  # noqa: BLE001
+            log.error("[mail] 后台发信失败: %s", exc)
+
+    threading.Thread(target=_run, daemon=True, name="cwfly-mail").start()
 
 
 def fire_and_forget(coro: Any) -> None:

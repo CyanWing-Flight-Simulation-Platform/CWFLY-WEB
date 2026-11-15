@@ -1,26 +1,40 @@
 """/api/meetings 路由（逐接口对齐 Node src/routes/meetings.js）。
 
-- GET  /        会议列表（公开，按 id 倒序）
+- GET  /        会议列表（**需登录**，见下方 MEETINGS_REQUIRE_AUTH）
 - POST /upload  上传会议资料（需 rating >= 11；表单字段 `file`，20MB；先返回 processing，后台解析）
 
 返回结构：`{ success: true, data: { ...meeting, fileUrl, status: 'processing' } }`
+
+安全（2026-11-07 审计 P1-4 / P2-10）：
+- 上传加「扩展名白名单 + 魔数校验 + 20MB 上限」，杜绝 `.html/.svg` 同域存储型 XSS；
+- `/uploads/**` 静态响应统一 `X-Content-Type-Options: nosniff`，非图片强制
+  `Content-Disposition: attachment`（见 `app/main.py`），即便内容可执行也不会被内联渲染；
+- 会议列表属于内部纪要，改为要求登录（应急回滚开关 `MEETINGS_REQUIRE_AUTH=0`）。
 """
 from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any
+import os
+from typing import Any, Optional
 
-from fastapi import APIRouter, Depends, File, UploadFile
+from fastapi import APIRouter, Depends, File, Request, Response, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
-from app.deps import CurrentUser, require_rating
+from app.deps import CurrentUser, get_current_user, require_rating
 from app.services import meetings_uploads as mu
 from app.utils.json_compat import JSJSONResponse
 
 log = logging.getLogger("cwfly.meetings")
 router = APIRouter(prefix="/meetings", tags=["meetings"])
+
+# 应急回滚开关：设为 0 时恢复「会议列表公开」（默认强制登录）。
+MEETINGS_REQUIRE_AUTH = os.getenv("MEETINGS_REQUIRE_AUTH", "1").strip().lower() not in (
+    "0",
+    "false",
+    "no",
+)
 
 
 def _ok(data: Any = None, message: str | None = None) -> JSJSONResponse:
@@ -36,8 +50,24 @@ def _fail(status_code: int, message: str) -> JSJSONResponse:
     return JSJSONResponse({"success": False, "message": message}, status_code=status_code)
 
 
+async def meetings_viewer(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+) -> Optional[CurrentUser]:
+    """会议列表鉴权：默认要求登录；`MEETINGS_REQUIRE_AUTH=0` 时降级为可选登录。"""
+    try:
+        return await get_current_user(request, Response(), db)
+    except Exception:
+        if MEETINGS_REQUIRE_AUTH:
+            raise
+        return None
+
+
 @router.get("")
-async def list_meetings(db: AsyncSession = Depends(get_db)) -> JSJSONResponse:
+async def list_meetings(
+    db: AsyncSession = Depends(get_db),
+    _viewer: Optional[CurrentUser] = Depends(meetings_viewer),
+) -> JSJSONResponse:
     try:
         return _ok(await mu.list_meetings(db))
     except Exception as exc:  # noqa: BLE001
@@ -55,9 +85,11 @@ async def upload_meeting(
         if file is None or not (file.filename or ""):
             return _fail(400, "请选择文件")
 
-        # multer 抛错（超过 20MB）→ Node 全局错误处理 500「服务器内部错误」
+        # 扩展名/魔数白名单 → 400（不落盘）；超过 20MB → 与原 Node 行为一致的 500
         try:
             path, size_bytes = await mu.save_upload(file)
+        except mu.UnsupportedFileType as exc:
+            return _fail(400, f"不支持的文件类型：{exc}")
         except mu.MeetingUploadRejected:
             return _fail(500, "服务器内部错误")
 

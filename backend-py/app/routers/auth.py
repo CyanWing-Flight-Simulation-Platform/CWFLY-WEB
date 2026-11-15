@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, Request, Response
@@ -14,12 +15,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_db
 from app.deps import AuthFailure, CurrentUser, get_current_user
 from app.routers.captcha import require_pow_token
-from app.middleware.rate_limit import login_limiter, register_limiter, sensitive_limiter
+from app.middleware.rate_limit import (
+    Limit,
+    login_limiter,
+    rate_limiter,
+    register_limiter,
+    sensitive_limiter,
+)
 from app.services import users
 from app.services.device_ban import is_device_banned
 from app.services.login_lock import check_login_lock, clear_login_failures, record_login_failure
 from app.services.mailer import (
-    fire_and_forget,
+    fire_and_forget_thread,
     generate_code,
     send_notification,
     send_security_alert,
@@ -27,6 +34,7 @@ from app.services.mailer import (
     store_code,
     verify_code,
 )
+from app.services import token_state
 from app.services.token import (
     TokenError,
     TokenExpiredError,
@@ -44,6 +52,11 @@ from app.utils.security import (
 
 log = logging.getLogger("cwfly.auth")
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+# 安全（P2-2）：CID 存在性探测专用限流（枚举缓解）。前端注册页依赖该接口
+# 随机挑选可用 CID，故保留 `exists` 语义，但把枚举速率压到每 IP 每分钟 20 次。
+CHECK_CID_LIMIT = Limit("auth-check-cid", 60, 20, "查询过于频繁，请稍后再试")
+check_cid_limiter = rate_limiter(CHECK_CID_LIMIT)
 
 # ---------- 响应工具（与 Node res.json / res.status().json 等价） ----------
 def ok(data: Any = None, **extra: Any) -> JSJSONResponse:
@@ -82,12 +95,23 @@ async def check_admin(db: AsyncSession = Depends(get_db)) -> Any:
         return JSJSONResponse({"success": True, "exists": False})
 
 
-@router.get("/check-cid")
+@router.get("/check-cid", dependencies=[Depends(check_cid_limiter)])
 async def check_cid(cid: Optional[str] = None, db: AsyncSession = Depends(get_db)) -> Any:
+    """CID 是否可用（注册页随机挑选 CID 用）。
+
+    安全（P2-2 枚举缓解）：
+    - 只接受 4 位数字（畸形入参不消耗真实查询，也不泄露存在性）；
+    - 独立限流（20 次/分钟/IP）把批量枚举压到不可用水平；
+    - 真正的高价值枚举通道已关闭：`/auth/register` 的 CID/邮箱冲突检查
+      移到「邮箱验证码校验之后」，没有真实验证码无法探测存在性。
+    """
     if not cid:
         return fail(400, "缺少 CID")
+    cid_text = str(cid).strip()
+    if len(cid_text) != 4 or not cid_text.isdigit():
+        return fail(400, "CID 必须为4位数字")
     try:
-        user = await users.find_user_public(db, cid)
+        user = await users.find_user_public(db, cid_text)
         return JSJSONResponse({"success": True, "exists": user is not None})
     except Exception:
         return fail(500, "查询失败")
@@ -134,13 +158,16 @@ async def register(request: Request, db: AsyncSession = Depends(get_db)) -> Any:
         return fail(400, "CID 必须为4位数字")
     cid = str(cid)
 
+    # 安全（P2-2 枚举）：先校验邮箱验证码，再做 CID/邮箱冲突检查。
+    # 顺序调整后，攻击者必须先拥有一个真实可收信的邮箱（且通过 PoW/限流/冷却），
+    # 才能拿到「该 CID / 该邮箱已被注册」这类存在性信号，批量枚举成本大幅提高。
+    if not await verify_code(email, email_code):
+        return fail(400, "邮箱验证码错误或已过期")
+
     if await users.find_user_public(db, cid):
         return fail(409, "该 CID 已被注册")
     if await users.find_user_by_email(db, email):
         return fail(409, "该邮箱已被注册")
-
-    if not await verify_code(email, email_code):
-        return fail(400, "邮箱验证码错误或已过期")
 
     register_user_agent = get_user_agent(request)
     created = await users.create_user(
@@ -231,11 +258,15 @@ async def login(request: Request, db: AsyncSession = Depends(get_db)) -> Any:
             pass
         return fail(403, "该设备已被封禁，请联系管理员", code="DEVICE_BANNED")
 
-    lock_msg = await check_login_lock(db, cid)
+    # 安全（P1-14 / P2-3）：先取账号（只为拿 rating），锁定判定按 (cid, ip) 组合，
+    # 且 rating >= 11 的高等级账号只告警不锁定 —— 避免攻击者用错密码把管理员锁死。
+    user = await users.find_user_with_credentials(db, cid)
+    lock_msg = await check_login_lock(
+        db, cid, ip, int((user or {}).get("rating") or 0)
+    )
     if lock_msg:
         return fail(429, lock_msg)
 
-    user = await users.find_user_with_credentials(db, cid)
     if not user:
         await record_login_failure(db, cid, ip)
         await _safe_login_log(db, cid or "unknown", ip, user_agent, device_fp, False, "notfound")
@@ -300,7 +331,9 @@ async def login_verify(request: Request, db: AsyncSession = Depends(get_db)) -> 
     if not user.get("email"):
         return fail(400, "该账号未绑定邮箱，请联系管理员")
 
-    lock_msg = await check_login_lock(db, user["cid"])
+    lock_msg = await check_login_lock(
+        db, user["cid"], ip, int(user.get("rating") or 0)
+    )
     if lock_msg:
         return fail(429, lock_msg)
     if device_fp and await is_device_banned(device_fp):
@@ -336,6 +369,46 @@ async def refresh(request: Request, db: AsyncSession = Depends(get_db)) -> Any:
         return fail(401, "登录无效，请重新登录")
 
 
+# ============================ 退出登录（令牌吊销） ============================
+@router.post("/logout")
+async def logout(request: Request) -> Any:
+    """把当前 token 的 `jti` 写入黑名单（TTL = 剩余有效期），实现服务端登出。
+
+    安全（P1-2 / P1-16）：
+    - 前端登出只清 localStorage 时，token 仍在有效期内可用；本接口让 token 真正失效；
+    - 旧 token（无 `jti`）无法单独吊销 → 前移该用户 `token_epoch`，
+      使其所有会话下线（宁可多下线，不留可用凭证）；
+    - 幂等：无 token / 已失效 token 也返回 success，避免前端登出流程报错。
+    """
+    header = request.headers.get("authorization") or ""
+    token = header[len("Bearer ") :].strip() if header.startswith("Bearer ") else ""
+    revoked = False
+    mode = "noop"
+    if token:
+        try:
+            # 允许「已过期但签名有效」的 token 走登出，便于清理宽限期内的旧凭证
+            decoded = verify_token_for_refresh(token)
+        except TokenError:
+            decoded = None
+        if decoded:
+            cid = str(decoded.get("cid") or "").strip()
+            jti = str(decoded.get("jti") or "").strip()
+            exp = int(decoded.get("exp") or 0)
+            ttl = max(exp - int(time.time()), 0)
+            if jti:
+                mode = "jti"
+                revoked = token_state.add_blacklisted_jti(jti, ttl)
+            elif cid:
+                mode = "epoch"
+                token_state.bump_token_epoch(cid)
+                revoked = True
+            if cid:
+                log.info("[auth.py] 用户登出: cid=%s mode=%s revoked=%s", cid, mode, revoked)
+    return JSJSONResponse(
+        {"success": True, "message": "已退出登录", "data": {"mode": mode, "revoked": revoked}}
+    )
+
+
 # ============================ 修改密码 ============================
 @router.put("/password", dependencies=[Depends(sensitive_limiter)])
 async def change_password(
@@ -358,10 +431,28 @@ async def change_password(
     if not creds or not verify_password(old_password, creds.get("password")):
         return fail(401, "原密码错误")
 
+    # 安全（P2-1）：改密同样要过密码策略（历史上只有注册/重置走了校验）
+    pw_err = validate_password(new_password)
+    if pw_err:
+        return fail(400, pw_err)
+
     await users.update_user(
         db,
         current.cid,
         {"password": hash_password(new_password), "fsdPasswordHash": sha256_hex(new_password)},
+    )
+    # 安全（P1-2）：改密后前移 token_epoch，使所有旧 token（含本次调用者）立即失效，
+    # 并要求用户用新密码重新登录（被盗 token 无法继续使用/续期）。
+    token_state.bump_token_epoch(current.cid)
+    # 同时下发一枚新 token：前端采用 data.token 则可平滑继续本次会话。
+    fresh_token = sign_token(
+        {
+            "cid": user.get("cid") or current.cid,
+            "username": user.get("username") or "",
+            "rating": user.get("rating") or 0,
+            "permissions": user.get("permissions") or "",
+            "fsdLevel": user.get("fsdLevel") or 0,
+        }
     )
 
     if user.get("email"):
@@ -376,7 +467,14 @@ async def change_password(
                 },
             )
         )
-    return JSJSONResponse({"success": True, "message": "密码已更新"})
+    return JSJSONResponse(
+        {
+            "success": True,
+            "message": "密码已更新",
+            "data": {"token": fresh_token},
+        },
+        headers={"X-Renewed-Token": fresh_token},
+    )
 
 
 # ============================ 当前用户 ============================
@@ -408,11 +506,16 @@ async def forgot_password(request: Request, db: AsyncSession = Depends(get_db)) 
     user = await users.find_user_by_email(db, email)
     if user:
         code = generate_code()
-        try:
-            await send_verify_code(email, code, "找回密码")
-            await store_code(email, code)
-        except Exception as exc:
-            log.error("[forgot-password] 邮件发送失败: %s", exc)
+        # 先落库保证验证码立即可用，SMTP 发信后台执行（不阻塞响应）
+        await store_code(email, code)
+
+        async def _mail_job() -> None:
+            try:
+                await send_verify_code(email, code, "找回密码")
+            except Exception as exc:  # noqa: BLE001
+                log.error("[forgot-password] 邮件发送失败: %s", exc)
+
+        fire_and_forget_thread(_mail_job)
 
     return JSJSONResponse({"success": True, "message": "如果该邮箱已注册，验证码已发送到邮箱"})
 
@@ -448,6 +551,8 @@ async def reset_password(request: Request, db: AsyncSession = Depends(get_db)) -
         user["cid"],
         {"password": hash_password(password), "fsdPasswordHash": sha256_hex(password)},
     )
+    # 安全（P1-2）：忘记密码重置后同样吊销该用户全部旧会话
+    token_state.bump_token_epoch(user["cid"])
     return JSJSONResponse({"success": True, "message": "密码已重置"})
 
 

@@ -33,9 +33,13 @@ class Settings(BaseSettings):
 
     # ---- JWT（与 Node 完全一致）----
     JWT_SECRET: str = ""
-    JWT_EXPIRES: str = "6h"
-    JWT_REFRESH_GRACE_SECONDS: int = 600
+    JWT_EXPIRES: str = "7d"
+    JWT_REFRESH_GRACE_SECONDS: int = 86400
     JWT_REFRESH_BEFORE_SECONDS: int = 120
+    # 安全（P0-3）：access token 必须带 typ="access"。
+    # 滚动发布期如需避免存量会话集中掉线，可临时设 JWT_ALLOW_LEGACY_TYP=1，
+    # 放行「无 typ 声明」的旧 token（≤ 一个 JWT_EXPIRES 周期后必须关闭）。
+    JWT_ALLOW_LEGACY_TYP: bool = False
 
     # ---- CORS ----
     CORS_ORIGIN: Optional[str] = None

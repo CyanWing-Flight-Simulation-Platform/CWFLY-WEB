@@ -40,9 +40,104 @@ MEETING_COLS = "id, title, date, size, content, status"
 
 _SAFE_NAME_RE = re.compile(r"[^a-zA-Z0-9._\u4e00-\u9fa5-]")
 
+# ==================== 上传白名单（安全审计 P1-4） ====================
+# 历史问题：只限制大小，不限制类型 → rating>=11 可上传 `.html`/`.svg`，
+# 由于 `/uploads` 与主站同域且静态托管，构成同域存储型 XSS（可窃取 localStorage 里的
+# Bearer Token）。现在：扩展名白名单 + 魔数校验 + 大小上限三重限制。
+ALLOWED_EXTENSIONS: frozenset[str] = frozenset(
+    {
+        ".pdf",
+        ".doc",
+        ".docx",
+        ".xls",
+        ".xlsx",
+        ".ppt",
+        ".pptx",
+        ".txt",
+        ".zip",
+        ".png",
+        ".jpg",
+        ".jpeg",
+        ".gif",
+        ".webp",
+    }
+)
+IMAGE_EXTENSIONS: frozenset[str] = frozenset({".png", ".jpg", ".jpeg", ".gif", ".webp"})
+
+_OLE2_MAGIC = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"  # doc/xls/ppt（OLE2 复合文档）
+_ZIP_MAGICS = (b"PK\x03\x04", b"PK\x05\x06", b"PK\x07\x08")  # zip/docx/xlsx/pptx
+
 
 class MeetingUploadRejected(Exception):
     """等价 multer 的 LIMIT_FILE_SIZE（Node 全局错误处理 → 500）。"""
+
+
+class UnsupportedFileType(Exception):
+    """扩展名/魔数不在白名单（返回 400，不落盘）。"""
+
+
+def ext_of(original_name: str | None) -> str:
+    """`path.extname(name).toLowerCase()`。"""
+    return os.path.splitext(os.path.basename((original_name or "").replace("\\", "/")))[1].lower()
+
+
+def is_image_ext(ext: str) -> bool:
+    return ext.lower() in IMAGE_EXTENSIONS
+
+
+def check_extension(original_name: str | None) -> str:
+    """校验扩展名白名单，返回规范化扩展名。"""
+    ext = ext_of(original_name)
+    if not ext:
+        raise UnsupportedFileType("缺少文件扩展名")
+    if ext not in ALLOWED_EXTENSIONS:
+        raise UnsupportedFileType(f"不支持的文件类型：{ext}")
+    return ext
+
+
+def _looks_like_text(head: bytes) -> bool:
+    """`.txt`：无 NUL 字节且能被 UTF-8（或 GBK 回退）解码。"""
+    if b"\x00" in head:
+        return False
+    for encoding in ("utf-8", "gbk"):
+        try:
+            head.decode(encoding)
+            return True
+        except UnicodeDecodeError:
+            continue
+    return False
+
+
+def magic_ok(ext: str, head: bytes) -> bool:
+    """按扩展名核对文件头（魔数）。"""
+    if not head:
+        return False
+    ext = ext.lower()
+    if ext == ".pdf":
+        return head.startswith(b"%PDF")
+    if ext in (".docx", ".xlsx", ".pptx", ".zip"):
+        return head.startswith(_ZIP_MAGICS)
+    if ext in (".doc", ".xls", ".ppt"):
+        return head.startswith(_OLE2_MAGIC)
+    if ext == ".png":
+        return head.startswith(b"\x89PNG\r\n\x1a\n")
+    if ext in (".jpg", ".jpeg"):
+        return head.startswith(b"\xff\xd8\xff")
+    if ext == ".gif":
+        return head.startswith((b"GIF87a", b"GIF89a"))
+    if ext == ".webp":
+        return len(head) >= 12 and head.startswith(b"RIFF") and head[8:12] == b"WEBP"
+    if ext == ".txt":
+        return _looks_like_text(head)
+    return False
+
+
+def validate_upload(original_name: str | None, head: bytes) -> str:
+    """扩展名 + 魔数双重校验；不通过抛 UnsupportedFileType。返回规范化扩展名。"""
+    ext = check_extension(original_name)
+    if not magic_ok(ext, head):
+        raise UnsupportedFileType(f"文件内容与扩展名 {ext} 不匹配")
+    return ext
 
 
 # ==================== 文件名与落盘 ====================
@@ -62,23 +157,33 @@ def display_title(original_name: str | None) -> str:
 
 
 async def save_upload(file: UploadFile) -> tuple[Path, int]:
-    """落盘并返回 (路径, 字节数)；超过 20MB 抛 MeetingUploadRejected。"""
+    """落盘并返回 (路径, 字节数)。
+
+    校验顺序（安全审计 P1-4）：
+    1. 扩展名白名单（不落盘即拒绝）；
+    2. 首块字节魔数校验（与扩展名匹配，防 `.html` 改名为 `.pdf` 绕过）；
+    3. 20MB 大小上限（等价 multer limits.fileSize）。
+    """
+    check_extension(file.filename)  # 扩展名不合法 → 直接抛错，不创建任何文件
     MEETINGS_DIR.mkdir(parents=True, exist_ok=True)
     dest = MEETINGS_DIR / safe_filename(file.filename)
     written = 0
+    head_checked = False
     try:
         with dest.open("wb") as fh:
             while True:
                 chunk = await file.read(_CHUNK)
                 if not chunk:
                     break
+                if not head_checked:
+                    validate_upload(file.filename, chunk[:512])
+                    head_checked = True
                 written += len(chunk)
                 if written > MAX_BYTES:
                     raise MeetingUploadRejected("LIMIT_FILE_SIZE")
                 fh.write(chunk)
-    except MeetingUploadRejected:
-        _unlink(dest)
-        raise
+        if not head_checked:
+            raise UnsupportedFileType("文件内容为空")
     except Exception:
         _unlink(dest)
         raise
@@ -384,7 +489,15 @@ __all__ = [
     "MEETINGS_DIR",
     "MAX_BYTES",
     "MEETING_COLS",
+    "ALLOWED_EXTENSIONS",
+    "IMAGE_EXTENSIONS",
     "MeetingUploadRejected",
+    "UnsupportedFileType",
+    "ext_of",
+    "is_image_ext",
+    "check_extension",
+    "magic_ok",
+    "validate_upload",
     "safe_filename",
     "display_title",
     "save_upload",

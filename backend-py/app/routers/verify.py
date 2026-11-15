@@ -34,7 +34,13 @@ from app.middleware.rate_limit import (
     rate_limiter,
 )
 from app.services import users
-from app.services.mailer import generate_code, send_verify_code, store_code, verify_code
+from app.services.mailer import (
+    fire_and_forget_thread,
+    generate_code,
+    send_verify_code,
+    store_code,
+    verify_code,
+)
 from app.routers.captcha import require_pow_token
 from app.utils.client import get_client_ip
 from app.utils.json_compat import JSJSONResponse
@@ -200,34 +206,37 @@ async def send_code(request: Request, response: Response, db: AsyncSession = Dep
             return out(fail(429, f"发送过于频繁，请 {remain} 秒后重试", cooldown=remain))
 
         # 人机验证：由 require_pow_token 依赖统一把关（Cloudflare Turnstile 已下线）
+        #
+        # 安全（P2-2 枚举）：**不再按 purpose 返回 404/409**。
+        # 历史行为「该邮箱未绑定任何账号」(404) /「该邮箱已被注册」(409) 会把
+        # 邮箱-账号对应关系暴露给任意调用者。现在统一返回「验证码已发送」，
+        # 只是不再给「不应收到验证码」的邮箱真正发信（避免邮件骚扰与放大）。
+        exists = await users.find_user_by_email(db, email)
         if p == "login":
-            # login：邮箱必须已绑定账号
-            owner = await users.find_user_by_email(db, email)
-            if not owner:
-                return out(fail(404, "该邮箱未绑定任何账号"))
-
-        # 检查邮箱是否已被绑定
-        if p in ("register", "bind"):
-            exists = await users.find_user_by_email(db, email)
-            if exists and p == "register":
-                return out(fail(409, "该邮箱已被注册"))
+            should_send = exists is not None  # login：仅已绑定账号才发
+        else:  # register / bind：仅未占用邮箱才发
+            should_send = exists is None
+        if not should_send:
+            return out(ok(message="验证码已发送", cooldown=60))
 
         code = generate_code()
-        try:
-            await send_verify_code(email, code, p)
-        except Exception as mail_err:  # noqa: BLE001
-            log.error("[邮件发送失败] %s", mail_err)
-            # 仍然存储验证码，方便开发调试
-            await store_code(email, code)
-            msg = (
-                "邮件服务未配置，请联系管理员设置 SMTP 后使用"
-                if _smtp_unconfigured(mail_err)
-                else "邮件发送失败，请检查邮箱地址或联系管理员"
-            )
-            return out(fail(502, msg))
 
+        # 先把验证码落库 + 冷却记账，保证接口立即返回；
+        # SMTP 握手/投递（QQ、企业邮箱常 1-3s）放到后台任务，不再计入用户等待时间。
         await store_code(email, code)
         _set_last_send(email)
+
+        if not settings.SMTP_HOST or not settings.SMTP_FROM_EMAIL:
+            return out(fail(502, "邮件服务未配置，请联系管理员设置 SMTP 后使用"))
+
+        async def _mail_job() -> None:
+            try:
+                await send_verify_code(email, code, p)
+            except Exception as mail_err:  # noqa: BLE001
+                # 后台发送失败只记日志：验证码已入库，用户可凭已收到的邮件或稍后重发
+                log.error("[邮件发送失败] %s", mail_err)
+
+        fire_and_forget_thread(_mail_job)
 
         return out(ok(message="验证码已发送", cooldown=60))
     except Exception:  # noqa: BLE001

@@ -150,7 +150,7 @@ class GatewayMiddleware(BaseHTTPMiddleware):
                 f"{response.status_code} {elapsed_ms:.3f} ms "
                 f'{response.headers.get("content-length") or "-"} '
                 f'"{get_referrer(request)}" "{(request.headers.get("user-agent") or "")[:190]}" '
-                f'fp={get_device_fp(request) or "-"} cookie="{(request.headers.get("cookie") or "")[:500]}"'
+                f'fp={get_device_fp(request) or "-"}'
             )
             if os.getenv("ACCESS_LOG_STDERR") == "1":
                 log.info(line)

@@ -117,7 +117,7 @@ async def proxy_chart_image(url: Optional[str] = None) -> Response:
     try:
         headers = navigraph.proxy_auth_headers(url)
         async with httpx.AsyncClient(
-            timeout=navigraph.PROXY_TIMEOUT, follow_redirects=True
+            timeout=navigraph.PROXY_TIMEOUT, follow_redirects=False
         ) as client:
             upstream = await client.get(url, headers=headers)
         if not 200 <= upstream.status_code < 300:

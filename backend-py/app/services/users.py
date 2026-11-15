@@ -126,21 +126,50 @@ async def delete_login_attempts(db: AsyncSession, cid: str) -> None:
     await db.commit()
 
 
-async def delete_login_attempts_before(db: AsyncSession, cid: str, cutoff: dt.datetime) -> None:
-    await db.execute(
-        text("DELETE FROM `LoginAttempt` WHERE userId = :cid AND createdAt < :cutoff"),
-        {"cid": cid, "cutoff": cutoff},
-    )
+async def delete_login_attempts_before(
+    db: AsyncSession, cid: str, cutoff: dt.datetime, ip: str | None = None
+) -> None:
+    """清理过期失败记录；传入 ip 时只清理该 (cid, ip) 组合（P2-3 组合键）。"""
+    if ip:
+        await db.execute(
+            text(
+                "DELETE FROM `LoginAttempt` WHERE userId = :cid AND createdAt < :cutoff "
+                "AND ip = :ip"
+            ),
+            {"cid": cid, "cutoff": cutoff, "ip": ip},
+        )
+    else:
+        await db.execute(
+            text("DELETE FROM `LoginAttempt` WHERE userId = :cid AND createdAt < :cutoff"),
+            {"cid": cid, "cutoff": cutoff},
+        )
     await db.commit()
 
 
-async def count_login_attempts_since(db: AsyncSession, cid: str, cutoff: dt.datetime) -> int:
-    row = (
-        await db.execute(
-            text("SELECT COUNT(*) AS c FROM `LoginAttempt` WHERE userId = :cid AND createdAt >= :cutoff"),
-            {"cid": cid, "cutoff": cutoff},
-        )
-    ).first()
+async def count_login_attempts_since(
+    db: AsyncSession, cid: str, cutoff: dt.datetime, ip: str | None = None
+) -> int:
+    """统计窗口内失败次数；传入 ip 时按 (cid, ip) 组合计数（P2-3：防定向锁号 DoS）。"""
+    if ip:
+        row = (
+            await db.execute(
+                text(
+                    "SELECT COUNT(*) AS c FROM `LoginAttempt` "
+                    "WHERE userId = :cid AND createdAt >= :cutoff AND ip = :ip"
+                ),
+                {"cid": cid, "cutoff": cutoff, "ip": ip},
+            )
+        ).first()
+    else:
+        row = (
+            await db.execute(
+                text(
+                    "SELECT COUNT(*) AS c FROM `LoginAttempt` "
+                    "WHERE userId = :cid AND createdAt >= :cutoff"
+                ),
+                {"cid": cid, "cutoff": cutoff},
+            )
+        ).first()
     return int(row._mapping["c"]) if row else 0
 
 

@@ -148,16 +148,10 @@ def _zh_cn_locale_string(now: Optional[dt.datetime] = None) -> str:
 
 def _extract_token(auth: Any, environ: Dict[str, Any]) -> str:
     """`handshake.auth.token` 优先，回退 `?token=`（与 Node 取值顺序一致）。"""
+    # 安全(P2-5)：只接受 handshake.auth.token；不再支持 ?token=（避免令牌进入 URL/日志/Referer）
     token = ""
     if isinstance(auth, dict):
         token = str(auth.get("token") or "").strip()
-    if not token:
-        query = environ.get("QUERY_STRING") or ""
-        if query:
-            try:
-                token = (parse_qs(query).get("token") or [""])[0].strip()
-            except Exception:
-                token = ""
     return token
 
 
