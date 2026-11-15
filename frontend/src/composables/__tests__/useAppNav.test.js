@@ -304,6 +304,17 @@ describe('useNavAccordion（手风琴分组展开状态）', () => {
     expect(nav.expandedGroup.value).toBe('飞行中心')
   })
 
+  it('用户收起所有分组后点击仪表盘，不再自动展开第一组', () => {
+    const nav = useNavAccordion()
+    routeMock.path = '/map'
+    nav.syncOpenGroups()
+    nav.toggleGroup('飞行中心') // 手动收起当前展开组
+    expect(nav.expandedGroup.value).toBe('')
+    routeMock.path = '/dashboard'
+    nav.syncOpenGroups()
+    expect(nav.expandedGroup.value).toBe('')
+  })
+
   it('路由不在分组且用户手动展开过某组时，保留手动展开', () => {
     const nav = useNavAccordion()
     routeMock.path = '/dashboard'

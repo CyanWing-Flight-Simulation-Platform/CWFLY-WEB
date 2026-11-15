@@ -297,8 +297,10 @@ export function useNavAccordion() {
   const route = useRoute()
   const user = useUserStore()
   const expandedGroup = ref('')
+  // 仅首次同步时自动展开第一组；用户手动收起全部分组后，切到仪表盘等单项目不再自动展开
+  let initialized = false
 
-  /** 路由变化时把当前项所在的组展开（找不到则保留手动展开/展开第一组） */
+  /** 路由变化时把当前项所在的组展开（找不到则保留手动展开状态） */
   function syncOpenGroups() {
     const path = route.path
     let active = null
@@ -310,22 +312,28 @@ export function useNavAccordion() {
     }
     if (active) {
       expandedGroup.value = active.title
+      initialized = true
       return
     }
-    // 当前路由不在任何分组（如仪表盘）：保留手动展开的那一组；都没有则展开第一组
-    if (!expandedGroup.value) {
+    // 当前路由不在任何分组（如仪表盘）：保留手动展开的那一组；
+    // 仅首次进入时默认展开第一个可用分组，之后所有分组都收起就不再自动展开。
+    if (!initialized) {
       const first = navGroups.find((g) => !g.adminOnly && filterVisibleItems(g, user).length > 0)
       if (first) expandedGroup.value = first.title
+      initialized = true
     }
   }
 
   function toggleGroup(title) {
+    // 用户手动操作过分组后，仪表盘等单项目路由不再替用户自动展开默认组
+    initialized = true
     expandedGroup.value = expandedGroup.value === title ? '' : title
   }
 
   /** 收拢态点分组：先展开侧边栏，再打开该组 */
   function onGroupToggle(group) {
     if (isCollapsed.value) {
+      initialized = true
       toggleNavCollapsed()
       expandedGroup.value = group.title
       return
