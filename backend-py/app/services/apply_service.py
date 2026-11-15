@@ -18,6 +18,9 @@ APPLICATION_COLUMNS = (
 )
 
 PENDING_STATUS = "待审核"
+INTERVIEW_STATUS = "待面试"
+ACTIVE_STATUSES = (PENDING_STATUS, INTERVIEW_STATUS)
+APPROVED_STATUSES = ("已通过", "Approved")
 
 APPLICATION_TYPES = ("controller", "staff")
 
@@ -25,17 +28,52 @@ APPLICATION_TYPES = ("controller", "staff")
 async def find_pending(
     db: AsyncSession, user_id: str, type_: str
 ) -> dict[str, Any] | None:
-    """``findFirst({ where: { userId, type, status: '待审核' } })``（防重复提交）。"""
+    """查询同类型、仍处于审核流程中的申请（防重复提交）。"""
     row = (
         await db.execute(
             text(
                 f"SELECT {APPLICATION_COLUMNS} FROM `Application` "
-                "WHERE userId = :uid AND `type` = :type AND status = :status LIMIT 1"
+                "WHERE userId = :uid AND `type` = :type "
+                "AND status IN ('" + "','".join(ACTIVE_STATUSES) + "') "
+                "ORDER BY id DESC LIMIT 1"
             ),
-            {"uid": user_id, "type": type_, "status": PENDING_STATUS},
+            {"uid": user_id, "type": type_},
         )
     ).first()
     return normalize_row(row) if row else None
+
+
+async def find_approved(
+    db: AsyncSession, user_id: str, type_: str
+) -> dict[str, Any] | None:
+    """查询同类型已通过的申请，避免通过后再次提交产生重复待审记录。"""
+    row = (
+        await db.execute(
+            text(
+                f"SELECT {APPLICATION_COLUMNS} FROM `Application` "
+                "WHERE userId = :uid AND `type` = :type "
+                "AND status IN ('" + "','".join(APPROVED_STATUSES) + "') "
+                "ORDER BY id DESC LIMIT 1"
+            ),
+            {"uid": user_id, "type": type_},
+        )
+    ).first()
+    return normalize_row(row) if row else None
+
+
+async def get_staff(db: AsyncSession, user_id: str) -> dict[str, Any] | None:
+    """查询用户是否已在 Staff 表（职员/管制员身份）。"""
+    row = (
+        await db.execute(
+            text(
+                "SELECT `cid`, `name`, `department`, `position`, `rating`, `active` "
+                "FROM `Staff` WHERE `cid` = :cid LIMIT 1"
+            ),
+            {"cid": user_id},
+        )
+    ).first()
+    return normalize_row(row) if row else None
+
 
 
 async def create_application(
@@ -93,8 +131,13 @@ async def list_my_applications(db: AsyncSession, user_id: str) -> list[dict[str,
 __all__ = [
     "APPLICATION_COLUMNS",
     "PENDING_STATUS",
+    "INTERVIEW_STATUS",
+    "ACTIVE_STATUSES",
+    "APPROVED_STATUSES",
     "APPLICATION_TYPES",
     "find_pending",
+    "find_approved",
+    "get_staff",
     "create_application",
     "get_application",
     "list_my_applications",

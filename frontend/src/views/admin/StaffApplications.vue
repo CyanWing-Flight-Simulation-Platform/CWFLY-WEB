@@ -40,7 +40,7 @@
               <td>
                 <div class="flex gap-sm">
                   <button class="btn btn-outline btn-sm" @click="detailTarget = a">详情</button>
-                  <template v-if="a.status === '待审核'">
+                  <template v-if="a.status === '待审核' || a.status === '待面试'">
                     <button class="btn btn-primary btn-sm" @click="openInterview(a)">审核</button>
                     <button class="btn btn-outline btn-sm" style="color:var(--c-danger);" @click="reject(a)">拒绝</button>
                   </template>
@@ -74,7 +74,8 @@
           <textarea v-model="reviewComment" class="input" rows="3" placeholder="填写审批理由（用户将收到此理由）"></textarea>
         </div>
         <div class="flex gap-sm">
-          <button class="btn btn-primary" @click="confirmApprove">通过并发送面试邀请</button>
+          <button class="btn btn-primary" @click="confirmApprove">通过申请</button>
+          <button v-if="interviewTarget.status === '待审核'" class="btn btn-outline" @click="confirmInvite">发送面试邀请</button>
           <button class="btn btn-outline" @click="interviewTarget=null">取消</button>
         </div>
       </div>
@@ -147,7 +148,9 @@ function interviewTitle(a) {
 }
 
 function statusBadge(s) {
-  return s === '待审核' ? 'badge-warning' : s === '已通过' ? 'badge-success' : 'badge-danger'
+  if (s === '已通过') return 'badge-success'
+  if (s === '已拒绝') return 'badge-danger'
+  return 'badge-warning'
 }
 
 onMounted(async () => {
@@ -175,6 +178,23 @@ async function confirmApprove() {
       reviewComment: reviewComment.value
     })
     a.status = '已通过'
+    a.interviewTime1 = interviewTime1.value
+    a.interviewTime2 = interviewTime2.value
+    a.reviewComment = reviewComment.value
+    interviewTarget.value = null
+  } catch (e) { alert(e.message) }
+}
+
+async function confirmInvite() {
+  const a = interviewTarget.value
+  try {
+    await adminApi.updateStaffApp(a.id, {
+      status: '待面试',
+      interviewTime1: interviewTime1.value,
+      interviewTime2: interviewTime2.value,
+      reviewComment: reviewComment.value
+    })
+    a.status = '待面试'
     a.interviewTime1 = interviewTime1.value
     a.interviewTime2 = interviewTime2.value
     a.reviewComment = reviewComment.value
@@ -210,8 +230,8 @@ async function delApp(a) {
   } catch (e) { alert(e.response?.data?.message || e.message) }
 }
 
-// 申请自动排序：待审核在前，再按 ID 倒序
-const APP_STATUS_ORDER = { '待审核': 0, '已通过': 1, '已拒绝': 2 }
+// 申请自动排序：待审核/待面试在前，再按 ID 倒序
+const APP_STATUS_ORDER = { '待审核': 0, '待面试': 1, '已通过': 2, '已拒绝': 3 }
 function sortApps() {
   list.value = [...list.value].sort((a, b) => {
     const sa = APP_STATUS_ORDER[a.status] ?? 9

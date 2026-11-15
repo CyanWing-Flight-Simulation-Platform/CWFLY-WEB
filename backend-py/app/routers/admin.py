@@ -2733,12 +2733,15 @@ async def _review_application(
     is_approved = status in ("已通过", "Approved")
     is_rejected = status in ("已拒绝", "Rejected")
 
-    if is_approved and existing.get("status") != "待面试":
-        return _fail(400, "该申请尚未面试，请先邀请面试，面试通过后才能通过申请")
+    if is_approved and existing.get("status") not in ("待审核", "待面试"):
+        if existing.get("status") in ("已通过", "Approved"):
+            return _ok(existing)
+        return _fail(400, "该申请当前状态不可通过")
 
     updates: dict[str, Any] = {}
     if status is not None:
         updates["status"] = status
+        updates["reviewedBy"] = current.cid or "system"
     if review_comment is not None:
         updates["reviewComment"] = review_comment
     if interview1 is not None:
@@ -2755,6 +2758,30 @@ async def _review_application(
         await db.execute(text(sel("Application", "WHERE `id` = :id")), {"id": app_id})
     ).first()
     app = _row(app_row) if app_row is not None else dict(existing)
+
+    if is_approved:
+        # 同一用户/类型的其他“待审核/待面试”记录自动关闭，避免管理员过几天又看到重复申请
+        await db.execute(
+            text(
+                "UPDATE `Application` SET `status` = '已拒绝', `reviewComment` = :comment, "
+                "`reviewedBy` = :by WHERE `userId` = :uid AND `type` = :type "
+                "AND `id` <> :id AND `status` IN ('待审核', '待面试')"
+            ),
+            {
+                "comment": "已有通过的同类申请，重复申请由系统自动关闭",
+                "by": current.cid or "system",
+                "uid": app.get("userId"),
+                "type": app.get("type"),
+                "id": app_id,
+            },
+        )
+        await db.commit()
+        await _write_audit(
+            db,
+            "review_application",
+            f"{'管制员' if controller else '职员'}申请 #{app_id}（{app.get('name') or app.get('userId')}）已通过",
+            current.cid,
+        )
 
     if is_approved:
         cid = _maybe_int(app.get("userId"))

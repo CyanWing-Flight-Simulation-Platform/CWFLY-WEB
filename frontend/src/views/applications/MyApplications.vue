@@ -41,7 +41,9 @@ function typeLabel(t) {
 }
 
 function statusBadge(s) {
-  return s === 'approved' ? 'badge-success' : s === 'rejected' ? 'badge-danger' : 'badge-warning'
+  if (s === '已通过' || s === 'Approved' || s === 'approved') return 'badge-success'
+  if (s === '已拒绝' || s === 'Rejected' || s === 'rejected') return 'badge-danger'
+  return 'badge-warning'
 }
 
 function formatTime(t) {

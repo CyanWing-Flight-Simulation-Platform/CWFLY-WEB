@@ -49,6 +49,26 @@ async def _submit(
     existing = await aps.find_pending(db, current.cid, type_)
     if existing:
         return _fail(409, conflict_message)
+    # 防止“已通过”后再次提交，导致管理员反复看到同一个人待审
+    approved = await aps.find_approved(db, current.cid, type_)
+    if approved:
+        return _fail(409, "您已有通过的同类申请，无需重复提交")
+    staff = await aps.get_staff(db, current.cid)
+    if staff:
+        department = str(staff.get("department") or "").lower()
+        position = str(staff.get("position") or "").lower()
+        is_control_role = (
+            "control" in department
+            or "controller" in position
+            or "管制" in department
+            or "管制" in position
+            or "塔台" in department
+            or "塔台" in position
+        )
+        if type_ == "staff":
+            return _fail(409, "您已经是职员，无需重复申请")
+        if is_control_role:
+            return _fail(409, "您已经是管制员，无需重复申请")
     app_row = await aps.create_application(
         db, current.cid, current.username, type_, department, reason
     )
