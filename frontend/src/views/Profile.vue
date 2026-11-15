@@ -5,11 +5,10 @@
       <p>管理您的账号信息</p>
     </div>
 
-    <!-- 头像 -->
+    <!-- 头像（只能使用绑定 QQ 的 QQ 头像） -->
     <div class="card p-lg mb-lg">
       <h3 class="mb-md">头像</h3>
       <div class="flex items-center gap-md">
-        <!-- 头像：UserAvatar 内置「加载失败回退首字母」与 alt 文本，替换自行维护的默认头像 data-uri -->
         <UserAvatar
           class="profile-avatar"
           :src="avatarUrl"
@@ -17,10 +16,8 @@
           :size="80"
         />
         <div>
-          <input type="file" accept="image/*" ref="fileInput" style="display:none;" @change="uploadAvatar" />
-          <button class="btn btn-primary btn-sm" @click="$refs.fileInput.click()" :disabled="uploading">{{ uploading ? '上传中...' : '上传头像' }}</button>
-          <button class="btn btn-outline btn-sm ml-sm" @click="deleteAvatar" :disabled="!profileData?.avatar">删除头像</button>
-          <p class="text-xs text-muted mt-sm">支持 JPG/PNG，最大 5MB。绑定QQ后可通过删除头像按钮使用QQ头像</p>
+          <p class="text-sm text-muted">头像跟随绑定的 QQ 号自动生成，不支持上传自定义头像。</p>
+          <p class="text-xs text-muted mt-sm">在下方「QQ 绑定」中填写/修改 QQ 号即可自动更新头像；解绑 QQ 后显示默认头像。</p>
         </div>
       </div>
     </div>
@@ -139,8 +136,6 @@ import UserAvatar from '@/components/base/UserAvatar.vue'
 import UserTag from '@/components/base/UserTag.vue'
 
 const user = useUserStore()
-const fileInput = ref(null)
-const uploading = ref(false)
 const loading = ref(false)
 const profileData = ref(null)
 
@@ -203,19 +198,6 @@ onMounted(async () => {
   }
 })
 
-async function uploadAvatar(e) {
-  const file = e.target.files[0]
-  if (!file) return
-  uploading.value = true
-  try {
-    const fd = new FormData()
-    fd.append('avatar', file)
-    const res = await api.post('/profile/avatar', fd, { headers: { 'Content-Type': undefined } })
-    profileData.value.avatar = res.data.avatar
-  } catch (e) { alert('上传失败: ' + e.message) }
-  finally { uploading.value = false }
-}
-
 // 背景图相关
 function getBgUrl(url) {
   return url ? url + '?t=' + Date.now() : ''
@@ -264,16 +246,6 @@ async function resetBgImage() {
   } finally { bgUploading.value = false }
 }
 
-async function deleteAvatar() {
-  if (!confirm('确定删除头像？' + (bind.qq ? '绑定QQ后将使用QQ头像' : ''))) return
-  try {
-    // 如果绑定了QQ，使用QQ头像覆盖；否则清除
-    const newAvatar = bind.qq ? `https://q1.qlogo.cn/g?b=qq&nk=${bind.qq}&s=100` : ''
-    await profileApi.updateInfo({ avatar: newAvatar })
-    profileData.value.avatar = newAvatar
-  } catch (e) { alert('操作失败: ' + e.message) }
-}
-
 async function sendVerifyCode() {
   if (!bind.email) return alert('请先输入邮箱')
   codeSending.value = true
@@ -312,12 +284,12 @@ async function saveBind() {
     // 邮箱已通过「发送验证码+验证」(verify-email) 流程单独保存,
     // 后端已禁止 PUT /info 改邮箱(安全加固), 此处仅提交 QQ 等其他字段
     const res = await profileApi.updateInfo({ qq: bind.qq })
-    bindMsg.value = '绑定信息已保存'
+    bindMsg.value = '绑定信息已保存，头像已同步为 QQ 头像'
     bindMsgType.value = 'ok'
     profileData.value = res.data
-    // 如果绑定了QQ且没有自定义头像，自动用QQ头像
-    if (bind.qq && !profileData.value?.avatar?.startsWith('/uploads')) {
-      profileData.value.avatar = `https://q1.qlogo.cn/g?b=qq&nk=${bind.qq}&s=100`
+    // 同步本地用户缓存，刷新/跳转后顶栏使用新的 QQ 头像
+    if (user.profile) {
+      user.setProfile({ ...user.profile, qq: res.data.qq, avatar: res.data.avatar })
     }
   } catch (e) { alert('保存失败: ' + e.message) }
   finally { bindLoading.value = false }

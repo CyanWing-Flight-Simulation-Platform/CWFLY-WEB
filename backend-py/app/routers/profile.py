@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import datetime as dt
 import logging
+import re
 from typing import Any
 
 from fastapi import APIRouter, Depends, File, Request, UploadFile
@@ -91,6 +92,14 @@ def _js_string(value: Any) -> str:
     return str(value)
 
 
+def _qq_avatar(qq: Any) -> str:
+    """头像只能来自绑定的 QQ 号；未绑定 QQ 时返回空字符串（前端显示默认头像）。"""
+    text = str(qq or "").strip()
+    if not text:
+        return ""
+    return f"https://q1.qlogo.cn/g?b=qq&nk={text}&s=100"
+
+
 def _zh_now() -> str:
     """`new Date().toLocaleString('zh-CN')`（月/日不补零，与 Node ICU 输出一致）。"""
     return zh_locale(dt.datetime.now())
@@ -123,7 +132,7 @@ async def get_profile(
                 "fsdLevel": int(user.get("fsdLevel") or 0),
                 "email": user.get("email"),
                 "qq": user.get("qq"),
-                "avatar": user.get("avatar"),
+                "avatar": _qq_avatar(user.get("qq")),
                 "bgImage": user.get("bgImage") or "",
                 "createdAt": user.get("createdAt"),
             }
@@ -220,32 +229,14 @@ async def update_password(
         return _fail(500, MESSAGE_OPERATION_FAILED)
 
 
-# ==================== POST /avatar 上传头像 ====================
+# ==================== POST /avatar 已停用（仅允许 QQ 头像） ====================
 @router.post("/avatar")
 async def upload_avatar(
     avatar: UploadFile | None = File(None),
     db: AsyncSession = Depends(get_db),
     current: CurrentUser = Depends(get_current_user),
 ) -> JSJSONResponse:
-    try:
-        if avatar is None or not (avatar.filename or ""):
-            return _fail(400, "请选择图片")
-        try:
-            filename = await pu.save_avatar(current.cid, avatar)
-        except pu.UploadRejected:
-            return _upload_failure()
-        except pu.NotAnImage:
-            return _fail(400, "文件内容不是有效图片")
-
-        avatar_path = "/uploads/avatars/" + filename
-        # Node: prisma.user.update(...) 在用户不存在时抛错 → 500「操作失败」
-        if await ps.get_avatar(db, current.cid) is None:
-            return _fail(500, MESSAGE_OPERATION_FAILED)
-        await ps.set_avatar(db, current.cid, avatar_path)
-        return _ok({"avatar": avatar_path}, message="头像已更新")
-    except Exception as exc:  # noqa: BLE001
-        log.error("[profile.py] %s", exc)
-        return _fail(500, MESSAGE_OPERATION_FAILED)
+    return _fail(403, "自定义头像已停用，请绑定 QQ 使用 QQ 头像")
 
 
 # ==================== PUT /info 更新资料 ====================
@@ -264,23 +255,18 @@ async def update_info(
             return _fail(400, "邮箱修改请使用「邮箱验证」流程")
 
         if "avatar" in body:
-            if body.get("avatar") is None:
-                return _fail(500, MESSAGE_OPERATION_FAILED)  # Prisma 非空列写入 null → 抛错
-            # 安全（P2-9）：只允许站内头像目录/服务端生成的 QQ 头像，禁止任意 URL
-            if not is_allowed_avatar(body.get("avatar")):
-                return _fail(400, "头像地址不合法，请通过上传接口更新头像")
-            data["avatar"] = body["avatar"]
+            return _fail(400, "头像跟随绑定 QQ 自动生成，不支持自定义头像")
 
         if "qq" in body:
             qq = body.get("qq")
             if qq is None:
                 return _fail(500, MESSAGE_OPERATION_FAILED)
+            qq = str(qq).strip()
+            if qq and not re.fullmatch(r"\d{5,12}", qq):
+                return _fail(400, "QQ 号格式不正确")
             data["qq"] = qq
-            current_row = await ps.get_avatar(db, current.cid)
-            if current_row is None:
-                return _fail(500, MESSAGE_OPERATION_FAILED)
-            if not current_row.get("avatar"):
-                data["avatar"] = f"https://q1.qlogo.cn/g?b=qq&nk={_js_string(qq)}&s=100"
+            # 头像只由 QQ 号生成；解绑 QQ 后清空，前端显示默认头像
+            data["avatar"] = _qq_avatar(qq)
 
         await ps.update_info(db, current.cid, data)
 
@@ -297,7 +283,7 @@ async def update_info(
                 "fsdType": user.get("fsdType") or "PILOT",
                 "email": user.get("email"),
                 "qq": user.get("qq"),
-                "avatar": user.get("avatar"),
+                "avatar": _qq_avatar(user.get("qq")),
             },
             message="已更新",
         )
