@@ -200,6 +200,21 @@ select:not([class]) option:hover {
   width: 8%;
 }
 
+/* 政策/协议页表格：允许单元格换行，避免长链接/中文在 nowrap 下互相重叠 */
+.legal .table-wrap table {
+  table-layout: auto;
+}
+.legal .table-wrap th,
+.legal .table-wrap td {
+  width: auto;
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+.legal .table-wrap td a {
+  word-break: break-all;
+}
+
 /* ===== 表格卡片：表格填满卡片宽度与高度（全出血） =====
    仅当卡片直接包含 .table-wrap 时生效；不影响普通卡片 */
 .card:has(> .table-wrap) {
