@@ -165,7 +165,7 @@ ls dist/assets | head -n 5
   cd frontend && npm ci && npm run test && npm run lint && npx vite build
   ```
 
-- CI 只做质量校验，**不自动部署**（前端发布仍是人工流程，见 [`交接文档.md`](交接文档.md) 第四节）。
+- CI 只做质量校验，**不自动部署**（前端发布仍是人工流程，见根 [`README.md`](../README.md) 的「构建与部署」章节）。
 - 若 PR 的 CI 全绿但本地失败：优先怀疑 Node 版本差异（本地升级到 20/22）与 `npm ci` 与锁文件不一致。
 
 ---

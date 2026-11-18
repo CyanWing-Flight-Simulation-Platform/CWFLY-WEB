@@ -2,9 +2,9 @@
 
 本文档描述 `frontend/`（Vue 3 + Vite SPA）的实际架构，面向接手维护与二次开发。所有结论均以仓库现状为准；**文件路径索引见第九节**。
 
-- 技术栈与版本：见根 [`README.md`](../README.md) 第二节
+- 技术栈与版本：见根 [`README.md`](../README.md) 的「技术栈」章节
 - 测试与质量：见 [`TESTING.md`](TESTING.md)
-- 运维 / 部署：见 [`交接文档.md`](交接文档.md)
+- 部署流程：见根 [`README.md`](../README.md) 的「构建与部署」章节
 
 ---
 

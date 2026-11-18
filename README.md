@@ -10,7 +10,7 @@ CWFLY（青翼虚拟航空）的社区门户与连飞平台，包含对外站点
 
 - `frontend/`：Vue 3 + Vite 单页应用
 - `backend-py/`：FastAPI + SQLAlchemy async + MySQL + Redis 后端
-- `docs/`：前端架构、测试与运维交接文档
+- `docs/`：前端架构与测试文档
 
 > 线上站点：<https://www.cwflysim.cn>
 >
@@ -127,9 +127,9 @@ CWFLY-WEB/
 ├── backend-py/               # FastAPI 后端
 │   ├── app/                  # 路由、服务、中间件、Socket、任务
 │   ├── alembic/              # 数据库迁移（baseline）
-│   ├── deploy/               # 后端生产部署与运维文档
+│   ├── deploy/               # 后端部署脚本
 │   └── .env.example
-├── docs/                     # 架构、测试、交接文档
+├── docs/                     # 架构与测试文档
 ├── .github/workflows/        # 前端 CI
 ├── CONTRIBUTING.md
 ├── CHANGELOG.md
@@ -171,7 +171,7 @@ VITE_OWM_KEY=
 
 - `.env`、`.env.*` 已被忽略；环境变量修改后必须重新构建才会生效。
 - 高德 JSAPI Key 目前在源码中配置，需在高德控制台配置域名白名单。
-- 后端环境变量、生产配置与迁移说明见 [`backend-py/README.md`](backend-py/README.md) 和 [`backend-py/deploy/PRODUCTION.md`](backend-py/deploy/PRODUCTION.md)。
+- 后端环境变量与迁移说明见 [`backend-py/README.md`](backend-py/README.md)。
 
 ## 构建与部署
 
@@ -259,12 +259,10 @@ A：背景图、`.glb` 飞机模型和地图 vendor 文件均为运行期按需�
 |---|---|
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | 前端架构、路由守卫、布局、状态、实时 Socket、关键文件索引 |
 | [`docs/TESTING.md`](docs/TESTING.md) | 测试 / lint / 构建命令与覆盖范围 |
-| [`docs/交接文档.md`](docs/交接文档.md) | 服务器角色、Nginx、发布回滚、数据库与排查命令 |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | 分支策略、提交规范、PR 检查清单、代码约定 |
 | [`CHANGELOG.md`](CHANGELOG.md) | 变更记录 |
 | [`frontend/docs/performance.md`](frontend/docs/performance.md) | 前端性能与分包记录 |
 | [`backend-py/README.md`](backend-py/README.md) | 后端接口、迁移与本地运行 |
-| [`backend-py/deploy/PRODUCTION.md`](backend-py/deploy/PRODUCTION.md) | 后端生产部署手册 |
 
 ## 许可
 
