@@ -203,7 +203,9 @@ async def insert_login_log(db: AsyncSession, data: dict[str, Any]) -> None:
 
 
 async def trusted_ips(db: AsyncSession, register_ip: str | None, cid: str) -> set[str]:
-    """可信 IP = 注册 IP + 最近 50 条成功登录 IP。"""
+    """可信 IP = 注册 IP + 最近 N 条成功登录 IP。"""
+    from app.config import settings
+
     ips: set[str] = set()
     if register_ip:
         ips.add(register_ip)
@@ -211,9 +213,9 @@ async def trusted_ips(db: AsyncSession, register_ip: str | None, cid: str) -> se
         await db.execute(
             text(
                 "SELECT ip FROM `LoginLog` WHERE userId = :cid AND success = 1 "
-                "ORDER BY createdAt DESC LIMIT 50"
+                "ORDER BY createdAt DESC LIMIT :limit"
             ),
-            {"cid": cid},
+            {"cid": cid, "limit": max(1, int(settings.TRUSTED_IP_LOGIN_HISTORY))},
         )
     ).all()
     for row in rows:
@@ -224,16 +226,80 @@ async def trusted_ips(db: AsyncSession, register_ip: str | None, cid: str) -> se
 
 
 # ---------------- VerificationCode（邮箱验证码，DB 共享） ----------------
-async def store_verification_code(db: AsyncSession, email: str, code: str, ttl_ms: int = 600_000) -> None:
-    await db.execute(text("DELETE FROM `VerificationCode` WHERE email = :email"), {"email": email})
+_verification_schema_ready = False
+
+
+async def ensure_verification_schema() -> None:
+    """幂等补充 VerificationCode.purpose / attempts 列（启动时调用）。"""
+    global _verification_schema_ready
+    if _verification_schema_ready:
+        return
+    from app.db.session import SessionLocal
+
+    async with SessionLocal() as db:
+        rows = (
+            await db.execute(
+                text(
+                    "SELECT `COLUMN_NAME` AS name FROM information_schema.columns "
+                    "WHERE table_schema = DATABASE() AND table_name = 'VerificationCode'"
+                )
+            )
+        ).all()
+        columns = {str(r._mapping.get("name") or "").lower() for r in rows}
+        if not columns:
+            return
+        pending = []
+        if "purpose" not in columns:
+            pending.append(
+                (
+                    "purpose",
+                    "ALTER TABLE `VerificationCode` ADD COLUMN `purpose` VARCHAR(20) "
+                    "NOT NULL DEFAULT 'register'",
+                )
+            )
+        if "attempts" not in columns:
+            pending.append(
+                (
+                    "attempts",
+                    "ALTER TABLE `VerificationCode` ADD COLUMN `attempts` INT NOT NULL DEFAULT 0",
+                )
+            )
+        for _name, ddl in pending:
+            try:
+                await db.execute(text(ddl))
+                await db.commit()
+            except Exception as exc:  # noqa: BLE001
+                await db.rollback()
+                # 多 worker 同时启动时另一个 worker 可能已加列
+                if "Duplicate column name" not in str(exc):
+                    raise
+    _verification_schema_ready = True
+
+
+async def store_verification_code(
+    db: AsyncSession,
+    email: str,
+    code: str,
+    ttl_ms: int | None = None,
+    purpose: str = "register",
+) -> None:
+    if ttl_ms is None:
+        from app.config import settings
+
+        ttl_ms = max(1, int(settings.VERIFY_CODE_TTL_SECONDS)) * 1000
+    await db.execute(
+        text("DELETE FROM `VerificationCode` WHERE email = :email AND purpose = :purpose"),
+        {"email": email, "purpose": purpose},
+    )
     await db.execute(
         text(
-            "INSERT INTO `VerificationCode` (email, code, expiresAt, createdAt) "
-            "VALUES (:email, :code, :expiresAt, :now)"
+            "INSERT INTO `VerificationCode` (email, code, purpose, attempts, expiresAt, createdAt) "
+            "VALUES (:email, :code, :purpose, 0, :expiresAt, :now)"
         ),
         {
             "email": email,
             "code": code,
+            "purpose": purpose,
             "expiresAt": dt.datetime.utcnow() + dt.timedelta(milliseconds=ttl_ms),
             "now": dt.datetime.utcnow(),
         },
@@ -241,17 +307,51 @@ async def store_verification_code(db: AsyncSession, email: str, code: str, ttl_m
     await db.commit()
 
 
-async def find_verification_code(db: AsyncSession, email: str, code: str) -> dict[str, Any] | None:
-    row = (
+async def consume_verification_code(
+    db: AsyncSession,
+    email: str,
+    code: str,
+    purpose: str,
+    max_attempts: int | None = None,
+) -> bool:
+    """按 purpose 校验并一次性消费验证码；错误计数落库，达到上限即删除。"""
+    if max_attempts is None:
+        from app.config import settings
+
+        max_attempts = max(1, int(settings.VERIFY_CODE_MAX_ATTEMPTS))
+    rows = (
         await db.execute(
             text(
-                "SELECT id, email, code FROM `VerificationCode` "
-                "WHERE email = :email AND code = :code AND expiresAt > :now LIMIT 1"
+                "SELECT id, code, attempts FROM `VerificationCode` "
+                "WHERE email = :email AND purpose = :purpose AND expiresAt > :now "
+                "ORDER BY id DESC LIMIT 1"
             ),
-            {"email": email, "code": code, "now": dt.datetime.utcnow()},
+            {"email": email, "purpose": purpose, "now": dt.datetime.utcnow()},
         )
-    ).first()
-    return _row_to_dict(row) if row else None
+    ).all()
+    if not rows:
+        return False
+
+    import secrets as _secrets
+
+    latest = rows[0]
+    record = _row_to_dict(latest)
+    code_id = int(record["id"])
+    if _secrets.compare_digest(str(record.get("code") or ""), str(code)):
+        await db.execute(text("DELETE FROM `VerificationCode` WHERE id = :id"), {"id": code_id})
+        await db.commit()
+        return True
+
+    attempts = int(record.get("attempts") or 0) + 1
+    if attempts >= max(1, int(max_attempts)):
+        await db.execute(text("DELETE FROM `VerificationCode` WHERE id = :id"), {"id": code_id})
+    else:
+        await db.execute(
+            text("UPDATE `VerificationCode` SET attempts = :attempts WHERE id = :id"),
+            {"attempts": attempts, "id": code_id},
+        )
+    await db.commit()
+    return False
 
 
 async def delete_verification_code(db: AsyncSession, code_id: int) -> None:
@@ -259,8 +359,16 @@ async def delete_verification_code(db: AsyncSession, code_id: int) -> None:
     await db.commit()
 
 
-async def delete_verification_codes(db: AsyncSession, email: str) -> None:
-    await db.execute(text("DELETE FROM `VerificationCode` WHERE email = :email"), {"email": email})
+async def delete_verification_codes(
+    db: AsyncSession, email: str, purpose: str | None = None
+) -> None:
+    if purpose:
+        await db.execute(
+            text("DELETE FROM `VerificationCode` WHERE email = :email AND purpose = :purpose"),
+            {"email": email, "purpose": purpose},
+        )
+    else:
+        await db.execute(text("DELETE FROM `VerificationCode` WHERE email = :email"), {"email": email})
     await db.commit()
 
 
@@ -278,8 +386,9 @@ __all__ = [
     "insert_login_attempt",
     "insert_login_log",
     "trusted_ips",
+    "ensure_verification_schema",
     "store_verification_code",
-    "find_verification_code",
+    "consume_verification_code",
     "delete_verification_code",
     "delete_verification_codes",
 ]

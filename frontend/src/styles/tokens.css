@@ -98,6 +98,32 @@ html {
   --glass-shadow-lg: 0 18px 56px rgba(0, 0, 0, 0.16), 0 2px 8px rgba(0, 0, 0, 0.06);
   --glass-sheen: linear-gradient(135deg, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0.1) 45%, rgba(255, 255, 255, 0.35) 100%);
   --glass-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* 数据面板 / 表格 / 字段块（深浅主题统一入口） */
+  --panel-bg: rgba(255, 255, 255, 0.92);
+  --panel-bg-solid: rgba(255, 255, 255, 0.96);
+  --panel-border: rgba(0, 0, 0, 0.08);
+  --panel-hover: rgba(255, 255, 255, 0.6);
+  --table-head-bg: rgba(0, 0, 0, 0.02);
+  --table-head-color: #6b7280;
+  --table-text: #1f2937;
+  --table-border: rgba(0, 0, 0, 0.05);
+  --table-head-border: rgba(0, 0, 0, 0.08);
+  --table-row-hover: rgba(255, 255, 255, 0.45);
+  --field-bg: #f8f9fa;
+  --field-border: #ebebeb;
+  --field-label: #8a8f98;
+  --field-value: #1a1a1a;
+  --chip-bg: #f3f4f6;
+  --chip-text: #4b5563;
+  --chip-success-bg: #f0fdf4;
+  --chip-success-text: #3f7a55;
+  --action-info-bg: #eff6ff;
+  --action-info-text: #2563eb;
+  --action-info-hover: #dbeafe;
+  --action-danger-bg: #fef2f2;
+  --action-danger-text: #dc2626;
+  --action-danger-hover: #fee2e2;
 }
 
 /* ---------- 暗色主题（html[data-theme='dark'] 覆盖） ---------- */
@@ -131,6 +157,32 @@ html[data-theme='dark'] {
   --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.45), 0 1px 2px rgba(0, 0, 0, 0.3);
   --glass-shadow-lg: 0 18px 56px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.35);
   --glass-sheen: linear-gradient(135deg, rgba(255, 255, 255, 0.14) 0%, rgba(255, 255, 255, 0.02) 45%, rgba(255, 255, 255, 0.08) 100%);
+
+  /* 深色数据面板：不透明深灰玻璃，避免背景线条穿透和白色刺眼 */
+  --panel-bg: rgba(30, 30, 30, 0.92);
+  --panel-bg-solid: rgba(28, 28, 30, 0.97);
+  --panel-border: rgba(255, 255, 255, 0.1);
+  --panel-hover: rgba(255, 255, 255, 0.06);
+  --table-head-bg: rgba(255, 255, 255, 0.05);
+  --table-head-color: #a1a1aa;
+  --table-text: #e5e7eb;
+  --table-border: rgba(255, 255, 255, 0.08);
+  --table-head-border: rgba(255, 255, 255, 0.12);
+  --table-row-hover: rgba(255, 255, 255, 0.05);
+  --field-bg: rgba(255, 255, 255, 0.04);
+  --field-border: rgba(255, 255, 255, 0.1);
+  --field-label: #9ca3af;
+  --field-value: #f3f4f6;
+  --chip-bg: rgba(255, 255, 255, 0.06);
+  --chip-text: #c7c7cc;
+  --chip-success-bg: rgba(52, 211, 153, 0.12);
+  --chip-success-text: #86efac;
+  --action-info-bg: rgba(59, 130, 246, 0.16);
+  --action-info-text: #93c5fd;
+  --action-info-hover: rgba(59, 130, 246, 0.24);
+  --action-danger-bg: rgba(239, 68, 68, 0.16);
+  --action-danger-text: #fca5a5;
+  --action-danger-hover: rgba(239, 68, 68, 0.24);
 }
 
 *, *::before, *::after {

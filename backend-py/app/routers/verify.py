@@ -35,6 +35,7 @@ from app.middleware.rate_limit import (
 )
 from app.services import users
 from app.services.mailer import (
+    VerificationUnavailable,
     fire_and_forget_thread,
     generate_code,
     send_verify_code,
@@ -51,11 +52,11 @@ router = APIRouter(prefix="/verify", tags=["verify"])
 # ===== 验证码发送冷却（服务器强制）=====
 # 数据源：复用 VerificationCode 表（跨实例共享），其 createdAt 即最近发送时间。
 # 内存 Map 仅作数据库故障时的兜底（单实例内有效）——与 Node 完全一致。
-SEND_COOLDOWN_MS = 60 * 1000
+SEND_COOLDOWN_MS = max(1, int(settings.VERIFY_SEND_COOLDOWN_SECONDS)) * 1000
 _email_cooldowns: dict[str, int] = {}  # email -> last_send_ms
 
-# purpose 白名单（Node: new Set(['register', 'bind', 'login'])）
-PURPOSES = frozenset({"register", "bind", "login"})
+# purpose 白名单
+PURPOSES = frozenset({"register", "bind", "login", "reset"})
 
 # ---- 限流器 ----
 _VERIFY_LIMIT = Limit("verify-code-ip", 15 * 60, 5, "验证码请求过于频繁，请稍后再试")
@@ -217,17 +218,19 @@ async def send_code(request: Request, response: Response, db: AsyncSession = Dep
         else:  # register / bind：仅未占用邮箱才发
             should_send = exists is None
         if not should_send:
-            return out(ok(message="验证码已发送", cooldown=60))
-
-        code = generate_code()
-
-        # 先把验证码落库 + 冷却记账，保证接口立即返回；
-        # SMTP 握手/投递（QQ、企业邮箱常 1-3s）放到后台任务，不再计入用户等待时间。
-        await store_code(email, code)
-        _set_last_send(email)
+            return out(ok(message="验证码已发送", cooldown=SEND_COOLDOWN_MS // 1000))
 
         if not settings.SMTP_HOST or not settings.SMTP_FROM_EMAIL:
             return out(fail(502, "邮件服务未配置，请联系管理员设置 SMTP 后使用"))
+
+        code = generate_code()
+
+        # 验证码落库后再异步发信；DB 不可用时直接 503，禁止进程内降级。
+        try:
+            await store_code(email, code, p)
+        except VerificationUnavailable:
+            return out(fail(503, "验证码服务暂不可用，请稍后重试"))
+        _set_last_send(email)
 
         async def _mail_job() -> None:
             try:
@@ -238,7 +241,7 @@ async def send_code(request: Request, response: Response, db: AsyncSession = Dep
 
         fire_and_forget_thread(_mail_job)
 
-        return out(ok(message="验证码已发送", cooldown=60))
+        return out(ok(message="验证码已发送", cooldown=SEND_COOLDOWN_MS // 1000))
     except Exception:  # noqa: BLE001
         log.exception("[验证码发送接口错误]")
         return out(fail(500, "服务器内部错误，请稍后重试"))
@@ -252,10 +255,16 @@ async def check_code(request: Request, response: Response) -> Any:
         body = await _json_body(request)
         email = body.get("email")
         code = body.get("code")
-        if not email or not code:
+        purpose = body.get("purpose")
+        p = purpose if isinstance(purpose, str) and purpose in PURPOSES else ""
+        if not email or not code or not p:
             return _with_rate_limit_headers(response, fail(400, "缺少参数"))
 
-        if not await verify_code(str(email), str(code)):
+        try:
+            passed = await verify_code(str(email), str(code), p)
+        except VerificationUnavailable:
+            return _with_rate_limit_headers(response, fail(503, "验证码服务暂不可用，请稍后重试"))
+        if not passed:
             return _with_rate_limit_headers(response, fail(400, "验证码错误或已过期"))
 
         return _with_rate_limit_headers(response, ok(message="验证通过"))

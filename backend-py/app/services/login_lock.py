@@ -16,11 +16,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.services import users
 
+from app.services import users
+from app.config import settings
+
 log = logging.getLogger("cwfly.login_lock")
 
-LOGIN_LOCK_WINDOW = dt.timedelta(minutes=15)
-LOGIN_LOCK_MAX_FAILS = 5
-LOCK_MESSAGE = "登录失败次数过多，账号已临时锁定 15 分钟"
+LOGIN_LOCK_WINDOW = dt.timedelta(minutes=max(1, int(settings.LOGIN_LOCK_WINDOW_MINUTES)))
+LOGIN_LOCK_MAX_FAILS = max(1, int(settings.LOGIN_LOCK_MAX_FAILS))
+LOCK_MESSAGE = f"登录失败次数过多，账号已临时锁定 {settings.LOGIN_LOCK_WINDOW_MINUTES} 分钟"
 # rating >= 该值视为「高等级账号」→ 只告警不锁定
 LOCK_EXEMPT_RATING = 11
 

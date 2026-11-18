@@ -1,7 +1,8 @@
 """邮件与验证码（对齐 Node src/utils/mailer.js 的关键行为）。
 
-- 验证码：优先写 `VerificationCode` 表（多实例共享），DB 异常时降级到进程内 Map；
-- 校验：一次性，通过即删；连续失败 5 次作废该邮箱验证码；
+- 验证码：只写 `VerificationCode` 表（多实例共享，带 purpose），DB 异常抛
+  `VerificationUnavailable`，由调用方返回 503；
+- 校验：按 purpose 一次性消费，通过即删；连续失败达到上限作废该邮箱验证码；
 - 发送：aiosmtplib（异步 SMTP），邮件发送失败不影响主流程（Node 同样 catch 忽略）。
 """
 from __future__ import annotations
@@ -10,7 +11,6 @@ import asyncio
 import logging
 import secrets
 import threading
-import time
 from typing import Any
 
 from aiosmtplib import send as smtp_send
@@ -22,11 +22,12 @@ from app.services import users
 
 log = logging.getLogger("cwfly.mailer")
 
-CODE_TTL_MS = 600_000  # 10 分钟
-MAX_ATTEMPTS = 5
+CODE_TTL_MS = max(1, int(settings.VERIFY_CODE_TTL_SECONDS)) * 1000
+MAX_ATTEMPTS = max(1, int(settings.VERIFY_CODE_MAX_ATTEMPTS))
 
-# 进程内降级存储（与 Node 的 codeStore 同构）
-_code_store: dict[str, dict[str, Any]] = {}
+
+class VerificationUnavailable(Exception):
+    """验证码存储不可用：调用方必须返回 503，禁止进程内降级。"""
 
 
 def generate_code() -> str:
@@ -34,43 +35,25 @@ def generate_code() -> str:
     return str(secrets.randbelow(900000) + 100000)
 
 
-async def store_code(email: str, code: str) -> None:
+async def store_code(email: str, code: str, purpose: str = "register") -> None:
     try:
         async with SessionLocal() as db:
-            await users.store_verification_code(db, email, code, CODE_TTL_MS)
-    except Exception:
-        _code_store[email] = {"code": code, "time": int(time.time() * 1000), "attempts": 0}
+            await users.store_verification_code(db, email, code, CODE_TTL_MS, purpose)
+    except Exception as exc:  # noqa: BLE001
+        log.error("[mailer] 验证码写入失败: %s", exc)
+        raise VerificationUnavailable("验证码存储暂不可用") from exc
 
 
-async def verify_code(email: str, code: str) -> bool:
-    """校验并消费验证码。"""
+async def verify_code(email: str, code: str, purpose: str = "register") -> bool:
+    """按用途校验并消费验证码；数据库不可用时抛 VerificationUnavailable。"""
     try:
         async with SessionLocal() as db:
-            record = await users.find_verification_code(db, email, code)
-            if record is None:
-                cur = _code_store.setdefault(email, {"attempts": 0})
-                cur["attempts"] = int(cur.get("attempts") or 0) + 1
-                if cur["attempts"] >= MAX_ATTEMPTS:
-                    await users.delete_verification_codes(db, email)
-                    _code_store.pop(email, None)
-                return False
-            await users.delete_verification_code(db, int(record["id"]))
-            _code_store.pop(email, None)
-            return True
-    except Exception:
-        record = _code_store.get(email)
-        if not record:
-            return False
-        if int(time.time() * 1000) - int(record["time"]) > CODE_TTL_MS:
-            _code_store.pop(email, None)
-            return False
-        if record.get("code") != code:
-            record["attempts"] = int(record.get("attempts") or 0) + 1
-            if record["attempts"] >= MAX_ATTEMPTS:
-                _code_store.pop(email, None)
-            return False
-        _code_store.pop(email, None)
-        return True
+            return await users.consume_verification_code(
+                db, email, code, purpose, MAX_ATTEMPTS
+            )
+    except Exception as exc:  # noqa: BLE001
+        log.error("[mailer] 验证码校验失败: %s", exc)
+        raise VerificationUnavailable("验证码校验服务暂不可用") from exc
 
 
 async def _smtp_send(to: str, subject: str, html: str, text_body: str = "") -> None:
@@ -149,6 +132,7 @@ async def send_security_alert(to: str, payload: dict[str, Any]) -> None:
 
 
 __all__ = [
+    "VerificationUnavailable",
     "generate_code",
     "store_code",
     "verify_code",

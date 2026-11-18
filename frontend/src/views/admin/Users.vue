@@ -401,7 +401,7 @@ async function confirmDelete() {
   margin-bottom: 8px;
   padding: 8px 10px;
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.55);
+  background: var(--field-bg);
 }
 .ban-reason-field .input {
   flex: 1;
@@ -414,11 +414,12 @@ async function confirmDelete() {
 
 /* ===== 用户表格：磨砂玻璃底板 + 固定列宽 + 防折行 ===== */
 .users-table-card {
-  /* 半透明白色底板：保留飞机背景轮廓，同时保证文字清晰 */
-  background: rgba(255, 255, 255, 0.85);
+  /* 半透明主题面板：浅色为白玻璃，深色为深灰玻璃，均保留飞机背景轮廓 */
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
   -webkit-backdrop-filter: blur(20px);
   backdrop-filter: blur(20px);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+  box-shadow: var(--shadow-lg, 0 10px 30px rgba(0, 0, 0, 0.05));
   border-radius: 16px;
   overflow: hidden;
 }
@@ -444,17 +445,18 @@ async function confirmDelete() {
   word-break: normal;
   overflow-wrap: normal;
   vertical-align: middle;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  color: var(--table-text);
+  border-bottom: 1px solid var(--table-border);
 }
 
 .users-table th {
-  color: #6b7280;
+  color: var(--table-head-color);
   font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.01em;
   text-transform: none;
-  background: transparent;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  background: var(--table-head-bg);
+  border-bottom: 1px solid var(--table-head-border);
 }
 
 .users-table tbody tr:last-child td {
@@ -462,7 +464,7 @@ async function confirmDelete() {
 }
 
 .users-table tbody tr:hover td {
-  background: rgba(255, 255, 255, 0.32);
+  background: var(--table-row-hover);
 }
 
 /* 列宽：ID/CID 固定，用户名与注册时间留足空间，角色/FSD 紧凑 */
@@ -486,7 +488,7 @@ async function confirmDelete() {
   position: sticky;
   right: 0;
   z-index: 1;
-  background: rgba(255, 255, 255, 0.9);
+  background: var(--panel-bg-solid);
 }
 
 .users-table th:nth-child(7) {
@@ -512,7 +514,7 @@ async function confirmDelete() {
 
 .users-action {
   padding: 4px 10px;
-  border: 1px solid rgba(0, 0, 0, 0.12);
+  border: 1px solid var(--panel-border);
   border-radius: 8px;
   background: transparent;
   box-shadow: none;
@@ -523,21 +525,21 @@ async function confirmDelete() {
 }
 
 .users-action--edit {
-  color: #2563eb;
+  color: var(--action-info-text);
 }
 
 .users-action--edit:hover {
-  border-color: rgba(37, 99, 235, 0.4);
-  background: rgba(37, 99, 235, 0.08);
+  border-color: var(--action-info-text);
+  background: var(--action-info-bg);
 }
 
 .users-action--delete {
-  color: #dc2626;
+  color: var(--action-danger-text);
 }
 
 .users-action--delete:hover {
-  border-color: rgba(220, 38, 38, 0.4);
-  background: rgba(220, 38, 38, 0.08);
+  border-color: var(--action-danger-text);
+  background: var(--action-danger-bg);
 }
 
 

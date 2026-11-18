@@ -24,8 +24,14 @@ from app.middleware.rate_limit import (
 )
 from app.services import users
 from app.services.device_ban import is_device_banned
+from app.services.login_challenge import (
+    LoginChallengeUnavailable,
+    consume_login_challenge,
+    create_login_challenge,
+)
 from app.services.login_lock import check_login_lock, clear_login_failures, record_login_failure
 from app.services.mailer import (
+    VerificationUnavailable,
     fire_and_forget_thread,
     generate_code,
     send_notification,
@@ -161,7 +167,11 @@ async def register(request: Request, db: AsyncSession = Depends(get_db)) -> Any:
     # 安全（P2-2 枚举）：先校验邮箱验证码，再做 CID/邮箱冲突检查。
     # 顺序调整后，攻击者必须先拥有一个真实可收信的邮箱（且通过 PoW/限流/冷却），
     # 才能拿到「该 CID / 该邮箱已被注册」这类存在性信号，批量枚举成本大幅提高。
-    if not await verify_code(email, email_code):
+    try:
+        code_ok = await verify_code(email, email_code, "register")
+    except VerificationUnavailable:
+        return fail(503, "验证码服务暂不可用，请稍后重试")
+    if not code_ok:
         return fail(400, "邮箱验证码错误或已过期")
 
     if await users.find_user_public(db, cid):
@@ -290,6 +300,32 @@ async def login(request: Request, db: AsyncSession = Depends(get_db)) -> Any:
     # 可信 IP 校验：新 IP → 邮箱二次验证
     trusted = await users.trusted_ips(db, user.get("registerIp"), user["cid"])
     if ip not in trusted:
+        # 未绑定邮箱的账号无法走邮箱二次验证：允许登录，但写高风险审计日志。
+        # 不能直接返回 needVerify，否则这类账号会因无法收码而永久锁死。
+        if not user.get("email"):
+            await _safe_login_log(
+                db, cid, ip, user_agent, device_fp, True, "new_ip_no_email_high_risk"
+            )
+            log.warning(
+                "[auth] 新 IP 且未绑定邮箱，按高风险放行: cid=%s ip=%s fp=%s",
+                cid,
+                ip,
+                device_fp or "-",
+            )
+            token = sign_token(user)
+            return ok(
+                {"token": token, "user": user_payload(user)},
+                securityWarning="检测到新 IP 登录，但账号未绑定邮箱；请尽快绑定邮箱以启用二次验证。",
+            )
+
+        try:
+            challenge = await create_login_challenge(db, user["cid"], ip, device_fp)
+        except LoginChallengeUnavailable:
+            return fail(503, "登录安全验证服务暂不可用，请稍后重试")
+
+        await _safe_login_log(
+            db, cid, ip, user_agent, device_fp, False, "new_ip_verification_required"
+        )
         return JSJSONResponse(
             {
                 "success": True,
@@ -297,6 +333,7 @@ async def login(request: Request, db: AsyncSession = Depends(get_db)) -> Any:
                 "data": {
                     "email": user.get("email") or "",
                     "message": "检测到新设备/IP 登录，请通过邮箱验证码确认身份",
+                    "loginChallenge": challenge,
                 },
             }
         )
@@ -318,12 +355,13 @@ async def login_verify(request: Request, db: AsyncSession = Depends(get_db)) -> 
         body = {}
     cid = body.get("cid")
     email_code = body.get("emailCode")
+    login_challenge_token = body.get("loginChallenge")
     ip = get_client_ip(request)
     user_agent = get_user_agent(request)
     device_fp = get_device_fp(request)
 
-    if not cid or not email_code:
-        return fail(400, "缺少参数")
+    if not cid or not email_code or not login_challenge_token:
+        return fail(400, "登录验证已失效，请重新登录")
 
     user = await users.find_user_with_credentials(db, str(cid))
     if not user:
@@ -339,7 +377,20 @@ async def login_verify(request: Request, db: AsyncSession = Depends(get_db)) -> 
     if device_fp and await is_device_banned(device_fp):
         return fail(403, "设备已被封禁", code="DEVICE_BANNED")
 
-    if not await verify_code(user["email"], email_code):
+    try:
+        challenge_ok = await consume_login_challenge(
+            db, str(login_challenge_token), str(cid), ip
+        )
+    except LoginChallengeUnavailable:
+        return fail(503, "登录安全验证服务暂不可用，请稍后重试")
+    if not challenge_ok:
+        return fail(400, "登录验证已失效，请重新登录")
+
+    try:
+        code_ok = await verify_code(user["email"], email_code, "login")
+    except VerificationUnavailable:
+        return fail(503, "验证码服务暂不可用，请稍后重试")
+    if not code_ok:
         await record_login_failure(db, user["cid"], ip)
         return fail(400, "邮箱验证码错误或已过期")
 
@@ -507,7 +558,10 @@ async def forgot_password(request: Request, db: AsyncSession = Depends(get_db)) 
     if user:
         code = generate_code()
         # 先落库保证验证码立即可用，SMTP 发信后台执行（不阻塞响应）
-        await store_code(email, code)
+        try:
+            await store_code(email, code, "reset")
+        except VerificationUnavailable:
+            return fail(503, "验证码服务暂不可用，请稍后重试")
 
         async def _mail_job() -> None:
             try:
@@ -535,7 +589,11 @@ async def reset_password(request: Request, db: AsyncSession = Depends(get_db)) -
     if not email or not code or not password:
         return fail(400, "请填写完整")
 
-    if not await verify_code(email, code):
+    try:
+        code_ok = await verify_code(email, code, "reset")
+    except VerificationUnavailable:
+        return fail(503, "验证码服务暂不可用，请稍后重试")
+    if not code_ok:
         return fail(400, "验证码错误或已过期")
 
     user = await users.find_user_by_email(db, email)

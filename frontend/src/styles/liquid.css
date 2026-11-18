@@ -8,7 +8,7 @@
    浅色/深色模式均通过变量切换，保持同一套折射质感。 */
 
 .card {
-  background-color: var(--glass-bg-strong);
+  background-color: var(--panel-bg);
   background-image: var(--glass-sheen);
   backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
   -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
@@ -25,11 +25,11 @@ html[data-theme='dark'] .card:hover {
   border-color: rgba(255, 255, 255, 0.24);
 }
 .card--hover:hover {
-  background-color: rgba(255, 255, 255, 0.58);
+  background-color: var(--panel-hover);
   transform: translateY(-2px) scale(1.004);
 }
 html[data-theme='dark'] .card--hover:hover {
-  background-color: rgba(28, 28, 30, 0.76);
+  background-color: var(--panel-hover);
 }
 
 /* 按钮：弹性点击 + 悬浮透光 */
@@ -82,9 +82,10 @@ html[data-theme='dark'] .btn-outline:hover {
 
 /* 玻璃工具类同步升级 */
 .glass, .glass-strong {
+  background-color: var(--panel-bg);
   backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
   -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-  border: 1px solid var(--glass-border);
+  border: 1px solid var(--panel-border);
   box-shadow: var(--glass-highlight), var(--glass-shadow);
   background-image: var(--glass-sheen);
 }
@@ -92,11 +93,11 @@ html[data-theme='dark'] .btn-outline:hover {
 
 /* 不支持 backdrop-filter 的浏览器：提高不透明度兜底可读性 */
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .card, .glass, .glass-strong, .btn-outline { background-color: rgba(255, 255, 255, 0.86); }
+  .card, .glass, .glass-strong, .btn-outline { background-color: var(--panel-bg-solid); }
   html[data-theme='dark'] .card,
   html[data-theme='dark'] .glass,
   html[data-theme='dark'] .glass-strong,
-  html[data-theme='dark'] .btn-outline { background-color: rgba(28, 28, 30, 0.88); }
+  html[data-theme='dark'] .btn-outline { background-color: var(--panel-bg-solid); }
 }
 
 @media (prefers-reduced-motion: reduce) {

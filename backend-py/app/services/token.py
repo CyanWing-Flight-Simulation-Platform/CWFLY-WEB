@@ -184,16 +184,59 @@ def verify_pow_token(token: str) -> dict[str, Any]:
     return decoded
 
 
+# ---------------------------------------------------------------- 登录挑战令牌
+LOGIN_CHALLENGE_TYP = "login_challenge"
+LOGIN_CHALLENGE_KEY_LABEL = b"login-challenge"
+
+
+def derive_login_challenge_key() -> str:
+    """登录挑战专用密钥域，避免与 access / PoW 令牌互相冒充。"""
+    return hmac.new(
+        settings.JWT_SECRET.encode("utf-8"),
+        LOGIN_CHALLENGE_KEY_LABEL,
+        hashlib.sha256,
+    ).hexdigest()
+
+
+def sign_login_challenge(cid: str, ip: str, jti: str, ttl_seconds: int) -> str:
+    iat = int(time.time())
+    payload = {
+        "typ": LOGIN_CHALLENGE_TYP,
+        "cid": str(cid),
+        "ip": str(ip or ""),
+        "jti": str(jti),
+        "iat": iat,
+        "exp": iat + max(1, int(ttl_seconds)),
+    }
+    return pyjwt.encode(payload, derive_login_challenge_key(), algorithm="HS256")
+
+
+def verify_login_challenge(token: str) -> dict[str, Any]:
+    try:
+        decoded = pyjwt.decode(token, derive_login_challenge_key(), algorithms=["HS256"])
+    except pyjwt.InvalidTokenError as exc:
+        raise TokenError("登录验证挑战无效或已过期") from exc
+    if str(decoded.get("typ") or "") != LOGIN_CHALLENGE_TYP:
+        raise TokenError("登录验证挑战无效或已过期")
+    if not str(decoded.get("cid") or "") or not str(decoded.get("jti") or ""):
+        raise TokenError("登录验证挑战无效或已过期")
+    return decoded
+
+
 __all__ = [
     "TokenError",
     "TokenExpiredError",
     "ACCESS_TYP",
     "POW_TYP",
+    "LOGIN_CHALLENGE_TYP",
     "derive_pow_key",
+    "derive_login_challenge_key",
     "sign_token",
     "verify_token",
     "verify_token_for_refresh",
     "should_renew",
     "sign_pow_token",
     "verify_pow_token",
+    "sign_login_challenge",
+    "verify_login_challenge",
 ]

@@ -52,6 +52,12 @@ async def lifespan(app: FastAPI):
         from app.services.rate_limit_store import ensure_table as _ensure_rate_limit_table
 
         await _ensure_rate_limit_table()
+        from app.services.users import ensure_verification_schema as _ensure_verification_schema
+
+        await _ensure_verification_schema()
+        from app.services.login_challenge import ensure_table as _ensure_login_challenge_table
+
+        await _ensure_login_challenge_table()
     except Exception as exc:  # noqa: BLE001
         log.warning("[CWFLY] 预热失败: %s", exc)
     # 预热：DB 连接池 + FIR 边界（消除每个 worker 的首请求冷启动）

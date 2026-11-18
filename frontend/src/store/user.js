@@ -57,7 +57,11 @@ export const useUserStore = defineStore('user', () => {
     const res = await authApi.login({ cid: cidVal, password })
     // 新设备/IP 登录：后端要求邮箱验证码二次验证（needVerify 在响应顶层，未返回 token）
     if (res && res.needVerify) {
-      return { needVerify: true, email: res.data?.email || '' }
+      return {
+        needVerify: true,
+        email: res.data?.email || '',
+        loginChallenge: res.data?.loginChallenge || '',
+      }
     }
     token.value = res.data.token
     profile.value = res.data.user

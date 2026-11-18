@@ -51,7 +51,7 @@ a:hover { text-decoration: underline; }
 
 /* ---------- 通用卡片（Apple 玻璃效果） ---------- */
 .card {
-  background: var(--glass-bg-strong);
+  background: var(--panel-bg);
   backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
   -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
   border: 1px solid var(--glass-border-strong);
@@ -63,12 +63,12 @@ a:hover { text-decoration: underline; }
 }
 .card--hover:hover {
   box-shadow: var(--shadow-md);
-  background: rgba(255, 255, 255, 0.6);
+  background: var(--panel-hover);
   transform: translateY(-1px);
 }
 
 html[data-theme='dark'] .card--hover:hover {
-  background: rgba(28, 28, 30, 0.78);
+  background: var(--panel-hover);
 }
 
 /* ---------- 按钮（Apple 风格） ---------- */
@@ -250,23 +250,24 @@ table {
 th, td {
   padding: 14px 18px;
   text-align: left;
-  border-bottom: 1px solid var(--glass-border);
+  border-bottom: 1px solid var(--table-border);
   font-size: 14px;
+  color: var(--table-text);
   white-space: normal;
   word-break: break-word;
   overflow-wrap: anywhere;
 }
 th {
   font-weight: 600;
-  color: var(--c-text-secondary);
-  background: rgba(255,255,255,.25);
+  color: var(--table-head-color);
+  background: var(--table-head-bg);
   font-size: 12px;
   letter-spacing: .03em;
   text-transform: uppercase;
 }
 
 tr:last-child td { border-bottom: none; }
-tr:hover td { background: rgba(255,255,255,.15); }
+tr:hover td { background: var(--table-row-hover); }
 
 /* ---------- 权限 ---------- */
 .badge {
@@ -284,6 +285,11 @@ tr:hover td { background: rgba(255,255,255,.15); }
 .badge-danger  { background: rgba(255,69,58,.15); color: #bf2d24; border: 1px solid rgba(255,69,58,.25); }
 .badge-info    { background: rgba(100,210,255,.15); color: #0077b5; border: 1px solid rgba(100,210,255,.25); }
 .badge-default { background: var(--glass-bg); color: var(--c-text-secondary); border: 1px solid var(--glass-border); }
+
+html[data-theme='dark'] .badge-success { background: rgba(48,209,88,.16); color: #6ee7a0; border-color: rgba(48,209,88,.28); }
+html[data-theme='dark'] .badge-warning { background: rgba(255,159,10,.16); color: #fbbf24; border-color: rgba(255,159,10,.28); }
+html[data-theme='dark'] .badge-danger  { background: rgba(255,69,58,.16); color: #f87171; border-color: rgba(255,69,58,.28); }
+html[data-theme='dark'] .badge-info    { background: rgba(100,210,255,.16); color: #7dd3fc; border-color: rgba(100,210,255,.28); }
 
 /* ---------- FSD权限 ---------- */
 .fsd-badge {

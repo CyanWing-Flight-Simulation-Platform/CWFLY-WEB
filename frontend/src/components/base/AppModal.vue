@@ -46,6 +46,8 @@ const props = defineProps({
   ariaLabel: { type: String, default: '对话框' },
   /** 卡片最大宽度 */
   width: { type: String, default: '540px' },
+  /** 卡片外观：default=毛玻璃，solid=不透明白底 */
+  variant: { type: String, default: 'default' },
   /** 点击遮罩关闭 */
   closeOnOverlay: { type: Boolean, default: true },
   /** 按 Esc 关闭 */
@@ -220,6 +222,7 @@ defineExpose({ close: requestClose })
         <div
           ref="dialogRef"
           class="cw-modal-card modal-card"
+          :class="{ 'cw-modal-card--solid': variant === 'solid' }"
           :style="cardStyle"
           role="dialog"
           aria-modal="true"
@@ -284,6 +287,35 @@ defineExpose({ close: requestClose })
   -webkit-backdrop-filter: blur(24px) saturate(1.5);
   color: var(--c-text, #1d1d1f);
   outline: none;
+}
+.cw-modal-card--solid {
+  background: var(--panel-bg-solid, #ffffff);
+  border: 1px solid var(--panel-border, rgba(0, 0, 0, 0.08));
+  box-shadow: var(--shadow-xl, 0 24px 72px rgba(0, 0, 0, 0.22)), 0 4px 16px rgba(0, 0, 0, 0.06);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.cw-modal-card--solid .cw-modal-head {
+  background: var(--panel-bg-solid, #ffffff);
+  border-bottom: 1px solid var(--table-border, rgba(0, 0, 0, 0.06));
+}
+.cw-modal-card--solid .cw-modal-body {
+  background: var(--panel-bg-solid, #ffffff);
+}
+.cw-modal-card--solid .cw-modal-foot {
+  background: var(--panel-bg-solid, #ffffff);
+  border-top: 1px solid var(--table-border, rgba(0, 0, 0, 0.06));
+}
+.cw-modal-card--solid .cw-modal-close {
+  width: 36px;
+  height: 36px;
+}
+.cw-modal-card--solid .cw-modal-close :deep(svg) {
+  width: 18px;
+  height: 18px;
+}
+.cw-modal-card--solid .cw-modal-close:hover {
+  background: var(--panel-hover, rgba(0, 0, 0, 0.06));
 }
 .cw-modal-head {
   display: flex;

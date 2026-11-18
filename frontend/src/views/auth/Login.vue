@@ -78,6 +78,7 @@ import { ref, computed, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/store/user'
 import { authApi } from '@/api'
+import { getDeviceFp } from '@/utils/deviceFp'
 import { waitForPowToken } from '@/utils/pow'
 import { useFieldFeedback } from '@/utils/fieldFeedback'
 
@@ -93,6 +94,7 @@ let successTimer = null
 const showVerify = ref(false)   // 验证码框是否显示（果冻弹出）
 const verifyEmail = ref('')     // 账号完整邮箱（用于发送验证码）
 const verifyCode = ref('')      // 用户输入的邮箱验证码
+const loginChallenge = ref('')  // 后端签发的一次性登录挑战（绑定 CID/IP）
 const sendingCode = ref(false)
 const codeCooldown = ref(0)
 const verifying = ref(false)
@@ -126,6 +128,7 @@ async function handleLogin() {
     if (res && res.needVerify) {
       status.value = 'idle'
       verifyEmail.value = res.email || ''
+      loginChallenge.value = res.loginChallenge || ''
       showVerify.value = true
       verifyErr.value = ''
       sendLoginCode()
@@ -150,10 +153,11 @@ async function sendLoginCode() {
     const res = await fetch('/api/verify/send', {
       method: 'POST',
       cache: 'no-store',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(powToken ? { 'X-PoW-Token': powToken } : {})
-    },
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Device-Fp': getDeviceFp(),
+        ...(powToken ? { 'X-PoW-Token': powToken } : {})
+      },
       body: JSON.stringify({ email: verifyEmail.value, purpose: 'login' })
     })
     const data = await res.json()
@@ -183,9 +187,14 @@ function startCooldown(secs) {
 async function confirmLoginVerify() {
   verifyErr.value = ''
   if (!verifyCode.value) { verifyErr.value = '请输入邮箱验证码'; return }
+  if (!loginChallenge.value) { verifyErr.value = '登录验证已失效，请重新登录'; return }
   verifying.value = true
   try {
-    const res = await authApi.loginVerify({ cid: form.value.cid, emailCode: verifyCode.value })
+    const res = await authApi.loginVerify({
+      cid: form.value.cid,
+      emailCode: verifyCode.value,
+      loginChallenge: loginChallenge.value,
+    })
     userStore.applyLogin(res.data)
     router.push('/dashboard')
   } catch (e) {

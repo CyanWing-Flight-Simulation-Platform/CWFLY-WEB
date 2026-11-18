@@ -56,6 +56,15 @@ class Settings(BaseSettings):
     SMTP_FROM_NAME: str = "CW 模拟飞行"
     FRONTEND_URL: str = "http://localhost:5173"
 
+    # ---- 登录安全 / 验证码 ----
+    VERIFY_CODE_TTL_SECONDS: int = 600
+    VERIFY_CODE_MAX_ATTEMPTS: int = 5
+    VERIFY_SEND_COOLDOWN_SECONDS: int = 60
+    LOGIN_CHALLENGE_TTL_SECONDS: int = 600
+    TRUSTED_IP_LOGIN_HISTORY: int = 50
+    LOGIN_LOCK_WINDOW_MINUTES: int = 15
+    LOGIN_LOCK_MAX_FAILS: int = 5
+
     # ---- 第三方 ----
     OPENAPI_KEY: str = ""
     FSD_WHAZZUP_FILE: str = ""
