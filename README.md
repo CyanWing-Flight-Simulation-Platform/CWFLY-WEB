@@ -4,6 +4,13 @@
 [![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
 [![Website](https://img.shields.io/badge/website-cwflysim.cn-0b7285)](https://www.cwflysim.cn)
 
+[![Vue 3](https://img.shields.io/badge/Vue-3-42b883?logo=vuedotjs&logoColor=white)](https://vuejs.org/)
+[![Vite](https://img.shields.io/badge/Vite-5-646CFF?logo=vite&logoColor=white)](https://vitejs.dev/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![MySQL](https://img.shields.io/badge/MySQL-8-4479A1?logo=mysql&logoColor=white)](https://www.mysql.com/)
+[![Redis](https://img.shields.io/badge/Redis-5-DC382D?logo=redis&logoColor=white)](https://redis.io/)
+
 CWFLY（青翼虚拟航空）的社区门户与连飞平台，包含对外站点、登录后工作台、管理后台，以及配套的 Python API 服务。
 
 本仓库是独立部署仓，包含：
