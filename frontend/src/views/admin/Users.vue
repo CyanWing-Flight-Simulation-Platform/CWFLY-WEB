@@ -7,7 +7,7 @@
       </div>
     </div>
 
-    <div class="card">
+    <div class="card users-table-card">
       <!-- 加载态：统一 Skeleton；空态：统一 EmptyState -->
       <div v-if="loading" class="p-lg" aria-busy="true" aria-label="正在加载用户列表">
         <Skeleton :lines="6" :height="16" />
@@ -15,8 +15,8 @@
       <div v-else-if="!users.length" class="p-md">
         <EmptyState icon="users" title="暂无用户" description="当前没有可管理的用户，或列表尚未返回数据。" />
       </div>
-      <div v-else class="table-wrap">
-        <table v-sort>
+      <div v-else class="table-wrap users-table-wrap">
+        <table v-sort class="users-table">
           <thead>
             <tr>
               <th>ID</th>
@@ -32,20 +32,19 @@
             <tr v-for="u in users" :key="u.id">
               <td>{{ u.id }}</td>
               <td class="font-bold">{{ u.cid }}</td>
-              <td>{{ u.username }}</td>
+              <td :title="u.username">{{ u.username }}</td>
               <td>
                 <UserTag :rating="u.rating ?? 0" />
               </td>
               <td>
                 <span class="fsd-badge" :class="'fsd-' + (u.fsdLevel ?? 1)">{{ fsdLevelName(u.fsdLevel ?? 1) }}</span>
               </td>
-              <td class="text-secondary text-sm">{{ u.createdAt }}</td>
-              <td style="white-space:nowrap;">
-                <!-- 固定最小宽度, 防止仅删除按钮时操作列收缩挤到前一列 -->
-                <div class="flex gap-sm" style="min-width:110px;">
-                  <!-- 编辑/删除: 仅管理员(11)及以上可操作; 非超管不能操作管理员(11)及以上等级的用户 -->
-                  <button v-if="canManageUser(u)" class="btn btn-outline btn-sm" @click="openEdit(u)">编辑</button>
-                  <button v-if="canManageUser(u)" class="btn btn-outline btn-sm" style="color:var(--c-danger);" @click="delUser(u)">删除</button>
+              <td class="text-secondary text-sm" :title="u.createdAt">{{ u.createdAt }}</td>
+              <td>
+                <!-- 编辑/删除: 仅管理员(11)及以上可操作; 非超管不能操作管理员(11)及以上等级的用户 -->
+                <div class="users-actions">
+                  <button v-if="canManageUser(u)" type="button" class="users-action users-action--edit" @click="openEdit(u)">编辑</button>
+                  <button v-if="canManageUser(u)" type="button" class="users-action users-action--delete" @click="delUser(u)">删除</button>
                 </div>
               </td>
             </tr>
@@ -413,29 +412,132 @@ async function confirmDelete() {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
-.table-wrap table {
-  table-layout: fixed;
+/* ===== 用户表格：磨砂玻璃底板 + 固定列宽 + 防折行 ===== */
+.users-table-card {
+  /* 半透明白色底板：保留飞机背景轮廓，同时保证文字清晰 */
+  background: rgba(255, 255, 255, 0.85);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.users-table-wrap {
+  overflow-x: auto;
+  border-radius: 16px;
+}
+
+.users-table {
   width: 100%;
-}
-.table-wrap table th:nth-child(1),
-.table-wrap table td:nth-child(1),
-.table-wrap table th:nth-child(2),
-.table-wrap table td:nth-child(2),
-.table-wrap table th:nth-child(3),
-.table-wrap table td:nth-child(3) {
-  width: 5%;
+  min-width: 980px;
+  table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 0;
 }
 
-.table-wrap table th:nth-child(4),
-.table-wrap table td:nth-child(4),
-.table-wrap table th:nth-child(5),
-.table-wrap table td:nth-child(5) {
-  width: 5%;
+/* 所有列强制不折行，避免 CID / 用户名 / 时间被挤成竖条 */
+.users-table th,
+.users-table td {
+  padding: 16px 12px;
+  white-space: nowrap;
+  word-break: normal;
+  overflow-wrap: normal;
+  vertical-align: middle;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
 }
 
-.table-wrap table th:nth-child(6),
-.table-wrap table td:nth-child(6) {
-  width: 8%;
+.users-table th {
+  color: #6b7280;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  text-transform: none;
+  background: transparent;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.users-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.users-table tbody tr:hover td {
+  background: rgba(255, 255, 255, 0.32);
+}
+
+/* 列宽：ID/CID 固定，用户名与注册时间留足空间，角色/FSD 紧凑 */
+.users-table th:nth-child(1),
+.users-table td:nth-child(1) { width: 64px; }
+.users-table th:nth-child(2),
+.users-table td:nth-child(2) { width: 96px; }
+.users-table th:nth-child(3),
+.users-table td:nth-child(3) { width: 22%; overflow: hidden; text-overflow: ellipsis; }
+.users-table th:nth-child(4),
+.users-table td:nth-child(4) { width: 112px; }
+.users-table th:nth-child(5),
+.users-table td:nth-child(5) { width: 128px; }
+.users-table th:nth-child(6),
+.users-table td:nth-child(6) { width: 168px; }
+
+/* 操作列固定在右侧，横向滚动时不消失 */
+.users-table th:nth-child(7),
+.users-table td:nth-child(7) {
+  width: 132px;
+  position: sticky;
+  right: 0;
+  z-index: 1;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.users-table th:nth-child(7) {
+  z-index: 2;
+}
+
+/* 角色标签缩小为小号药丸 */
+.users-table :deep(.badge) {
+  padding: 2px 8px;
+  font-size: 12px;
+  line-height: 1.6;
+  border-radius: 6px;
+  box-shadow: none;
+}
+
+/* 操作按钮改为轻量幽灵按钮，去掉白色胶囊阴影 */
+.users-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 108px;
+}
+
+.users-action {
+  padding: 4px 10px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 8px;
+  background: transparent;
+  box-shadow: none;
+  font-size: 12px;
+  line-height: 1.6;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.users-action--edit {
+  color: #2563eb;
+}
+
+.users-action--edit:hover {
+  border-color: rgba(37, 99, 235, 0.4);
+  background: rgba(37, 99, 235, 0.08);
+}
+
+.users-action--delete {
+  color: #dc2626;
+}
+
+.users-action--delete:hover {
+  border-color: rgba(220, 38, 38, 0.4);
+  background: rgba(220, 38, 38, 0.08);
 }
 
 
