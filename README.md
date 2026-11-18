@@ -11,7 +11,7 @@
 [![MySQL](https://img.shields.io/badge/MySQL-8-4479A1?logo=mysql&logoColor=white)](https://www.mysql.com/)
 [![Redis](https://img.shields.io/badge/Redis-5-DC382D?logo=redis&logoColor=white)](https://redis.io/)
 
-CWFLY（青翼虚拟航空）的社区门户与连飞平台，包含对外站点、登录后工作台、管理后台，以及配套的 Python API 服务。
+CWFLY（青翼模拟飞行连飞平台）的社区门户与连飞平台，包含对外站点、登录后工作台、管理后台，以及配套的 Python API 服务。
 
 本仓库是独立部署仓，包含：
 
