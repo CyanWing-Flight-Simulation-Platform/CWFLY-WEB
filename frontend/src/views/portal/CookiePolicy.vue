@@ -85,12 +85,6 @@
                 <td>记住你在 Cookie 提示条中的选择，避免重复弹出</td>
                 <td>长期保存，直到你清除</td><td>每次访问都会再次提示</td>
               </tr>
-              <tr>
-                <td><code>cw_pet_config</code><br><code>cw_pet_enabled</code><br><code>cw_pet_phrases</code><br><code>cw_pet_pos</code></td>
-                <td>localStorage</td>
-                <td>桌面宠物挂件的开关、位置、自定义短语（仅保存在本机）</td>
-                <td>长期保存，直到你清除</td><td>挂件设置不保存</td>
-              </tr>
             </tbody>
           </table>
         </div>

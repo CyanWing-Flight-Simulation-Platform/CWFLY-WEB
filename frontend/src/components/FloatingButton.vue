@@ -117,7 +117,7 @@ onUnmounted(() => {
   position: fixed;
   right: 20px;
   bottom: calc(20px + env(safe-area-inset-bottom, 0px));
-  z-index: 850; /* 高于页面内容(1-100)，低于桌宠 900 / 侧边栏 901 / 弹窗 1000+ */
+  z-index: 850; /* 高于页面内容(1-100)，低于侧边栏 901 / 弹窗 1000+ */
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -167,11 +167,5 @@ html[data-theme='dark'] .cw-float-btn:hover {
   height: 22px;
 }
 
-/* 桌面端右下角有桌宠（DesktopPet: right/bottom 24px, 形象高约 130~160px），
-   按钮上移让位，避免遮挡；桌宠在 ≤768px 隐藏，移动端保持 20px 底边距。 */
-@media (min-width: 769px) {
-  .cw-float-btn {
-    bottom: calc(180px + env(safe-area-inset-bottom, 0px));
-  }
-}
+
 </style>
