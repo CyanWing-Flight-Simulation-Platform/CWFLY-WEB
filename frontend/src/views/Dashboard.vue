@@ -222,8 +222,8 @@ const flightHours = computed(() => Number(user.profile?.totalFlightHours || 0).t
 const controllerHours = computed(() => Number(user.profile?.totalControllerHours || 0).toFixed(1))
 
 const kpis = computed(() => [
-  { label: '连飞总时长', value: flightHours.value, unit: 'h', note: 'FlightLog 在线记录', tone: 'blue' },
-  { label: '管制总时长', value: controllerHours.value, unit: 'h', note: 'FlightLog 管制记录', tone: 'green' },
+  { label: '连飞总时长', value: flightHours.value, unit: 'h', note: '累计连飞在线时长', tone: 'blue' },
+  { label: '管制总时长', value: controllerHours.value, unit: 'h', note: '累计管制在线时长', tone: 'green' },
   { label: '平台在线', value: platformStats.value.onlineUsers, note: '当前在线用户', tone: 'orange' },
   { label: '注册用户', value: platformStats.value.totalUsers, note: 'CWFLY 成员总数', tone: 'purple' }
 ])
