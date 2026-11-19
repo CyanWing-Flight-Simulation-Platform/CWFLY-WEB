@@ -6,7 +6,7 @@
         <span></span><span></span><span></span>
       </button>
 
-      <router-link v-if="shellNavTop" to="/dashboard" class="app-header__brand">
+      <router-link v-if="shellNavTop || narrowScreen" to="/dashboard" class="app-header__brand">
         <img :src="brandLogo" class="brand-logo" />
         <span class="brand-text">CWFLY</span>
       </router-link>
@@ -383,9 +383,11 @@ defineExpose({
 
 /* ---------- 顶部栏 ---------- */
 .app-header {
-  position: fixed;
-  top: 0; left: 0; right: 0;
+  position: sticky;
+  top: 0;
   z-index: 900;
+  width: 100%;
+  flex-shrink: 0;
   height: var(--header-h);
   background-color: var(--glass-bg-strong);
   background-image: var(--glass-sheen);

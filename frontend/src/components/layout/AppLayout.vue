@@ -10,18 +10,6 @@
     }"
     :style="{ '--sidebar-w': sidebarWVar }"
   >
-    <!-- 顶栏：品牌 / 页面标题 / 顶栏导航面板 / 时钟 / 主题 / 通知 / 用户 -->
-    <TopBar
-      ref="topBarRef"
-      :shell-nav-top="shellNavTop"
-      :switching="switching"
-      :leaving-layout="leavingLayout"
-      :page-title="pageTitle"
-      :is-map-page="isMapPage"
-      :avatar-url="avatarUrl"
-      @toggle-sidebar="toggleSidebar"
-    />
-
     <div class="app-body">
       <div class="sidebar-overlay" :class="{ visible: sidebarOpen }" @click="closeSidebar"></div>
 
@@ -41,16 +29,30 @@
         @logout="logout"
       />
 
-      <main class="app-content">
-        <div class="app-content__inner">
-          <Transition name="route-bar">
-            <div v-if="routeLoading" class="route-loading-bar" aria-hidden="true">
-              <span class="route-loading-bar__inner"></span>
-            </div>
-          </Transition>
-          <router-view />
-        </div>
-      </main>
+      <!-- 主内容列：顶栏只在侧栏右侧，不再横跨整个页面 -->
+      <div class="app-main">
+        <TopBar
+          ref="topBarRef"
+          :shell-nav-top="shellNavTop"
+          :switching="switching"
+          :leaving-layout="leavingLayout"
+          :page-title="pageTitle"
+          :is-map-page="isMapPage"
+          :avatar-url="avatarUrl"
+          @toggle-sidebar="toggleSidebar"
+        />
+
+        <main class="app-content">
+          <div class="app-content__inner">
+            <Transition name="route-bar">
+              <div v-if="routeLoading" class="route-loading-bar" aria-hidden="true">
+                <span class="route-loading-bar__inner"></span>
+              </div>
+            </Transition>
+            <router-view />
+          </div>
+        </main>
+      </div>
     </div>
   </div>
 </template>
@@ -222,12 +224,21 @@ onUnmounted(() => {
   flex-direction: column;
 }
 
-/* ---------- 主体 ---------- */
+/* ---------- 主体：侧栏全高，主内容列独立承载顶栏 ---------- */
 .app-body {
   display: flex;
-  padding-top: var(--header-h);
+  align-items: stretch;
   flex: 1;
+  min-height: 100vh;
   width: 100%;
+}
+
+.app-main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 100vh;
 }
 
 /* ---------- 侧边栏遮罩（窄屏抽屉，样式主体在 styles/mobile.css） ---------- */
@@ -238,7 +249,7 @@ onUnmounted(() => {
   transition: opacity .24s ease;
   flex: 1;
   padding: 0;
-  min-height: calc(100vh - var(--header-h));
+  min-height: 0;
   width: 100%;
   max-width: 100%;
   overflow-x: auto;
@@ -253,8 +264,8 @@ onUnmounted(() => {
 
 /* ---------- 路由加载指示：顶部细进度条（不再用全屏白色遮罩，避免切换页面闪白） ---------- */
 .route-loading-bar {
-  position: fixed;
-  top: var(--header-h);
+  position: absolute;
+  top: 0;
   left: 0;
   right: 0;
   height: 2px;
