@@ -2,14 +2,15 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { getUserFromToken, isTokenExpired, isTokenNearExpiry, isWithinActiveWindow, touchLastActive } from '@/utils/jwt'
 import api from '@/api'
 import { showBanner, navigateToLoginAfterBanner } from '@/utils/banner'
+import { loginLocation } from '@/utils/redirect'
 
 /** 清除登录信息并弹横幅，等横幅动画完整走完后跳登录页（与 api 拦截器 401 行为一致） */
-function expireAndRedirect(next) {
+function expireAndRedirect(next, redirectTo = '') {
   localStorage.removeItem('cw_token')
   localStorage.removeItem('cw_user')
   localStorage.removeItem('cw_last_active')
   showBanner('登录已过期,请重新登录!')
-  navigateToLoginAfterBanner(next)
+  navigateToLoginAfterBanner(next, redirectTo)
 }
 
 const routes = [
@@ -87,6 +88,7 @@ const routes = [
       { path: '', redirect: '/admin/users' },
       { path: 'users', name: 'AdminUsers', meta: { title: '用户管理', requiredPermission: 'user' }, component: () => import('@/views/admin/Users.vue') },
       { path: 'announcements', name: 'AdminAnnouncements', meta: { title: '公告管理', requiredPermission: 'staff' }, component: () => import('@/views/admin/Announcements.vue') },
+      { path: 'meetings', name: 'AdminMeetings', meta: { title: '会议记录管理', requiredRating: 11 }, component: () => import('@/views/admin/MeetingsManage.vue') },
       { path: 'permissions', name: 'AdminPermissions', meta: { title: '权限等级', requiredPermission: 'user' }, component: () => import('@/views/admin/Permissions.vue') },
       { path: 'rating', name: 'AdminRating', meta: { title: '权限管理', requiredPermission: 'user' }, component: () => import('@/views/admin/RatingManage.vue') },
       { path: 'login-logs', name: 'AdminLoginLogs', meta: { title: '登录日志', requiredPermission: 'online', requiredRating: 12 }, component: () => import('@/views/admin/LoginLogs.vue') },
@@ -138,9 +140,9 @@ router.beforeEach(async (to, from, next) => {
   }
 
   const token = localStorage.getItem('cw_token')
-  // 未登录访问受保护页面 → 跳转登录
+  // 未登录访问受保护页面 → 跳转登录，并携带安全的站内回跳地址
   if (!token) {
-    next('/login')
+    next(loginLocation(to.fullPath))
     return
   }
 
@@ -162,12 +164,12 @@ router.beforeEach(async (to, from, next) => {
         }
       } catch (e) {
         // 续签失败（过期超宽限 / 服务器拒绝）→ 清登录信息，弹横幅等动画后跳登录
-        expireAndRedirect(next)
+        expireAndRedirect(next, to.fullPath)
         return
       }
     } else {
       // 超过 10 分钟未活跃 → token 过期 → 弹横幅等动画后跳登录
-      expireAndRedirect(next)
+      expireAndRedirect(next, to.fullPath)
       return
     }
   }

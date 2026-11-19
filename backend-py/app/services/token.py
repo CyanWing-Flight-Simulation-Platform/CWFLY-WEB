@@ -184,6 +184,53 @@ def verify_pow_token(token: str) -> dict[str, Any]:
     return decoded
 
 
+# ---------------------------------------------------------------- 可信设备令牌
+TRUSTED_DEVICE_TYP = "trusted_device"
+TRUSTED_DEVICE_KEY_LABEL = b"trusted-device"
+
+
+def derive_trusted_device_key() -> str:
+    """可信设备 Cookie 专用密钥域，避免与 access / PoW / challenge 互相冒充。"""
+    return hmac.new(
+        settings.JWT_SECRET.encode("utf-8"),
+        TRUSTED_DEVICE_KEY_LABEL,
+        hashlib.sha256,
+    ).hexdigest()
+
+
+def sign_trusted_device(
+    cid: str,
+    fingerprint_hash: str,
+    token_epoch: int | None,
+    ttl_seconds: int,
+) -> str:
+    iat = int(time.time())
+    payload: dict[str, Any] = {
+        "typ": TRUSTED_DEVICE_TYP,
+        "cid": str(cid),
+        "fp": str(fingerprint_hash or ""),
+        "iat": iat,
+        "exp": iat + max(1, int(ttl_seconds)),
+    }
+    if token_epoch is not None:
+        payload["tokep"] = int(token_epoch)
+    return pyjwt.encode(payload, derive_trusted_device_key(), algorithm="HS256")
+
+
+def verify_trusted_device(token: str) -> dict[str, Any]:
+    try:
+        decoded = pyjwt.decode(
+            token, derive_trusted_device_key(), algorithms=["HS256"]
+        )
+    except pyjwt.InvalidTokenError as exc:
+        raise TokenError("可信设备凭证无效或已过期") from exc
+    if str(decoded.get("typ") or "") != TRUSTED_DEVICE_TYP:
+        raise TokenError("可信设备凭证无效或已过期")
+    if not str(decoded.get("cid") or "") or not str(decoded.get("fp") or ""):
+        raise TokenError("可信设备凭证无效或已过期")
+    return decoded
+
+
 # ---------------------------------------------------------------- 登录挑战令牌
 LOGIN_CHALLENGE_TYP = "login_challenge"
 LOGIN_CHALLENGE_KEY_LABEL = b"login-challenge"
@@ -229,8 +276,10 @@ __all__ = [
     "ACCESS_TYP",
     "POW_TYP",
     "LOGIN_CHALLENGE_TYP",
+    "TRUSTED_DEVICE_TYP",
     "derive_pow_key",
     "derive_login_challenge_key",
+    "derive_trusted_device_key",
     "sign_token",
     "verify_token",
     "verify_token_for_refresh",
@@ -239,4 +288,6 @@ __all__ = [
     "verify_pow_token",
     "sign_login_challenge",
     "verify_login_challenge",
+    "sign_trusted_device",
+    "verify_trusted_device",
 ]

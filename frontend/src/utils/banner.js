@@ -8,6 +8,7 @@
 // 行为：右上角菜单栏下方从右侧滑入（向左弹出）→ 红色背景 + 底部进度条向左收缩
 //       → 进度条结束动画触发横幅向右侧缩回消失
 import { reactive } from 'vue'
+import { safeRedirectPath } from '@/utils/redirect'
 
 export const bannerState = reactive({
   visible: false,
@@ -37,7 +38,7 @@ export function hideBanner() {
  * 调用时机：登录过期等需要提示用户后再离开当前页面的场景。
  * navigate 可选：传入则用其执行路由内跳转（如 vue-router 的 next），否则整页跳 /login。
  */
-export function navigateToLoginAfterBanner(navigate) {
+export function navigateToLoginAfterBanner(navigate, redirectPath = '') {
   // 进入滑入 350ms + 进度条 duration + 离开滑出 350ms + 200ms 余量
   const enterLeave = 350
   const barDuration = bannerState?.duration || 3000
@@ -45,10 +46,12 @@ export function navigateToLoginAfterBanner(navigate) {
   setTimeout(() => {
     // 跳转前再校验一次：若期间已手动跳到登录页则跳过
     if (window.location.pathname.startsWith('/login')) return
+    const redirect = safeRedirectPath(redirectPath)
+    const target = redirect ? `/login?redirect=${encodeURIComponent(redirect)}` : '/login'
     if (typeof navigate === 'function') {
-      navigate('/login')
+      navigate(target)
     } else {
-      window.location.href = '/login'
+      window.location.href = target
     }
   }, delay)
 }

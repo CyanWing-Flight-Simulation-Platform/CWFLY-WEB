@@ -6,6 +6,7 @@ import { applyPowHeader, getPowToken, waitForPowToken } from '@/utils/pow'
 const POW_ENFORCED = ['/verify/send', '/auth/login', '/auth/login-verify', '/auth/register', '/auth/forgot-password', '/auth/reset-password']
 import { isWithinActiveWindow } from '@/utils/jwt'
 import { showBanner, navigateToLoginAfterBanner } from '@/utils/banner'
+import { safeRedirectPath } from '@/utils/redirect'
 
 const api = axios.create({
   baseURL: '/api',
@@ -93,7 +94,12 @@ api.interceptors.response.use(
         localStorage.removeItem('cw_last_active')
         if (hadToken && !window.location.pathname.startsWith('/login')) {
           showBanner('登录已过期,请重新登录!')
-          navigateToLoginAfterBanner()
+          navigateToLoginAfterBanner(
+            undefined,
+            safeRedirectPath(
+              window.location.pathname + window.location.search + window.location.hash,
+            ),
+          )
         }
       }
     }

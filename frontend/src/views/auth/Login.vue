@@ -75,15 +75,18 @@
 
 <script setup>
 import { ref, computed, onUnmounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/store/user'
 import { authApi } from '@/api'
 import { getDeviceFp } from '@/utils/deviceFp'
 import { waitForPowToken } from '@/utils/pow'
 import { useFieldFeedback } from '@/utils/fieldFeedback'
+import { resolvePostLoginPath } from '@/utils/redirect'
 
+const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
+const postLoginPath = () => resolvePostLoginPath(route.query.redirect)
 const form = ref({ cid: '', password: '' })
 const err = ref('')
 const status = ref('idle')
@@ -135,7 +138,7 @@ async function handleLogin() {
       return
     }
     status.value = 'success'
-    successTimer = setTimeout(() => router.push('/dashboard'), 1300)
+    successTimer = setTimeout(() => router.replace(postLoginPath()), 1300)
   } catch (e) {
     status.value = 'error'
     err.value = e.message || '登录失败，请检查 CID 和密码'
@@ -196,7 +199,7 @@ async function confirmLoginVerify() {
       loginChallenge: loginChallenge.value,
     })
     userStore.applyLogin(res.data)
-    router.push('/dashboard')
+    router.replace(postLoginPath())
   } catch (e) {
     verifyErr.value = e.message || '验证失败'
   } finally {

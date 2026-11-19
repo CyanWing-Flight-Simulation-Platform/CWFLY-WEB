@@ -5,6 +5,7 @@
 """
 from __future__ import annotations
 
+import hashlib
 import logging
 import time
 from typing import Any, Optional
@@ -12,6 +13,7 @@ from typing import Any, Optional
 from fastapi import APIRouter, Depends, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.db.session import get_db
 from app.deps import AuthFailure, CurrentUser, get_current_user
 from app.routers.captcha import require_pow_token
@@ -45,7 +47,9 @@ from app.services.token import (
     TokenError,
     TokenExpiredError,
     sign_token,
+    sign_trusted_device,
     verify_token_for_refresh,
+    verify_trusted_device,
 )
 from app.utils.client import get_client_ip, get_device_fp, get_user_agent
 from app.utils.json_compat import JSJSONResponse
@@ -77,6 +81,58 @@ def fail(status_code: int, message: str, **extra: Any) -> JSJSONResponse:
     body: dict[str, Any] = {"success": False, "message": message}
     body.update(extra)
     return JSJSONResponse(body, status_code=status_code)
+
+
+TRUSTED_DEVICE_COOKIE = "cw_trusted_device"
+
+
+def _device_fp_hash(request: Request) -> str:
+    fp = get_device_fp(request)
+    if not fp:
+        return ""
+    return hashlib.sha256(fp.encode("utf-8")).hexdigest()
+
+
+def _cookie_secure(request: Request) -> bool:
+    forwarded = (request.headers.get("x-forwarded-proto") or "").split(",")[0].strip().lower()
+    return request.url.scheme == "https" or forwarded == "https"
+
+
+def _trusted_device_matches(request: Request, user: dict[str, Any]) -> bool:
+    """校验 HttpOnly 可信设备 Cookie：绑定 CID + 设备指纹 + token epoch。"""
+    token = request.cookies.get(TRUSTED_DEVICE_COOKIE) or ""
+    fp_hash = _device_fp_hash(request)
+    if not token or not fp_hash:
+        return False
+    try:
+        claims = verify_trusted_device(token)
+    except TokenError:
+        return False
+    cid = str(user.get("cid") or "")
+    if str(claims.get("cid") or "") != cid:
+        return False
+    if str(claims.get("fp") or "") != fp_hash:
+        return False
+    return not token_state.is_epoch_stale(cid, claims.get("tokep"))
+
+
+def _issue_trusted_device(response: JSJSONResponse, request: Request, user: dict[str, Any]) -> None:
+    """登录成功后签发 30 天可信设备 Cookie；无设备指纹时不签发。"""
+    fp_hash = _device_fp_hash(request)
+    if not fp_hash:
+        return
+    cid = str(user.get("cid") or "")
+    ttl = max(1, int(settings.TRUSTED_DEVICE_TTL_SECONDS))
+    token = sign_trusted_device(cid, fp_hash, token_state.token_epoch(cid), ttl)
+    response.set_cookie(
+        key=TRUSTED_DEVICE_COOKIE,
+        value=token,
+        max_age=ttl,
+        httponly=True,
+        secure=_cookie_secure(request),
+        samesite="lax",
+        path="/",
+    )
 
 
 def user_payload(user: dict[str, Any]) -> dict[str, Any]:
@@ -297,9 +353,10 @@ async def login(request: Request, db: AsyncSession = Depends(get_db)) -> Any:
         except Exception:
             pass
 
-    # 可信 IP 校验：新 IP → 邮箱二次验证
+    # 可信 IP / 可信设备校验：两者任一命中即跳过邮箱二次验证
     trusted = await users.trusted_ips(db, user.get("registerIp"), user["cid"])
-    if ip not in trusted:
+    device_trusted = _trusted_device_matches(request, user)
+    if ip not in trusted and not device_trusted:
         # 未绑定邮箱的账号无法走邮箱二次验证：允许登录，但写高风险审计日志。
         # 不能直接返回 needVerify，否则这类账号会因无法收码而永久锁死。
         if not user.get("email"):
@@ -313,10 +370,12 @@ async def login(request: Request, db: AsyncSession = Depends(get_db)) -> Any:
                 device_fp or "-",
             )
             token = sign_token(user)
-            return ok(
+            response = ok(
                 {"token": token, "user": user_payload(user)},
                 securityWarning="检测到新 IP 登录，但账号未绑定邮箱；请尽快绑定邮箱以启用二次验证。",
             )
+            _issue_trusted_device(response, request, user)
+            return response
 
         try:
             challenge = await create_login_challenge(db, user["cid"], ip, device_fp)
@@ -340,10 +399,12 @@ async def login(request: Request, db: AsyncSession = Depends(get_db)) -> Any:
 
     await _safe_login_log(db, cid, ip, user_agent, device_fp, True, "")
     token = sign_token(user)
-    return ok({"token": token, "user": user_payload(user)})
+    response = ok({"token": token, "user": user_payload(user)})
+    _issue_trusted_device(response, request, user)
+    return response
 
 
-# ============================ 登录二次验证（新 IP） ============================
+# ============================ 登录二次验证（新 IP / 新设备） ============================
 @router.post(
     "/login-verify",
     dependencies=[Depends(login_limiter), Depends(require_pow_token)],
@@ -396,7 +457,9 @@ async def login_verify(request: Request, db: AsyncSession = Depends(get_db)) -> 
 
     await _safe_login_log(db, user["cid"], ip, user_agent, device_fp, True, "")
     token = sign_token(user)
-    return ok({"token": token, "user": user_payload(user)})
+    response = ok({"token": token, "user": user_payload(user)})
+    _issue_trusted_device(response, request, user)
+    return response
 
 
 # ============================ 会话续签 ============================
@@ -455,6 +518,8 @@ async def logout(request: Request) -> Any:
                 revoked = True
             if cid:
                 log.info("[auth.py] 用户登出: cid=%s mode=%s revoked=%s", cid, mode, revoked)
+    # 仅结束当前登录会话；可信设备 Cookie 保留，避免同一设备每次登录都重新收码。
+    # 修改密码/封禁会前移 token epoch，使旧的可信设备 Cookie 自动失效。
     return JSJSONResponse(
         {"success": True, "message": "已退出登录", "data": {"mode": mode, "revoked": revoked}}
     )
