@@ -7,13 +7,12 @@
 
     <div class="card">
       <div class="table-wrap">
-        <table v-sort="{ index: 5, desc: true }">
+        <table v-sort="{ index: 4, desc: true }">
           <thead>
             <tr>
               <th>ID</th>
               <th>CID</th>
               <th>用户名</th>
-              <th>申请部门</th>
               <th>理由</th>
               <th>时间</th>
               <th>面试时间</th>
@@ -26,7 +25,6 @@
               <td>{{ a.id }}</td>
               <td class="font-bold">{{ a.userId }}</td>
               <td>{{ a.name }}</td>
-              <td>{{ a.department || '-' }}</td>
               <td class="text-sm text-muted" style="max-width:200px;" :title="a.reason">{{ a.reason }}</td>
               <td class="text-muted text-sm" :title="a.time">{{ a.time }}</td>
               <td class="text-sm" :title="interviewTitle(a)">
@@ -49,7 +47,7 @@
               </td>
             </tr>
             <tr v-if="!list.length">
-              <td colspan="9" class="text-center text-muted">暂无申请</td>
+              <td colspan="8" class="text-center text-muted">暂无申请</td>
             </tr>
           </tbody>
         </table>
@@ -103,7 +101,6 @@
           <div><span class="detail-label">ID</span><span>{{ detailTarget.id }}</span></div>
           <div><span class="detail-label">CID</span><span class="font-bold">{{ detailTarget.userId }}</span></div>
           <div><span class="detail-label">用户名</span><span>{{ detailTarget.name }}</span></div>
-          <div><span class="detail-label">申请部门</span><span>{{ detailTarget.department || '-' }}</span></div>
           <div><span class="detail-label">提交时间</span><span>{{ detailTarget.time || '-' }}</span></div>
           <div><span class="detail-label">状态</span><span class="badge" :class="statusBadge(detailTarget.status)">{{ detailTarget.status }}</span></div>
           <div><span class="detail-label">面试时间①</span><span>{{ detailTarget.interviewTime1 || '-' }}</span></div>

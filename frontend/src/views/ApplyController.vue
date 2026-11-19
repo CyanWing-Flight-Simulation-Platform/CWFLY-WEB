@@ -16,10 +16,6 @@
           <input v-model="form.name" class="input" readonly />
         </div>
         <div class="mb-md">
-          <label class="text-sm font-bold mb-sm" style="display:block;">申请部门</label>
-          <SelectMenu v-model="form.department" :options="[{ value: '区调管制', label: '区调管制' }, { value: '进近管制', label: '进近管制' }, { value: '塔台管制', label: '塔台管制' }, { value: '地面管制', label: '地面管制' }]" />
-        </div>
-        <div class="mb-md">
           <label class="text-sm font-bold mb-sm" style="display:block;">申请理由</label>
           <textarea v-model="form.reason" class="input" rows="4" placeholder="请描述您的飞行经历、管制经验等..." required></textarea>
         </div>
@@ -42,7 +38,7 @@ const user = computed(() => {
   catch { return null }
 })
 
-const form = ref({ cid: user.value?.cid || '', name: user.value?.username || '', department: '', reason: '' })
+const form = ref({ cid: user.value?.cid || '', name: user.value?.username || '', reason: '' })
 const loading = ref(false)
 const submitted = ref(false)
 const msg = ref('')

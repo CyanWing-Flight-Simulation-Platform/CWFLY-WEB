@@ -16,10 +16,6 @@
           <input v-model="form.name" class="input" readonly />
         </div>
         <div class="mb-md">
-          <label class="text-sm font-bold mb-sm" style="display:block;">申请部门</label>
-          <SelectMenu v-model="form.department" :options="[{ value: '管理部', label: '管理部' }, { value: '活动部', label: '活动部' }, { value: '技术部', label: '技术部' }, { value: '宣传部', label: '宣传部' }, { value: '人事部', label: '人事部' }]" />
-        </div>
-        <div class="mb-md">
           <label class="text-sm font-bold mb-sm" style="display:block;">申请理由</label>
           <textarea v-model="form.reason" class="input" rows="4" placeholder="请描述您的优势和期望..." required></textarea>
         </div>
@@ -42,7 +38,7 @@ const user = computed(() => {
   catch { return null }
 })
 
-const form = ref({ cid: user.value?.cid || '', name: user.value?.username || '', department: '', reason: '' })
+const form = ref({ cid: user.value?.cid || '', name: user.value?.username || '', reason: '' })
 const loading = ref(false)
 const submitted = ref(false)
 const msg = ref('')
