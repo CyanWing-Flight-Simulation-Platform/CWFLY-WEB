@@ -28,7 +28,6 @@
       @submit="aptEditSubmit"
       @cancel="aptEditCancel"
     />
-    <MapStatusBar :connected="connected" :last-update="lastUpdate" />
   </div>
 </template>
 
@@ -42,7 +41,6 @@
  *  - src/composables/useAirportGroundLayers.js   机场地面数据图层（3D/2D）
  *  - src/composables/useAirportEditor.js         机场编辑模式（开发者工具 airport-edit）
  *  - src/components/map/MapLayerSwitcher.vue     地图源切换器
- *  - src/components/map/MapStatusBar.vue         数据状态条
  *  - src/components/map/AirportEditToolbar.vue   机场编辑悬浮工具栏
  *  - src/components/map/mapCore.js               常量 / 坐标转换 / 图层定义
  *
@@ -51,7 +49,6 @@
  */
 import { onMounted, onUnmounted, ref } from 'vue'
 import MapLayerSwitcher from '@/components/map/MapLayerSwitcher.vue'
-import MapStatusBar from '@/components/map/MapStatusBar.vue'
 import AirportEditToolbar from '@/components/map/AirportEditToolbar.vue'
 import { layers3D, flatLayers } from '@/components/map/mapCore'
 import { useOnlineMapData } from '@/composables/useOnlineMapData'
