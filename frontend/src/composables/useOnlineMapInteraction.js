@@ -410,7 +410,7 @@ export function useOnlineMapInteraction(cfg) {
       const availability = refreshMapboxAvailability()
       if (!availability.available) {
         mapboxFallbackDone = true
-        fallbackTo2D({ message: availability.message })
+        fallbackTo2D({ message: availability.reason === 'no-token' ? '' : availability.message })
         return
       }
       mapboxAvailable.value = true
@@ -580,7 +580,8 @@ export function useOnlineMapInteraction(cfg) {
     const { message = MAPBOX_UNAVAILABLE_MESSAGE, persist = false } = options
     mapboxAvailable.value = false
     if (persist) markMapboxInvalid()
-    notifyMapboxFallback(message)
+    // 未配置 3D 属于正常降级，不弹错误提示；只有令牌失效/运行期失败才提示。
+    if (message) notifyMapboxFallback(message)
     disposeMapbox()
     loading.value = false
     if (isMapboxDependentLayer(activeLayer.value)) {
@@ -1195,12 +1196,13 @@ export function useOnlineMapInteraction(cfg) {
       if (isMapboxDependentLayer(activeLayer.value)) {
         mapboxFallbackDone = true
         // activeLayer → 'gaode' 后由 watch(activeLayer) → switchEngine 完成 2D 初始化（保持单一初始化路径）
-        fallbackTo2D({ message: availability.message })
+        // 无令牌是正常部署形态（当前未配置 3D），静默回退；令牌失效才提示。
+        fallbackTo2D({ message: availability.reason === 'no-token' ? '' : availability.message })
         startThemeObserver()
         return
       }
-      // 当前已是 2D 源：仅提示 3D 不可用，继续正常初始化 2D
-      notifyMapboxFallback(availability.message)
+      // 当前已是 2D 源：无令牌时继续正常初始化，不弹错误
+      if (availability.reason !== 'no-token') notifyMapboxFallback(availability.message)
     }
     // 默认 Mapbox3D 地球：优先加载 Mapbox GL；AMap 仅切换到平面源时再加载
     if (activeLayer.value === 'mapbox3d') {
