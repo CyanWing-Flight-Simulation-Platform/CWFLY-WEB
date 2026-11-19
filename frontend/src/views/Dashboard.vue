@@ -1,5 +1,13 @@
 <template>
   <div class="dashboard fade-in">
+    <!-- 仪表盘顶部品牌：从 TopBar 移入内容区 -->
+    <div class="dashboard-brand">
+      <router-link to="/dashboard" class="dashboard-brand__link">
+        <img :src="brandLogo" class="dashboard-brand__logo" alt="CWFLY" />
+        <span class="dashboard-brand__text">CWFLY</span>
+      </router-link>
+    </div>
+
     <!-- 欢迎 -->
     <div class="welcome-card">
       <div class="welcome-left">
@@ -93,9 +101,16 @@ import { useUserStore } from '@/store/user'
 import { useOnlineUsersStore } from '@/store/onlineUsers'
 import { dashboardApi, adminApi, flightplanApi } from '@/api'
 import { getBeijingHour } from '@/utils/timeBg'
+import { themeMode, isDarkTheme } from '@/utils/theme'
 
 const user = useUserStore()
 const onlineStore = useOnlineUsersStore()
+
+// 品牌 Logo 跟随主题：深色用深色版，浅色用浅色版
+const brandLogo = computed(() => {
+  void themeMode.value
+  return isDarkTheme() ? '/logo/logo_dark.png' : '/logo/logo_light.jpg'
+})
 
 // 按北京时间每 30 秒刷新一次（配色在 7:00/19:00 自动切换时问候语同步更新）
 const nowTick = ref(0)
@@ -201,6 +216,33 @@ async function loadFsd() {
 </script>
 
 <style scoped>
+.dashboard-brand {
+  display: flex;
+  align-items: center;
+  margin-bottom: 20px;
+}
+.dashboard-brand__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--c-text);
+  text-decoration: none;
+}
+.dashboard-brand__link:hover { text-decoration: none; }
+.dashboard-brand__logo {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+.dashboard-brand__text {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: .02em;
+  color: var(--c-text);
+}
+
 .stats-row {
   display: grid;
   grid-template-columns: repeat(4, 1fr);

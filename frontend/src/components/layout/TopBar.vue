@@ -6,7 +6,7 @@
         <span></span><span></span><span></span>
       </button>
 
-      <router-link to="/dashboard" class="app-header__brand">
+      <router-link v-if="!isDashboardPage" to="/dashboard" class="app-header__brand">
         <img :src="brandLogo" class="brand-logo" />
         <span class="brand-text">CWFLY</span>
       </router-link>
@@ -191,6 +191,11 @@ defineEmits([
 const route = useRoute()
 const user = useUserStore()
 const mapSettings = useMapSettingsStore()
+
+// 仪表盘把 Logo/文字放到页面内容顶部，顶栏不再重复显示品牌
+const isDashboardPage = computed(
+  () => route.name === 'Dashboard' || route.path === '/dashboard'
+)
 
 // ---------------------------------------------------------------------------
 // 导航（顶栏单项目 / 分组下拉面板 / 当前项）
@@ -414,10 +419,6 @@ defineExpose({
   /* 品牌链接颜色固定为文字色：避免 Chrome @property 主题过渡时,
      --c-text 短暂无效导致 brand-text 回退继承外层链接的 --c-primary(蓝) 而闪蓝 */
   color: var(--c-text);
-  
-  /* 👇 已经为你添加好了，控制整体下移 👇 */
-  position: relative;
-  top: 3px; 
 }
 .app-header__brand:hover { text-decoration: none; }
 
