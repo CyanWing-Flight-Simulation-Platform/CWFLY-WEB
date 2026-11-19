@@ -32,14 +32,16 @@ import { removeToast, toastState } from '@/utils/banner'
 <style scoped>
 .toast-stack {
   position: fixed;
-  top: calc(var(--header-h, 60px) + 12px);
-  right: 16px;
-  z-index: 2100;
+  top: calc(var(--header-h, 60px) + 14px);
+  left: 50%;
+  z-index: 3000;
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 8px;
-  width: 360px;
-  max-width: calc(100vw - 32px);
+  width: max-content;
+  max-width: min(620px, calc(100vw - 32px));
+  transform: translateX(-50%);
   pointer-events: none;
 }
 
@@ -47,6 +49,8 @@ import { removeToast, toastState } from '@/utils/banner'
   display: flex;
   align-items: flex-start;
   gap: 9px;
+  width: max-content;
+  max-width: min(620px, calc(100vw - 32px));
   padding: 11px 10px 11px 12px;
   border: 1px solid rgba(15, 23, 42, .08);
   border-left: 3px solid var(--toast-accent, #2563eb);
@@ -109,6 +113,6 @@ html[data-theme='dark'] .toast-card__close:hover { background: rgba(255, 255, 25
 
 .toast-enter-active,
 .toast-leave-active { transition: opacity .2s ease, transform .2s ease; }
-.toast-enter-from { opacity: 0; transform: translateX(14px); }
-.toast-leave-to { opacity: 0; transform: translateX(14px); }
+.toast-enter-from { opacity: 0; transform: translateY(-8px); }
+.toast-leave-to { opacity: 0; transform: translateY(-6px); }
 </style>
