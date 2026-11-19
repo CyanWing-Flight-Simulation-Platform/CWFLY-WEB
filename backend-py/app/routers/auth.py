@@ -42,7 +42,7 @@ from app.services.mailer import (
     store_code,
     verify_code,
 )
-from app.services import token_state
+from app.services import audit_log, token_state
 from app.services.token import (
     TokenError,
     TokenExpiredError,
@@ -322,6 +322,14 @@ async def login(request: Request, db: AsyncSession = Depends(get_db)) -> Any:
             )
         except Exception:
             pass
+        await audit_log.write(
+            db,
+            "login_banned_device",
+            "登录被拒绝：设备指纹已被封禁",
+            str(cid or "unknown"),
+            category="risk",
+            target_type="device",
+        )
         return fail(403, "该设备已被封禁，请联系管理员", code="DEVICE_BANNED")
 
     # 安全（P1-14 / P2-3）：先取账号（只为拿 rating），锁定判定按 (cid, ip) 组合，
@@ -336,11 +344,17 @@ async def login(request: Request, db: AsyncSession = Depends(get_db)) -> Any:
     if not user:
         await record_login_failure(db, cid, ip)
         await _safe_login_log(db, cid or "unknown", ip, user_agent, device_fp, False, "notfound")
+        await audit_log.write(
+            db, "login_unknown_cid", "登录失败：CID 不存在", str(cid or ""), category="risk"
+        )
         return fail(401, "CID 或密码错误")
 
     if not verify_password(password, user.get("password")):
         await record_login_failure(db, cid, ip)
         await _safe_login_log(db, cid, ip, user_agent, device_fp, False, "password")
+        await audit_log.write(
+            db, "login_wrong_password", "登录失败：密码错误", str(cid or ""), category="risk"
+        )
         return fail(401, "CID 或密码错误")
 
     await clear_login_failures(db, cid)
@@ -362,6 +376,15 @@ async def login(request: Request, db: AsyncSession = Depends(get_db)) -> Any:
         if not user.get("email"):
             await _safe_login_log(
                 db, cid, ip, user_agent, device_fp, True, "new_ip_no_email_high_risk"
+            )
+            await audit_log.write(
+                db,
+                "new_ip_no_email",
+                "新 IP 登录且账号未绑定邮箱，已按高风险放行",
+                str(cid or ""),
+                category="risk",
+                target_type="user",
+                target_id=cid,
             )
             log.warning(
                 "[auth] 新 IP 且未绑定邮箱，按高风险放行: cid=%s ip=%s fp=%s",
@@ -398,6 +421,15 @@ async def login(request: Request, db: AsyncSession = Depends(get_db)) -> Any:
         )
 
     await _safe_login_log(db, cid, ip, user_agent, device_fp, True, "")
+    await audit_log.write(
+        db,
+        "login_success",
+        "登录成功",
+        str(cid or ""),
+        category="auth",
+        target_type="user",
+        target_id=cid,
+    )
     token = sign_token(user)
     response = ok({"token": token, "user": user_payload(user)})
     _issue_trusted_device(response, request, user)

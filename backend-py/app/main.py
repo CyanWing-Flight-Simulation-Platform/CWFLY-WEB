@@ -19,6 +19,7 @@ from starlette.staticfiles import StaticFiles
 from app.config import settings
 from app.db.session import dispose_engine
 from app.deps import AuthFailure
+from app.middleware.audit_context import AuditContextMiddleware
 from app.middleware.gateway import GatewayMiddleware
 from app.middleware.ip_ban import IpBanMiddleware, preload_bans
 from app.middleware.rate_limit import (
@@ -58,6 +59,9 @@ async def lifespan(app: FastAPI):
         from app.services.login_challenge import ensure_table as _ensure_login_challenge_table
 
         await _ensure_login_challenge_table()
+        from app.services.audit_log import ensure_schema as _ensure_audit_schema
+
+        await _ensure_audit_schema()
     except Exception as exc:  # noqa: BLE001
         log.warning("[CWFLY] 预热失败: %s", exc)
     # 预热：DB 连接池 + FIR 边界（消除每个 worker 的首请求冷启动）
@@ -139,6 +143,7 @@ app.add_middleware(
 app.add_middleware(GatewayMiddleware)            # UA 过滤 + 安全头 + 续签/限流头 + IP 聚合 + 访问日志（合并）
 app.add_middleware(IpBanMiddleware)              # IP 封禁（IpBan > 白名单 > IpList）
 app.add_middleware(RateLimitMiddleware, limit=GLOBAL_API)  # /api 全局 60 次/分钟
+app.add_middleware(AuditContextMiddleware)  # 审计日志读取 IP/UA 的请求上下文
 
 # ---------- 静态文件（路径与 Node 完全一致） ----------
 for sub in ("avatars", "posters", "backgrounds"):

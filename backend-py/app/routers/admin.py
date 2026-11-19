@@ -35,7 +35,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_db
 from app.deps import AuthFailure, CurrentUser, get_current_user, require_permission, require_rating
 from app.middleware.rate_limit import Limit, RateLimitExceeded, rate_limiter
-from app.services import mailer
+from app.services import audit_log, mailer
 from app.services.device_fp import ban_device_fp, ban_user_devices, refresh_device_bans
 from app.services.ip_ban_store import normalize_ip, refresh_bans, refresh_ip_list
 from app.services.mailer_templates import (
@@ -106,7 +106,10 @@ COLUMNS: dict[str, str] = {
     "LoginLog": (
         "`id`, `userId`, `ip`, `userAgent`, `success`, `createdAt`, `deviceFp`, `type`, `failReason`"
     ),
-    "AuditLog": "`id`, `userId`, `action`, `target`, `detail`, `createdAt`",
+    "AuditLog": (
+        "`id`, `userId`, `action`, `target`, `detail`, `createdAt`, `category`, "
+        "`actorName`, `actorRole`, `targetType`, `targetId`, `ip`, `ua`, `uaLabel`, `uaBot`, `pid`"
+    ),
     "IpVisit": "`id`, `ip`, `windowStart`, `count`, `firstSeen`, `lastSeen`, `deviceFp`",
     "IpBan": "`id`, `ip`, `reason`, `bannedBy`, `bannedUser`, `active`, `expiresAt`, `createdAt`",
     "IpList": "`id`, `ip`, `type`, `reason`, `addedBy`, `active`, `createdAt`",
@@ -359,27 +362,8 @@ def generate_random_password(length: int = 12) -> str:
 
 
 async def _write_audit(db: AsyncSession, action: str, detail: str, operator: str) -> None:
-    """对齐 Node `writeAudit`：写失败静默，不影响主流程。"""
-    try:
-        await db.execute(
-            text(
-                "INSERT INTO `AuditLog` (`userId`, `action`, `target`, `detail`) "
-                "VALUES (:uid, :action, :target, :detail)"
-            ),
-            {
-                "uid": operator or "system",
-                "action": action,
-                "target": detail[:200],
-                "detail": detail,
-            },
-        )
-        await db.commit()
-    except Exception as exc:  # noqa: BLE001
-        log.warning("[admin.py] writeAudit 失败: %s", exc)
-        try:
-            await db.rollback()
-        except Exception:  # noqa: BLE001
-            pass
+    """写后台操作审计；分类/操作人快照/IP/UA 由统一服务补齐。"""
+    await audit_log.write(db, action, detail, operator)
 
 
 def _pending_visits() -> list[dict[str, Any]]:
@@ -1435,28 +1419,96 @@ async def delete_staff(
 async def logs_audit(
     page: str = "1",
     pageSize: str = "20",  # noqa: N803
+    days: str = "7",
+    category: str = "",
+    q: str = "",
     current: CurrentUser = Depends(admin_guard),
     _perm: CurrentUser = Depends(require_permission(PERM_USER)),
     db: AsyncSession = Depends(get_db),
 ) -> JSJSONResponse:
     skip, take = _paging(page, pageSize)
+    day_window = max(1, min(_as_int(days or 7), 90))
+    category = (category or "").strip()
+    if category and category not in audit_log.CATEGORIES:
+        category = ""
+    query = (q or "").strip()
+    where = ["`createdAt` >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL :days DAY)"]
+    params: dict[str, Any] = {"days": day_window, "take": take, "skip": skip}
+    if category:
+        where.append("`category` = :category")
+        params["category"] = category
+    if query:
+        where.append(
+            "(`actorName` LIKE :q OR `action` LIKE :q OR `detail` LIKE :q "
+            "OR `targetId` LIKE :q OR `userId` LIKE :q)"
+        )
+        params["q"] = f"%{query}%"
+    clause = " AND ".join(where)
     rows = (
         await db.execute(
-            text(sel("AuditLog", f"ORDER BY `createdAt` DESC LIMIT {take} OFFSET {skip}"))
+            text(
+                f"SELECT {COLUMNS['AuditLog']} FROM `AuditLog` WHERE {clause} "
+                "ORDER BY `createdAt` DESC LIMIT :take OFFSET :skip"
+            ),
+            params,
         )
     ).all()
-    total = (await db.execute(text("SELECT COUNT(*) AS c FROM `AuditLog`"))).scalar_one()
+    total = (
+        await db.execute(
+            text(f"SELECT COUNT(*) AS c FROM `AuditLog` WHERE {clause}"),
+            params,
+        )
+    ).scalar_one()
+    category_rows = (
+        await db.execute(
+            text(
+                "SELECT `category`, COUNT(*) AS c FROM `AuditLog` "
+                "WHERE `createdAt` >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL :days DAY) "
+                "GROUP BY `category`"
+            ),
+            {"days": day_window},
+        )
+    ).all()
     formatted = [
         {
             "id": item.get("id"),
+            "category": item.get("category") or "admin",
+            "categoryLabel": audit_log.CATEGORY_LABELS.get(
+                str(item.get("category") or "admin"), str(item.get("category") or "admin")
+            ),
             "action": item.get("action"),
             "operator": item.get("userId"),
+            "actorName": item.get("actorName") or item.get("userId") or "",
+            "actorRole": item.get("actorRole") or "",
+            "targetType": item.get("targetType") or "",
+            "targetId": item.get("targetId") or "",
             "detail": item.get("detail"),
+            "ip": item.get("ip") or "",
+            "ua": item.get("ua") or "",
+            "uaLabel": item.get("uaLabel") or "",
+            "uaBot": bool(item.get("uaBot")),
             "time": _zh(item.get("createdAt")),
         }
         for item in _rows(rows)
     ]
-    return _ok({"items": formatted, "total": int(total)})
+    return _ok(
+        {
+            "items": formatted,
+            "total": int(total),
+            "byCategory": [
+                {
+                    "category": row._mapping.get("category") or "admin",
+                    "label": audit_log.CATEGORY_LABELS.get(
+                        str(row._mapping.get("category") or "admin"),
+                        str(row._mapping.get("category") or "admin"),
+                    ),
+                    "count": int(row._mapping.get("c") or 0),
+                }
+                for row in category_rows
+            ],
+            "categoryLabels": audit_log.CATEGORY_LABELS,
+        }
+    )
 
 
 # ==================== IP 封禁管理 ====================
