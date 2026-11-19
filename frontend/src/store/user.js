@@ -80,6 +80,13 @@ export const useUserStore = defineStore('user', () => {
         otpauthUrl: res.data?.otpauthUrl || '',
       }
     }
+    if (res && (res.needDevice2fa || res.needDevice2faSetup)) {
+      return {
+        needDevice2fa: !!res.needDevice2fa,
+        needDevice2faSetup: !!res.needDevice2faSetup,
+        loginChallenge: res.data?.loginChallenge || '',
+      }
+    }
     profile.value = res.data.user
     save()
     localStorage.setItem('cw_last_active', String(Date.now()))

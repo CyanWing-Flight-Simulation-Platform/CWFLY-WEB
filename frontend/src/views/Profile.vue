@@ -48,64 +48,53 @@
       </div>
     </div>
 
-    <!-- 双因素认证（自研 TOTP 2FA） -->
+    <!-- 站内设备密钥（自研 Passkey 2FA） -->
     <div class="card p-lg mb-lg profile-card">
-      <h3 class="mb-md">双因素认证（2FA）</h3>
+      <h3 class="mb-md">站内设备密钥（2FA）</h3>
       <p class="text-sm text-muted mb-md">
-        使用任意标准 TOTP 验证器生成 6 位动态验证码（Google Authenticator、1Password、Bitwarden 等均可）。开启后登录除密码外还需动态码；管理员强制开启。
+        不依赖手机或第三方 App：密钥由当前浏览器生成并只保存在本机，登录时用本机密钥签名验证；私钥不会上传。
       </p>
       <div class="flex items-center gap-md flex-wrap">
-        <span class="mfa-badge" :class="{ 'is-on': mfaStatus.enabled }">
-          {{ mfaStatus.enabled ? '已启用' : '未启用' }}
+        <span class="mfa-badge" :class="{ 'is-on': deviceStatus.enabled }">
+          {{ deviceStatus.enabled ? '已启用' : '未启用' }}
         </span>
-        <button v-if="!mfaStatus.enabled" type="button" class="btn btn-primary btn-sm" @click="mfaStart" :disabled="mfaLoading">
-          启用 2FA
+        <button v-if="!deviceStatus.enabled" type="button" class="btn btn-primary btn-sm" @click="deviceStart" :disabled="deviceLoading">
+          注册本机密钥
         </button>
-        <button v-else type="button" class="btn btn-outline btn-sm" @click="mfaStep = 'disable'" :disabled="mfaLoading">
+        <button v-else type="button" class="btn btn-outline btn-sm" @click="deviceStep = 'disable'; devicePassword=''; deviceRecoveryCode=''" :disabled="deviceLoading">
           关闭 2FA
         </button>
       </div>
 
-      <div v-if="mfaStep === 'password'" class="mfa-box">
-        <p class="text-sm mb-sm">先验证当前密码：</p>
-        <input v-model="mfaPassword" class="input" type="password" autocomplete="current-password" placeholder="当前密码" />
-        <button type="button" class="btn btn-primary btn-sm mt-sm" @click="mfaSetup" :disabled="mfaLoading">
-          {{ mfaLoading ? '请稍候...' : '生成绑定密钥' }}
+      <div v-if="deviceStep === 'password'" class="mfa-box">
+        <p class="text-sm mb-sm">先验证当前密码，再生成只保存在本机的设备密钥：</p>
+        <input v-model="devicePassword" class="input" type="password" autocomplete="current-password" placeholder="当前密码" />
+        <button type="button" class="btn btn-primary btn-sm mt-sm" @click="deviceSetup" :disabled="deviceLoading">
+          {{ deviceLoading ? '正在生成...' : '生成并注册本机密钥' }}
         </button>
       </div>
 
-      <div v-if="mfaStep === 'code'" class="mfa-box">
-        <p class="text-sm mb-sm">在 TOTP 验证器中手动添加以下密钥（或复制 otpauth 链接）：</p>
-        <code class="mfa-secret">{{ mfaSecret }}</code>
-        <p class="text-xs text-muted mt-sm" style="word-break:break-all;">{{ mfaOtpauth }}</p>
-        <input v-model="mfaCode" class="input mt-sm" inputmode="numeric" maxlength="6" placeholder="输入 6 位动态验证码" />
-        <button type="button" class="btn btn-primary btn-sm mt-sm" @click="mfaActivate" :disabled="mfaLoading">
-          {{ mfaLoading ? '验证中...' : '验证并启用' }}
-        </button>
-      </div>
-
-      <div v-if="mfaStep === 'recovery'" class="mfa-box">
-        <p class="text-sm mb-sm"><b>请立即保存恢复码</b>，丢失手机时每个恢复码可使用一次：</p>
+      <div v-if="deviceStep === 'recovery'" class="mfa-box">
+        <p class="text-sm mb-sm"><b>请立即保存恢复码</b>，换浏览器/清除站点数据时每个恢复码可使用一次：</p>
         <div class="mfa-recovery">
-          <code v-for="code in mfaRecoveryCodes" :key="code">{{ code }}</code>
+          <code v-for="code in deviceRecoveryCodes" :key="code">{{ code }}</code>
         </div>
-        <button type="button" class="btn btn-primary btn-sm" @click="mfaStep = ''">我已保存</button>
+        <button type="button" class="btn btn-primary btn-sm" @click="deviceStep = ''">我已保存</button>
       </div>
 
-      <div v-if="mfaStep === 'disable'" class="mfa-box">
-        <p class="text-sm mb-sm">关闭 2FA 需要当前密码 + 动态验证码/恢复码：</p>
-        <input v-model="mfaPassword" class="input" type="password" autocomplete="current-password" placeholder="当前密码" />
-        <input v-model="mfaCode" class="input mt-sm" placeholder="动态验证码或恢复码" />
-        <button type="button" class="btn btn-danger btn-sm mt-sm" @click="mfaDisable" :disabled="mfaLoading">
-          {{ mfaLoading ? '请稍候...' : '确认关闭' }}
+      <div v-if="deviceStep === 'disable'" class="mfa-box">
+        <p class="text-sm mb-sm">关闭 2FA 需要当前密码 + 一个恢复码：</p>
+        <input v-model="devicePassword" class="input" type="password" autocomplete="current-password" placeholder="当前密码" />
+        <input v-model="deviceRecoveryCode" class="input mt-sm" placeholder="恢复码" />
+        <button type="button" class="btn btn-danger btn-sm mt-sm" @click="deviceDisable" :disabled="deviceLoading">
+          {{ deviceLoading ? '请稍候...' : '确认关闭' }}
         </button>
       </div>
 
-      <p v-if="mfaMsg" class="text-sm mt-sm" :style="{ color: mfaMsgType === 'ok' ? 'var(--c-success)' : 'var(--c-danger)' }">
-        {{ mfaMsg }}
+      <p v-if="deviceMsg" class="text-sm mt-sm" :style="{ color: deviceMsgType === 'ok' ? 'var(--c-success)' : 'var(--c-danger)' }">
+        {{ deviceMsg }}
       </p>
     </div>
-
     <!-- 绑定信息 -->
     <div class="card p-lg mb-lg profile-card">
       <h3 class="mb-md">绑定设置</h3>
@@ -199,6 +188,7 @@ import { ref, reactive, onMounted, computed } from 'vue'
 import { useUserStore } from '@/store/user'
 import { navLayout, narrowScreen, setNavLayout } from '@/utils/navLayout'
 import api, { authApi, profileApi } from '@/api'
+import { createDeviceKey } from '@/utils/deviceKey'
 import Skeleton from '@/components/base/Skeleton.vue'
 import UserAvatar from '@/components/base/UserAvatar.vue'
 import UserTag from '@/components/base/UserTag.vue'
@@ -243,6 +233,16 @@ const mfaLoading = ref(false)
 const mfaMsg = ref('')
 const mfaMsgType = ref('ok')
 
+// 站内设备密钥（Passkey）
+const deviceStatus = reactive({ enabled: false, required: false })
+const deviceStep = ref('')
+const devicePassword = ref('')
+const deviceRecoveryCode = ref('')
+const deviceRecoveryCodes = ref([])
+const deviceLoading = ref(false)
+const deviceMsg = ref('')
+const deviceMsgType = ref('ok')
+
 // FSD 等级映射与用户管理页一致（以用户管理页为准）：
 // 0=飞行员 1=观察员 2=地面/放行S1 3=塔台S2 4=终端S3 5=区域C1 6=区域C2 7=区域C3
 // 8=塔台教员I1 9=进近教员I2 10=区域教员I3 11=SUP 12=ADM
@@ -284,7 +284,7 @@ onMounted(async () => {
   } catch { /* ignore */ } finally {
     loading.value = false
   }
-  loadMfaStatus()
+  loadDevice2faStatus()
 })
 
 // 背景图相关
@@ -382,6 +382,72 @@ async function saveBind() {
     }
   } catch (e) { alert('保存失败: ' + e.message) }
   finally { bindLoading.value = false }
+}
+
+async function loadDevice2faStatus() {
+  try {
+    const res = await authApi.device2faStatus()
+    deviceStatus.enabled = !!res.data?.enabled
+    deviceStatus.required = !!res.data?.required
+  } catch { /* 未登录/接口异常 */ }
+}
+
+function deviceStart() {
+  deviceStep.value = 'password'
+  devicePassword.value = ''
+  deviceRecoveryCode.value = ''
+  deviceMsg.value = ''
+}
+
+async function deviceSetup() {
+  deviceMsg.value = ''
+  if (!devicePassword.value) { deviceMsg.value = '请输入当前密码'; deviceMsgType.value = 'err'; return }
+  deviceLoading.value = true
+  try {
+    const setup = await authApi.device2faSetup({ password: devicePassword.value })
+    const challenge = setup.data?.loginChallenge || ''
+    const cid = user.cid || profileData.value?.cid || ''
+    const publicKey = await createDeviceKey(String(cid))
+    const res = await authApi.device2faRegister({
+      cid,
+      loginChallenge: challenge,
+      publicKey,
+    })
+    deviceRecoveryCodes.value = res.data?.recoveryCodes || []
+    deviceStatus.enabled = true
+    deviceStep.value = 'recovery'
+    deviceMsg.value = '站内设备密钥已注册'
+    deviceMsgType.value = 'ok'
+  } catch (e) {
+    deviceMsg.value = e?.message === 'DEVICE_KEY_MISSING'
+      ? '当前浏览器不支持设备密钥'
+      : (e.message || '注册设备密钥失败')
+    deviceMsgType.value = 'err'
+  } finally {
+    deviceLoading.value = false
+  }
+}
+
+async function deviceDisable() {
+  deviceMsg.value = ''
+  if (!devicePassword.value || !deviceRecoveryCode.value) {
+    deviceMsg.value = '请输入密码和恢复码'; deviceMsgType.value = 'err'; return
+  }
+  deviceLoading.value = true
+  try {
+    await authApi.device2faDisable({ password: devicePassword.value, recoveryCode: deviceRecoveryCode.value })
+    deviceStatus.enabled = false
+    deviceStep.value = ''
+    devicePassword.value = ''
+    deviceRecoveryCode.value = ''
+    deviceMsg.value = '已关闭站内 2FA'
+    deviceMsgType.value = 'ok'
+  } catch (e) {
+    deviceMsg.value = e.message || '关闭失败'
+    deviceMsgType.value = 'err'
+  } finally {
+    deviceLoading.value = false
+  }
 }
 
 async function loadMfaStatus() {

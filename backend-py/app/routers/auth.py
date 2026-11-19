@@ -42,7 +42,7 @@ from app.services.mailer import (
     store_code,
     verify_code,
 )
-from app.services import audit_log, mfa, token_state
+from app.services import audit_log, device2fa, mfa, token_state
 from app.services.token import (
     TokenError,
     TokenExpiredError,
@@ -156,6 +156,7 @@ def user_payload(user: dict[str, Any]) -> dict[str, Any]:
         "permissions": user.get("permissions") or "",
         "fsdLevel": user.get("fsdLevel") or 0,
         "mfaEnabled": bool(int(user.get("mfaEnabled") or 0)),
+        "device2faEnabled": bool(int(user.get("device2faEnabled") or 0)),
         "createdAt": user.get("createdAt"),
     }
 
@@ -380,42 +381,20 @@ async def login(request: Request, db: AsyncSession = Depends(get_db)) -> Any:
         except Exception:
             pass
 
-    # 管理员强制双因素：rating>=11 必须完成 TOTP 验证/首次绑定后才能拿到 token。
-    # 普通用户继续走原有的新 IP 邮箱二次验证。
-    if int(user.get("rating") or 0) >= 11:
+    # 站内设备密钥（自研 Passkey）：管理员强制，普通用户启用后同样强制。
+    # 不使用手机/第三方验证器；浏览器生成不可导出私钥，登录时签名一次性挑战。
+    device_state = await device2fa.get_state(db, user["cid"])
+    need_device = int(user.get("rating") or 0) >= 11 or int(device_state.get("device2faEnabled") or 0) == 1
+    if need_device:
         try:
             challenge = await create_login_challenge(db, user["cid"], ip, device_fp)
         except LoginChallengeUnavailable:
             return fail(503, "登录安全验证服务暂不可用，请稍后重试")
-        if int(user.get("mfaEnabled") or 0) == 1:
-            await audit_log.write(
-                db,
-                "mfa_required",
-                "管理员登录：等待动态验证码",
-                str(cid or ""),
-                category="auth",
-                target_type="user",
-                target_id=cid,
-            )
-            return JSJSONResponse(
-                {
-                    "success": True,
-                    "needMfa": True,
-                    "data": {
-                        "loginChallenge": challenge,
-                        "message": "请输入 TOTP 动态验证码",
-                    },
-                }
-            )
-        secret = mfa.generate_secret()
-        try:
-            await mfa.set_mfa_secret(db, user["cid"], secret, enabled=False)
-        except Exception:
-            return fail(503, "双因素认证初始化失败，请稍后重试")
+        enabled = int(device_state.get("device2faEnabled") or 0) == 1
         await audit_log.write(
             db,
-            "mfa_setup_required",
-            "管理员首次登录：等待绑定 TOTP 验证器",
+            "device2fa_required" if enabled else "device2fa_setup_required",
+            "登录：等待站内设备密钥验证" if enabled else "登录：等待注册站内设备密钥",
             str(cid or ""),
             category="auth",
             target_type="user",
@@ -424,12 +403,11 @@ async def login(request: Request, db: AsyncSession = Depends(get_db)) -> Any:
         return JSJSONResponse(
             {
                 "success": True,
-                "needMfaSetup": True,
+                "needDevice2fa": enabled,
+                "needDevice2faSetup": not enabled,
                 "data": {
                     "loginChallenge": challenge,
-                    "secret": secret,
-                    "otpauthUrl": mfa.otpauth_url(user["cid"], secret),
-                    "message": "首次登录请绑定 TOTP 动态验证码",
+                    "message": "请使用本机设备密钥验证" if enabled else "请先在本机注册站内设备密钥",
                 },
             }
         )
@@ -787,6 +765,151 @@ async def mfa_recovery_codes(
     codes, recovery_json = mfa.generate_recovery_codes()
     await mfa.update_recovery_codes(db, current.cid, recovery_json)
     return ok({"recoveryCodes": codes})
+
+
+# ============================ 站内设备密钥（自研 Passkey） ============================
+@router.get("/device2fa/status")
+async def device2fa_status(
+    db: AsyncSession = Depends(get_db),
+    current: CurrentUser = Depends(get_verified_user),
+) -> Any:
+    state = await device2fa.get_state(db, current.cid)
+    return ok({
+        "enabled": bool(int(state.get("device2faEnabled") or 0)),
+        "required": int(current.rating or 0) >= 11,
+    })
+
+
+@router.post("/device2fa/setup", dependencies=[Depends(sensitive_limiter)])
+async def device2fa_setup(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current: CurrentUser = Depends(get_verified_user),
+) -> Any:
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    creds = await users.find_user_with_credentials(db, current.cid)
+    if not creds or not verify_password(str(body.get("password") or ""), creds.get("password")):
+        return fail(401, "当前密码错误")
+    state = await device2fa.get_state(db, current.cid)
+    if int(state.get("device2faEnabled") or 0) == 1:
+        return fail(400, "站内设备密钥已启用")
+    try:
+        challenge = await create_login_challenge(db, current.cid, get_client_ip(request), get_device_fp(request))
+    except LoginChallengeUnavailable:
+        return fail(503, "验证服务暂不可用，请稍后重试")
+    return ok({"loginChallenge": challenge})
+
+
+@router.post("/device2fa/register")
+async def device2fa_register(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    cid = str(body.get("cid") or "")
+    challenge = str(body.get("loginChallenge") or "")
+    public_key = str(body.get("publicKey") or "")
+    if not cid or not challenge or not public_key:
+        return fail(400, "注册参数不完整")
+    ip = get_client_ip(request)
+    if not await consume_login_challenge(db, challenge, cid, ip):
+        return fail(400, "注册验证已失效，请重新登录")
+    user = await users.find_user_with_credentials(db, cid)
+    if not user:
+        return fail(401, "账号不存在")
+    try:
+        codes, _ = await device2fa.enable(db, cid, public_key)
+    except ValueError as exc:
+        return fail(400, str(exc))
+    fresh = await users.find_user_with_credentials(db, cid) or user
+    token = sign_token(fresh)
+    response = ok({
+        "token": token,
+        "user": user_payload(fresh),
+        "recoveryCodes": codes,
+    })
+    set_auth_cookies(response, request, token)
+    _issue_trusted_device(response, request, fresh)
+    await _safe_login_log(db, cid, ip, get_user_agent(request), get_device_fp(request), True, "device2fa_enroll")
+    await audit_log.write(
+        db, "device2fa_enabled", "已注册站内设备密钥", str(cid), category="auth",
+        target_type="user", target_id=cid,
+    )
+    return response
+
+
+@router.post("/device2fa/verify", dependencies=[Depends(login_limiter)])
+async def device2fa_verify(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    cid = str(body.get("cid") or "")
+    challenge = str(body.get("loginChallenge") or "")
+    signature = str(body.get("signature") or "")
+    recovery_code = str(body.get("recoveryCode") or "")
+    if not cid or not challenge or (not signature and not recovery_code):
+        return fail(400, "验证参数不完整")
+    ip = get_client_ip(request)
+    user = await users.find_user_with_credentials(db, cid)
+    if not user or int(user.get("device2faEnabled") or 0) != 1:
+        return fail(401, "设备密钥未启用")
+    valid = bool(signature) and device2fa.verify_signature(
+        user.get("device2faPublicKey"), challenge, signature
+    )
+    remaining = user.get("device2faRecoveryCodes")
+    if not valid and recovery_code:
+        valid, remaining = mfa.consume_recovery_code(remaining, recovery_code)
+    if not valid:
+        await record_login_failure(db, cid, ip)
+        return fail(400, "设备密钥验证失败或恢复码无效")
+    if not await consume_login_challenge(db, challenge, cid, ip):
+        return fail(400, "验证已失效，请重新登录")
+    if remaining != user.get("device2faRecoveryCodes"):
+        await device2fa.update_recovery_codes(db, cid, remaining or "[]")
+    await clear_login_failures(db, cid)
+    await _safe_login_log(db, cid, ip, get_user_agent(request), get_device_fp(request), True, "device2fa")
+    token = sign_token(user)
+    response = ok({"token": token, "user": user_payload(user)})
+    set_auth_cookies(response, request, token)
+    _issue_trusted_device(response, request, user)
+    return response
+
+
+@router.post("/device2fa/disable", dependencies=[Depends(sensitive_limiter)])
+async def device2fa_disable(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current: CurrentUser = Depends(get_verified_user),
+) -> Any:
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    creds = await users.find_user_with_credentials(db, current.cid)
+    if not creds or not verify_password(str(body.get("password") or ""), creds.get("password")):
+        return fail(401, "当前密码错误")
+    state = await device2fa.get_state(db, current.cid)
+    if int(state.get("device2faEnabled") or 0) != 1:
+        return fail(400, "站内设备密钥未启用")
+    ok_code, _ = mfa.consume_recovery_code(state.get("device2faRecoveryCodes"), str(body.get("recoveryCode") or ""))
+    if not ok_code:
+        return fail(400, "恢复码无效")
+    await device2fa.disable(db, current.cid)
+    await audit_log.write(
+        db, "device2fa_disabled", "已关闭站内设备密钥", str(current.cid), category="risk",
+        target_type="user", target_id=current.cid,
+    )
+    return ok({"enabled": False})
 
 
 # ============================ 会话续签 ============================

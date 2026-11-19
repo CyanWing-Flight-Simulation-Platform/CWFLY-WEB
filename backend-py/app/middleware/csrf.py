@@ -21,6 +21,8 @@ CSRF_EXEMPT_PREFIXES = (
     "/api/auth/login-verify",
     "/api/auth/mfa/verify",
     "/api/auth/mfa/enroll",
+    "/api/auth/device2fa/register",
+    "/api/auth/device2fa/verify",
     "/api/auth/forgot-password",
     "/api/auth/reset-password",
     "/api/captcha",

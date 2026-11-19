@@ -67,6 +67,9 @@ async def lifespan(app: FastAPI):
         from app.services.mfa import ensure_schema as _ensure_mfa_schema
 
         await _ensure_mfa_schema()
+        from app.services.device2fa import ensure_schema as _ensure_device2fa_schema
+
+        await _ensure_device2fa_schema()
     except Exception as exc:  # noqa: BLE001
         log.warning("[CWFLY] 预热失败: %s", exc)
     # 预热：DB 连接池 + FIR 边界（消除每个 worker 的首请求冷启动）
