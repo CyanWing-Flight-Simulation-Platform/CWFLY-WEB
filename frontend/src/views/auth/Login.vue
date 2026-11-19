@@ -65,10 +65,10 @@
               <input
                 v-model="mfaCode"
                 class="input"
-                inputmode="numeric"
-                maxlength="6"
+                :inputmode="mfaSetup ? 'numeric' : 'text'"
+                :maxlength="mfaSetup ? 6 : 12"
                 autocomplete="one-time-code"
-                placeholder="6 位动态验证码"
+                :placeholder="mfaSetup ? '6 位动态验证码' : '动态验证码或恢复码'"
                 @keyup.enter="confirmMfa"
               />
               <button type="button" class="btn btn-primary btn-block mt-sm" @click="confirmMfa" :disabled="mfaVerifying">
@@ -269,8 +269,10 @@ async function confirmLoginVerify() {
 
 async function confirmMfa() {
   mfaErr.value = ''
-  const code = String(mfaCode.value || '').replace(/\D/g, '')
-  if (code.length !== 6) { mfaErr.value = '请输入 6 位动态验证码'; return }
+  const raw = String(mfaCode.value || '').trim()
+  const code = mfaSetup.value ? raw.replace(/\D/g, '') : raw.toUpperCase()
+  if (mfaSetup.value && code.length !== 6) { mfaErr.value = '请输入 6 位动态验证码'; return }
+  if (!mfaSetup.value && !code) { mfaErr.value = '请输入动态验证码或恢复码'; return }
   if (!mfaChallenge.value) { mfaErr.value = '登录验证已失效，请重新登录'; return }
   mfaVerifying.value = true
   try {

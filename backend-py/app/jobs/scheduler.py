@@ -87,6 +87,8 @@ async def _online_cleanup_loop() -> None:
 # =====================================================================
 async def cleanup_security_events(retention_hours: Optional[int] = None) -> int:
     """删除超过保留期（默认 720h）的 SecurityEvent，返回删除行数。"""
+    if os.getenv("LOG_RETENTION_DISABLED") == "1":
+        return 0
     hours = SECURITY_RETENTION_HOURS if retention_hours is None else retention_hours
     cutoff = dt.datetime.now(dt.timezone.utc).replace(tzinfo=None) - dt.timedelta(hours=hours)
     try:
@@ -117,6 +119,8 @@ async def _security_cleanup_loop() -> None:
 # =====================================================================
 async def cleanup_login_attempts() -> int:
     """删除超过 24h 的 LoginAttempt，返回删除行数。"""
+    if os.getenv("LOG_RETENTION_DISABLED") == "1":
+        return 0
     cutoff = dt.datetime.now(dt.timezone.utc).replace(tzinfo=None) - dt.timedelta(
         hours=LOGIN_ATTEMPT_RETENTION_HOURS
     )
