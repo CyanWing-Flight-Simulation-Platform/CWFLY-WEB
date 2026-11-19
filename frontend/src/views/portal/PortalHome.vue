@@ -4,7 +4,9 @@
     <section class="hero">
       <div class="hero__content">
         <span class="hero__eyebrow">CWFLY&nbsp;·&nbsp;青翼模拟飞行</span>
-        <h1>让每一次连飞，都更接近真实</h1>
+        <h1 class="hero__title">
+          让每一次<span class="hero__accent">连飞</span><span class="hero__comma">，</span>都更接近<span class="hero__accent">真实</span>
+        </h1>
         <p>加入 CWFLY，和飞行员、管制员一起，在真实的航路与空域中飞行。</p>
         <div class="hero__actions">
           <router-link to="/register" class="btn-primary">立即注册</router-link>
@@ -311,24 +313,37 @@ html[data-theme='dark'] .portal-home {
 }
 .hero__eyebrow {
   display: inline-block;
-  margin-bottom: 18px;
-  color: rgba(255, 255, 255, .92);
-  font-size: 14px;
+  margin-bottom: 10px;
+  color: #fff;
+  font-family: "Inter", "PingFang SC", "OPPO Sans", "Source Han Sans SC", "Noto Sans SC", sans-serif;
+  font-size: 13px;
   font-weight: 600;
-  letter-spacing: .1em;
-  word-spacing: .16em;
+  letter-spacing: .12em;
+  word-spacing: .12em;
+  line-height: 1.4;
   text-transform: uppercase;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, .30);
+  text-shadow: none;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
-.hero__content h1 {
-  margin: 0 0 18px;
-  color: var(--c-text);
-  font-family: var(--ui-font);
+.hero__title {
+  margin: 0 0 20px;
+  color: #1f2937;
+  font-family: "Inter", "PingFang SC", "OPPO Sans", "Source Han Sans SC", "Noto Sans SC", "Microsoft YaHei", sans-serif;
   font-size: clamp(34px, 4.6vw, 54px);
   font-weight: 600;
-  letter-spacing: .018em;
-  line-height: 1.2;
-  text-shadow: 0 4px 12px rgba(0, 0, 0, .30);
+  letter-spacing: .02em;
+  line-height: 1.18;
+  text-shadow: none;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-synthesis: none;
+}
+.hero__accent { color: #2563eb; }
+.hero__comma {
+  opacity: .4;
+  font-size: .86em;
+  font-weight: inherit;
 }
 .hero__content p {
   max-width: 560px;
@@ -338,7 +353,7 @@ html[data-theme='dark'] .portal-home {
   font-weight: 400;
   letter-spacing: .015em;
   line-height: 1.85;
-  text-shadow: 0 2px 8px rgba(0, 0, 0, .12);
+  text-shadow: none;
 }
 .hero__actions {
   display: flex;
@@ -385,6 +400,7 @@ html[data-theme='dark'] .hero__actions .btn-qq {
   background: rgba(255, 255, 255, .07);
 }
 html[data-theme='dark'] .hero__content h1 { color: #fff; }
+html[data-theme='dark'] .hero__accent { color: #60a5fa; }
 html[data-theme='dark'] .hero__content p { color: rgba(255, 255, 255, .68); }
 
 /* 实时状态：单一整块面板 */
