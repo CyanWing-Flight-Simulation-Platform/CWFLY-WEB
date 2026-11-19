@@ -65,6 +65,7 @@
 </template>
 
 <script setup>
+import { confirmDialog } from '@/utils/confirm'
 import { ref, onMounted } from 'vue'
 import api from '@/api'
 
@@ -97,7 +98,7 @@ async function createCourse() {
 }
 
 async function deleteCourse(id) {
-  if (!confirm('确定删除？')) return
+  if (!(await confirmDialog('确定删除？'))) return
   try { await api.delete('/admin/training/courses/' + id); loadCourses() } catch { /* ignore */ }
 }
 

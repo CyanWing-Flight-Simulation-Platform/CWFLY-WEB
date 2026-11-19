@@ -70,6 +70,7 @@
 </template>
 
 <script setup>
+import { confirmDialog } from '@/utils/confirm'
 import { ref, computed, onMounted } from 'vue'
 import { adminApi } from '@/api'
 import FlightPlanDetailModal from '@/components/FlightPlanDetailModal.vue'
@@ -105,7 +106,7 @@ function openDetail(plan) {
 }
 
 async function delPlan(p) {
-  if (!confirm(`确定删除 ${p.callsign} 的飞行计划？`)) return
+  if (!(await confirmDialog(`确定删除 ${p.callsign} 的飞行计划？`))) return
   try {
     await adminApi.deleteFlightplan(p.id)
     list.value = list.value.filter(x => x.id !== p.id)

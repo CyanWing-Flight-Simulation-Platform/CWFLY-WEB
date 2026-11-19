@@ -33,6 +33,7 @@
 </template>
 
 <script setup>
+import { confirmDialog } from '@/utils/confirm'
 import { ref, computed, onMounted } from 'vue'
 import api from '@/api'
 
@@ -52,7 +53,7 @@ onMounted(async () => {
 })
 
 async function cancelReg(r) {
-  if (!confirm('确定取消报名？')) return
+  if (!(await confirmDialog('确定取消报名？'))) return
   try {
     await api.delete('/events/registrations/' + r.id)
     registrations.value = registrations.value.filter(x => x.id !== r.id)

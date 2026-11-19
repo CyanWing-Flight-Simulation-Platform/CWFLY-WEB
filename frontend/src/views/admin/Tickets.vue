@@ -95,6 +95,7 @@
 </template>
 
 <script setup>
+import { confirmDialog } from '@/utils/confirm'
 import { ref, computed, onMounted } from 'vue'
 import { adminApi } from '@/api'
 import AppModal from '@/components/base/AppModal.vue'
@@ -205,7 +206,7 @@ async function submitReply() {
 }
 
 async function delTicket(t) {
-  if (!confirm(`确定删除工单 "${t.title}"？`)) return
+  if (!(await confirmDialog(`确定删除工单 "${t.title}"？`))) return
   try {
     await adminApi.deleteTicket(t.id)
     list.value = list.value.filter(x => x.id !== t.id)

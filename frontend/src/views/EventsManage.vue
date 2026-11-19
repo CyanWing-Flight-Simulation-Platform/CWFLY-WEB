@@ -206,6 +206,7 @@
 </template>
 
 <script setup>
+import { confirmDialog } from '@/utils/confirm'
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import api, { adminApi } from '@/api'
 
@@ -449,7 +450,7 @@ async function submitForm() {
 const regTarget = ref(null)
 
 async function cancelReg(r) {
-  if (!confirm(`确定取消 ${r.user?.username || r.userId} 的报名？`)) return
+  if (!(await confirmDialog(`确定取消 ${r.user?.username || r.userId} 的报名？`))) return
   try {
     await adminApi.cancelEventReg(r.id)
     regTarget.value.pilots = (regTarget.value.pilots || []).filter(x => x.id !== r.id)

@@ -68,6 +68,7 @@
 </template>
 
 <script setup>
+import { confirmDialog } from '@/utils/confirm'
 import { ref, onMounted } from 'vue'
 import { adminApi } from '@/api'
 
@@ -110,7 +111,7 @@ async function submitForm() {
 }
 
 async function delItem(a) {
-  if (!confirm(`确定删除公告"${a.title}"？`)) return
+  if (!(await confirmDialog(`确定删除公告"${a.title}"？`))) return
   try {
     await adminApi.deleteAnnouncement(a.id)
     list.value = list.value.filter(x => x.id !== a.id)

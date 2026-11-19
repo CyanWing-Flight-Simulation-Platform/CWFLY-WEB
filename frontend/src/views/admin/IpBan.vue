@@ -82,6 +82,7 @@
 </template>
 
 <script setup>
+import { confirmDialog } from '@/utils/confirm'
 import { ref, onMounted } from 'vue'
 import { adminApi } from '@/api'
 
@@ -154,7 +155,7 @@ async function toggleBan(b, active) {
 }
 
 async function delBan(b) {
-  if (!confirm(`确定删除对 ${b.ip} 的封禁记录？`)) return
+  if (!(await confirmDialog(`确定删除对 ${b.ip} 的封禁记录？`))) return
   try {
     await adminApi.deleteIpBan(b.id)
     await load()

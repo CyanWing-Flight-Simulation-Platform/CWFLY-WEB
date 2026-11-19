@@ -74,6 +74,7 @@
 </template>
 
 <script setup>
+import { confirmDialog } from '@/utils/confirm'
 import { ref, computed, watch, onMounted } from 'vue'
 import { adminApi } from '@/api'
 import { useUserStore } from '@/store/user'
@@ -125,7 +126,7 @@ async function addStaff() {
 }
 
 async function delStaff(s) {
-  if (!confirm(`确定删除职员 ${s.name}？`)) return
+  if (!(await confirmDialog(`确定删除职员 ${s.name}？`))) return
   try {
     await adminApi.deleteStaff(s.cid)
     list.value = list.value.filter(x => x.cid !== s.cid)

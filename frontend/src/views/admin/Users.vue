@@ -147,6 +147,7 @@
 </template>
 
 <script setup>
+import { confirmDialog } from '@/utils/confirm'
 import { ref, computed, onMounted } from 'vue'
 import { adminApi } from '@/api'
 import { useUserStore } from '@/store/user'
@@ -228,7 +229,7 @@ async function saveEdit() {
 async function resetPassword() {
   const u = editUser.value
   if (!u) return
-  if (!confirm(`确定重置用户 ${u.username}（CID: ${u.cid}）的密码？\n系统将生成随机强密码并发送到用户邮箱。`)) return
+  if (!(await confirmDialog(`确定重置用户 ${u.username}（CID: ${u.cid}）的密码？\n系统将生成随机强密码并发送到用户邮箱。`))) return
   try {
     const res = await adminApi.resetUserPassword(u.cid, { reason: editPasswordReason.value.trim() })
     alert('密码已重置' + (res.data?.password ? '：' + res.data.password : ''))

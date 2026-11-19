@@ -66,6 +66,7 @@
 </template>
 
 <script setup>
+import { confirmDialog } from '@/utils/confirm'
 import { ref, onMounted } from 'vue'
 import api from '@/api'
 import AppModal from '@/components/base/AppModal.vue'
@@ -101,7 +102,7 @@ async function createNotif() {
 }
 
 async function deleteNotif(id) {
-  if (!confirm('确定删除？')) return
+  if (!(await confirmDialog('确定删除？'))) return
   try { await api.delete('/admin/notifications/' + id); load() } catch { /* ignore */ }
 }
 

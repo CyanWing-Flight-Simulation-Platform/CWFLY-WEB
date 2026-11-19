@@ -265,6 +265,7 @@
 </template>
 
 <script setup>
+import { confirmDialog } from '@/utils/confirm'
 import { ref, computed, onMounted } from 'vue'
 import { eventsApi } from '@/api'
 import { useUserStore } from '@/store/user'
@@ -424,7 +425,7 @@ async function submitForm() {
 }
 
 async function delEvent(ev) {
-  if (!confirm(`确定删除活动「${ev.title}」？`)) return
+  if (!(await confirmDialog(`确定删除活动「${ev.title}」？`))) return
   try {
     await eventsApi.remove(ev.id)
     list.value = list.value.filter(x => x.id !== ev.id)

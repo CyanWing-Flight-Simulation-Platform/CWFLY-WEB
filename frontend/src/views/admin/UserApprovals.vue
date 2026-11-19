@@ -60,6 +60,7 @@
 </template>
 
 <script setup>
+import { confirmDialog } from '@/utils/confirm'
 import { ref, computed, onMounted } from 'vue'
 import { adminApi } from '@/api'
 import { useUserStore } from '@/store/user'
@@ -93,7 +94,7 @@ async function loadRequests() {
  * 调用时机：点击「批准」按钮时触发。
  */
 async function approve(r) {
-  if (!confirm(`批准删除用户 ${r.username || r.cid}${r.action === 'delete_ban' ? ' 并封禁 ' + r.ips : ''}？`)) return
+  if (!(await confirmDialog(`批准删除用户 ${r.username || r.cid}${r.action === 'delete_ban' ? ' 并封禁 ' + r.ips : ''}？`))) return
   try {
     await adminApi.approveUserDeletionRequest(r.id)
     loadRequests()
@@ -106,7 +107,7 @@ async function approve(r) {
  * 调用时机：点击「拒绝」按钮时触发。
  */
 async function reject(r) {
-  if (!confirm(`拒绝删除用户 ${r.username || r.cid} 的请求？`)) return
+  if (!(await confirmDialog(`拒绝删除用户 ${r.username || r.cid} 的请求？`))) return
   try {
     await adminApi.rejectUserDeletionRequest(r.id)
     loadRequests()

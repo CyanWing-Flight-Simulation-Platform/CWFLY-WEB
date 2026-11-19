@@ -126,6 +126,7 @@
 </template>
 
 <script setup>
+import { confirmDialog } from '@/utils/confirm'
 import { ref, onMounted } from 'vue'
 import { adminApi } from '@/api'
 
@@ -222,7 +223,7 @@ async function confirmReject() {
 }
 
 async function delApp(a) {
-  if (!confirm('确定删除 ' + a.name + ' 的申请？')) return
+  if (!(await confirmDialog('确定删除 ' + a.name + ' 的申请？'))) return
   try {
     await adminApi.deleteControllerApp(a.id)
     list.value = list.value.filter(x => x.id !== a.id)

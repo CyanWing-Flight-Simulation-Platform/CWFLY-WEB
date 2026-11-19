@@ -43,6 +43,8 @@ app.mount('#app')
 // 暴露全局函数，任意 JS 可调用
 window.showBanner = showBanner
 window.showToast = showToast
+// 全站不再使用浏览器原生 alert，统一走自研 Toast
+window.alert = (message) => showToast(String(message ?? ''))
 
 // 访问网页时上报真实设备指纹到服务器（SecurityEvent 证据链：IP + 指纹 + UA + 来源页）
 reportPageView()

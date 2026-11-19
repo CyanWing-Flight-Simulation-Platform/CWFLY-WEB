@@ -41,6 +41,7 @@
 </template>
 
 <script setup>
+import { confirmDialog } from '@/utils/confirm'
 import { ref, onMounted } from 'vue'
 import api from '@/api'
 
@@ -68,7 +69,7 @@ async function createAchievement() {
 }
 
 async function deleteAchievement(id) {
-  if (!confirm('确定删除？')) return
+  if (!(await confirmDialog('确定删除？'))) return
   try { await api.delete('/admin/achievements/' + id); const r = await api.get('/admin/achievements'); achievements.value = r.data || [] } catch { /* ignore */ }
 }
 </script>

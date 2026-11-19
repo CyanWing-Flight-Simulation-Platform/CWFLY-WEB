@@ -54,6 +54,7 @@
 </template>
 
 <script setup>
+import { confirmDialog } from '@/utils/confirm'
 import { ref, onMounted } from 'vue'
 import { adminApi } from '@/api'
 
@@ -81,7 +82,7 @@ async function toggleLock(p) {
 }
 
 async function delPost(p) {
-  if (!confirm(`确定删除帖子"${p.title}"？`)) return
+  if (!(await confirmDialog(`确定删除帖子"${p.title}"？`))) return
   try {
     await adminApi.deleteForumPost(p.id)
     posts.value = posts.value.filter(x => x.id !== p.id)

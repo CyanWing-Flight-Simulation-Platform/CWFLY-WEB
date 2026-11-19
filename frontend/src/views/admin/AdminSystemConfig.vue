@@ -169,6 +169,7 @@
 </template>
 
 <script setup>
+import { confirmDialog } from '@/utils/confirm'
 import { ref, onMounted, nextTick } from 'vue'
 import { adminApi } from '@/api'
 import AppModal from '@/components/base/AppModal.vue'
@@ -242,7 +243,7 @@ async function addBan() {
 }
 
 async function delBan(b) {
-  if (!confirm(`确定解除封禁 ${b.ip} ？`)) return
+  if (!(await confirmDialog(`确定解除封禁 ${b.ip} ？`))) return
   try {
     await adminApi.deleteIpBan(b.id)
     loadBans()
@@ -373,7 +374,7 @@ async function addIpGroup() {
  * 调用时机：点击集合的「删除集合」按钮时触发。
  */
 async function delIpGroup(g) {
-  if (!confirm(`确定删除集合「${g.name || ('集合#' + g.id)}」及其 ${(g.members || []).length} 条 IP ？`)) return
+  if (!(await confirmDialog(`确定删除集合「${g.name || ('集合#' + g.id)}」及其 ${(g.members || []).length} 条 IP ？`))) return
   try {
     await adminApi.deleteIpGroup(g.id)
     loadIpGroups()
@@ -489,7 +490,7 @@ async function addMember(g) {
  * 调用时机：点击成员行右侧 × 按钮时触发。
  */
 async function delMember(g, m) {
-  if (!confirm(`确定从集合移除 ${m.ip} ？`)) return
+  if (!(await confirmDialog(`确定从集合移除 ${m.ip} ？`))) return
   try {
     await adminApi.deleteIpGroupMember(g.id, m.id)
     loadIpGroups()
