@@ -414,6 +414,10 @@ defineExpose({
   /* 品牌链接颜色固定为文字色：避免 Chrome @property 主题过渡时,
      --c-text 短暂无效导致 brand-text 回退继承外层链接的 --c-primary(蓝) 而闪蓝 */
   color: var(--c-text);
+  
+  /* 👇 已经为你添加好了，控制整体下移 👇 */
+  position: relative;
+  top: 3px; 
 }
 .app-header__brand:hover { text-decoration: none; }
 
