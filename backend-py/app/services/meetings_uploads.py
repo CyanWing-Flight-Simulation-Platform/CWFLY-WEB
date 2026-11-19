@@ -367,10 +367,22 @@ def _pdf_stream_text(stream: bytes) -> str:
 
 
 def pdf_to_text(path: Path) -> str:
-    """极简 PDF 文本提取（FlateDecode 内容流 + 文本操作符）。失败抛异常。"""
+    """优先用 pypdf 正确解码字体/ToUnicode；旧环境无依赖时回退到极简解析。"""
     data = path.read_bytes()
     if not data.startswith(b"%PDF"):
         raise ValueError("文件内容不是有效的 PDF")
+    try:
+        from pypdf import PdfReader
+    except ImportError:
+        PdfReader = None
+    if PdfReader is not None:
+        try:
+            reader = PdfReader(str(path))
+            pages = [(page.extract_text() or "") for page in reader.pages]
+            return "\n".join(pages).strip()
+        except Exception as exc:  # noqa: BLE001 - 加密/损坏 PDF 回退旧解析
+            log.warning("[Meeting] pypdf 解析失败，回退旧解析: %s", exc)
+    # 旧版极简解析：仅作为 pypdf 不可用时的回退
     chunks: list[str] = []
     for match in re.finditer(rb"stream\r?\n", data):
         start = match.end()
