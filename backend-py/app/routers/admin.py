@@ -657,6 +657,36 @@ async def delete_user(
     return _AdminResponse({"success": True, "message": "deleted", "bannedFps": banned_fps})
 
 
+@router.post("/users/{cid}/reset-2fa")
+@handle()
+async def reset_user_2fa(
+    cid: str,
+    current: CurrentUser = Depends(admin_guard),
+    _perm: CurrentUser = Depends(require_permission(PERM_USER)),
+    db: AsyncSession = Depends(get_db),
+) -> JSJSONResponse:
+    if (current.rating or 0) < 12:
+        return _fail(403, "仅超级管理员可重置 2FA")
+    row = (await db.execute(text("SELECT `id` FROM `User` WHERE `cid` = :cid"), {"cid": cid})).first()
+    if row is None:
+        return _fail(404, "not found")
+    await db.execute(
+        text(
+            "UPDATE `User` SET `device2faEnabled` = 0, `device2faPublicKey` = NULL, "
+            "`device2faRecoveryCodes` = NULL, `mfaEnabled` = 0, `mfaSecret` = NULL, "
+            "`mfaRecoveryCodes` = NULL WHERE `cid` = :cid"
+        ),
+        {"cid": cid},
+    )
+    await db.commit()
+    try:
+        token_state.bump_token_epoch(cid)
+    except Exception:
+        pass
+    await _write_audit(db, "reset_2fa", "User " + cid + " 的 2FA 被超级管理员重置", current.cid)
+    return _AdminResponse({"success": True, "message": "2FA 已重置"})
+
+
 @router.post("/users/{cid}/reset-password")
 @handle()
 async def reset_user_password(

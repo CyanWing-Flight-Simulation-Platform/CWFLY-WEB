@@ -91,6 +91,13 @@
               <button type="button" class="btn btn-outline btn-sm" style="color:var(--c-danger);" @click="resetPassword">重置密码</button>
             </div>
           </div>
+          <div class="modal-field">
+            <label>双因素认证</label>
+            <div class="flex gap-sm" style="flex:1;">
+              <span class="text-sm text-muted" style="flex:1;">用户忘记设备密钥且恢复码丢失时，可在此重置</span>
+              <button type="button" class="btn btn-outline btn-sm" style="color:var(--c-danger);" @click="reset2fa">重置 2FA</button>
+            </div>
+          </div>
           <!-- 以下敏感信息仅超级管理员可见 -->
           <template v-if="userStore.rating >= 12">
             <div class="modal-field"><label>注册 IP</label><span>{{ editUser.registerIp || '-' }}</span></div>
@@ -233,6 +240,19 @@ async function resetPassword() {
   try {
     const res = await adminApi.resetUserPassword(u.cid, { reason: editPasswordReason.value.trim() })
     alert('密码已重置' + (res.data?.password ? '：' + res.data.password : ''))
+  } catch (e) { alert(e.message) }
+}
+
+/** 重置 2FA：用户忘记设备密钥且恢复码丢失时，由超管清除其 2FA 绑定 */
+async function reset2fa() {
+  const u = editUser.value
+  if (!u) return
+  if (!(await confirmDialog(`确定重置用户 ${u.username}（CID: ${u.cid}）的 2FA？\n重置后该用户下次登录需重新注册本机设备密钥。`))) return
+  try {
+    await adminApi.resetUser2fa(u.cid)
+    alert('2FA 已重置')
+    closeEdit()
+    loadUsers()
   } catch (e) { alert(e.message) }
 }
 

@@ -226,6 +226,7 @@ export const adminApi = {
   updateUser: (cid, data) => api.put(`/admin/users/${cid}`, data),
   deleteUser: (cid, data) => api.delete(`/admin/users/${cid}`, { data }),
   resetUserPassword: (cid, data) => api.post(`/admin/users/${cid}/reset-password`, data),
+  resetUser2fa: (cid) => api.post(`/admin/users/${cid}/reset-2fa`),
   // 设备指纹封禁（删除+加入黑名单时同步拉黑，防换小号绕过）
   deviceBans: () => api.get('/admin/device-bans'),
   addDeviceBan: (data) => api.post('/admin/device-bans', data),
