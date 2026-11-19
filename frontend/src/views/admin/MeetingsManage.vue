@@ -97,7 +97,11 @@ async function uploadFile(e) {
   const fd = new FormData()
   fd.append('file', file)
   try {
-    const res = await meetingsApi.upload(fd)
+    const res = await meetingsApi.upload(fd, {
+      onUploadProgress: (event) => {
+        if (event.total) uploadProgress.value = Math.min(99, Math.round((event.loaded / event.total) * 100))
+      }
+    })
     uploadProgress.value = 100
     if (res.data) list.value.unshift(res.data)
     setTimeout(() => {

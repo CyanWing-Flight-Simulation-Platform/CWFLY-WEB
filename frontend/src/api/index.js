@@ -187,7 +187,12 @@ export const staffApi = {
 
 export const meetingsApi = {
   list: () => api.get('/meetings'),
-  upload: (formData) => api.post('/meetings/upload', formData)
+  // 清除 axios 实例默认的 application/json，让浏览器自动生成 multipart boundary；
+  // 否则 FastAPI 收不到 file 字段，会返回「请选择文件」。
+  upload: (formData, config = {}) => api.post('/meetings/upload', formData, {
+    ...config,
+    headers: { ...(config.headers || {}), 'Content-Type': undefined }
+  })
 }
 
 export const controllersApi = {
