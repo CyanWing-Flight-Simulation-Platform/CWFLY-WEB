@@ -22,7 +22,7 @@
     <div v-if="message" class="card p-md mb-md" :class="messageType === 'success' ? 'msg-success' : 'msg-error'">
       <div class="flex justify-between items-center">
         <div class="flex items-center gap-sm">
-          <span class="msg-icon">{{ messageType === 'success' ? '✓' : '✕' }}</span>
+          <span class="msg-icon">{{ messageType === 'success' ? '成功' : '失败' }}</span>
           <span>{{ message }}</span>
         </div>
         <button class="btn btn-outline btn-sm" @click="message = ''" style="font-size:16px;line-height:1;padding:2px 8px;border:none;">&times;</button>

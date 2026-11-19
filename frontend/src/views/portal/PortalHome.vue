@@ -84,7 +84,6 @@
           </router-link>
         </div>
         <div v-else class="empty-state">
-          <div class="empty-state__icon" aria-hidden="true">✦</div>
           <p>近期活动正在筹备中</p>
           <router-link to="/events" class="btn btn-outline btn-sm">先去活动中心看看</router-link>
         </div>

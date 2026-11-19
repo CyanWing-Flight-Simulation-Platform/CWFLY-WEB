@@ -389,7 +389,7 @@ async def connect(sid: str, environ: Dict[str, Any], auth: Any = None) -> None:
         except TokenError as exc:
             if REQUIRE_VALID_TOKEN:
                 log.info("[Socket.IO] 拒绝连接 %s：%s", sid, exc)
-                # ⚠️ 必须是 socketio.exceptions.ConnectionRefusedError（内置同名异常不会被捕获，
+                # 注意： 必须是 socketio.exceptions.ConnectionRefusedError（内置同名异常不会被捕获，
                 # 会导致连接被“静默丢弃”而前端一直挂起）
                 raise socketio.exceptions.ConnectionRefusedError(
                     "Token 无效或已过期"

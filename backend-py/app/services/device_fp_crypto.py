@@ -3,7 +3,7 @@
 Node 版原样：服务端签发随机 `fp` 并用 HMAC 签名（绑定 fp + UA + 签发时间），客户端回传
 `X-Device-Fp / X-Device-Sig / X-Device-Issued`，服务端验签；外加无状态 hashcash PoW。
 
-⚠️ 与 Node 的重要事实（已在交付报告注明）：
+注意： 与 Node 的重要事实（已在交付报告注明）：
 Node `src/services/deviceFp.js` 第 16 行 `import { getDeviceSecret } from '../config/index.js'`，
 但 `src/config/index.js` **从未导出** `getDeviceSecret` —— 该模块在 Node 里一 import 就会抛
 `SyntaxError: does not provide an export named 'getDeviceSecret'`，且全仓库没有任何路由 import

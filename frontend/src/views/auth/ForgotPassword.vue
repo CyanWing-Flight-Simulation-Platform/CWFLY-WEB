@@ -26,7 +26,6 @@
       </div>
 
       <div v-if="step === 3" class="text-center">
-        <div class="text-4xl mb-md">✓</div>
         <h3 class="mb-md">密码重置成功</h3>
         <p class="text-sm text-muted mb-md">请使用新密码登录。</p>
         <router-link to="/login" class="btn btn-primary">去登录</router-link>

@@ -3,7 +3,7 @@
 给「服务端签发的设备指纹」打分（0-100），输出 `allow / challenge / block`：
 代理/机房特征 + 同一 fp 关联的 IP/UA 抖动（LoginLog 近 7 天）+ Device 历史（新 IP、篡改标记）。
 
-⚠️ 与 Node 的事实差异（重要，已在交付报告注明）：
+注意： 与 Node 的事实差异（重要，已在交付报告注明）：
 Node 版第三段用 `prisma.device.*`，但 `prisma/schema.prisma` **没有 Device model**
 （只有 `DeviceBan`），因此 Node 运行时这段必然抛错并被内层 `catch {}` 吞掉 ⇒ 生产上
 「Device 历史」这一路信号实际不生效。本移植保留同样结构：先尝试查 `Device` 表，

@@ -176,34 +176,34 @@ ls dist/assets | head -n 5
 
 | 模块 | 自动化测试 | 说明 |
 |---|---|---|
-| `jwt.js` | ✅ 28 例 | 会话判定核心，必须保持高覆盖 |
-| `timeBg.js` | ✅ 23 例 | 北京时间渐变时间表 |
-| `navLayout.js` | ✅ 19 例 | 布局偏好与 860px 断点 |
-| `tableSort.js` | ✅ 12 例 | 纯 DOM 排序指令 |
-| `fieldFeedback.js` | ✅ 10 例 | 表单校验反馈 |
-| `prefetch.js` | ✅ 14 例 | 路由预取容错 |
-| `pow.js` | ✅ 15 例 | PoW 令牌存取 |
-| `sanitize.js` | ✅ 12 例 | XSS 过滤 |
-| `theme.js` | ✅ 20 例 | 主题模式与 auto 判定 + 扩散动效降级/回退 |
-| `banner.js` / `bannerAction.js` | ❌ 未覆盖 | reactive 状态 + 定时器，可直接单测 |
-| `confirm.js` | ❌ 未覆盖 | 动态创建 DOM + Promise，需 jsdom |
-| `deviceFp.js` | ❌ 未覆盖 | 依赖 Canvas/WebGL，需 mock |
-| `tracking.js` | ❌ 未覆盖 | localStorage + 打点上报，需 mock Image/fetch |
-| `nav.js` | ❌ 未覆盖 | 纯数据，建议校验「每项 path 都能被 router 解析」 |
-| `socket.js` | ❌ 未覆盖 | 单例 + io 连接，需 mock `socket.io-client` |
-| `aircraft3d.js` | ❌ 未覆盖 | 依赖 Mapbox/WebGL，建议先重构为可测的纯函数再测 |
+| `jwt.js` | 已完成 28 例 | 会话判定核心，必须保持高覆盖 |
+| `timeBg.js` | 已完成 23 例 | 北京时间渐变时间表 |
+| `navLayout.js` | 已完成 19 例 | 布局偏好与 860px 断点 |
+| `tableSort.js` | 已完成 12 例 | 纯 DOM 排序指令 |
+| `fieldFeedback.js` | 已完成 10 例 | 表单校验反馈 |
+| `prefetch.js` | 已完成 14 例 | 路由预取容错 |
+| `pow.js` | 已完成 15 例 | PoW 令牌存取 |
+| `sanitize.js` | 已完成 12 例 | XSS 过滤 |
+| `theme.js` | 已完成 20 例 | 主题模式与 auto 判定 + 扩散动效降级/回退 |
+| `banner.js` / `bannerAction.js` | 未完成 未覆盖 | reactive 状态 + 定时器，可直接单测 |
+| `confirm.js` | 未完成 未覆盖 | 动态创建 DOM + Promise，需 jsdom |
+| `deviceFp.js` | 未完成 未覆盖 | 依赖 Canvas/WebGL，需 mock |
+| `tracking.js` | 未完成 未覆盖 | localStorage + 打点上报，需 mock Image/fetch |
+| `nav.js` | 未完成 未覆盖 | 纯数据，建议校验「每项 path 都能被 router 解析」 |
+| `socket.js` | 未完成 未覆盖 | 单例 + io 连接，需 mock `socket.io-client` |
+| `aircraft3d.js` | 未完成 未覆盖 | 依赖 Mapbox/WebGL，建议先重构为可测的纯函数再测 |
 
 ### 其它层次
 
 | 层次 | 自动化测试 | 缺口影响 | 建议 |
 |---|---|---|---|
-| `src/composables/`（`useAppNav`、`useAirportEditor`、`useAirportGroundLayers`） | ❌ | 导航交互/机场编辑回归靠手点 | 优先 `useAppNav`（jsdom + mock `matchMedia`） |
-| `src/components/`（表单控件、base 组件、布局） | ❌ | 控件行为回归靠手点 | 引入 `@vue/test-utils` 后覆盖 `FormField` / `SelectMenu` / `DatePicker` / `SubmitButton` / `PoWCaptcha`（不渲染 DOM 的断言）/ base 组件 |
-| `src/store/`（user / onlineUsers / mapSettings / notification） | ❌ | 登录态、权限计算回归靠手点 | `user` store 优先（mock `authApi`），断言 `isAdmin` / `hasPermission` |
-| `src/router/` 守卫 | ❌ | 权限/续签逻辑最易出安全事故 | 用 `createMemoryHistory` + mock `utils/jwt`，覆盖公开页/无 token/过期/续签失败/权限不足 |
-| `src/api/` 拦截器 | ❌ | 401 重放、403 跳转、PoW 注入无回归保护 | mock axios adapter，断言头注入与错误分支 |
-| `src/views/` 页面 | ❌ | 全靠手工回归 | 暂不追求单测；优先 E2E（见下） |
-| E2E | ❌ 未引入 | 关键链路无自动化冒烟 | 建议 Playwright：登录 → 仪表盘 → 在线地图 2D/3D 切换 → 管理后台用户页 → 表单提交 → 主题切换 |
+| `src/composables/`（`useAppNav`、`useAirportEditor`、`useAirportGroundLayers`） | 未完成 | 导航交互/机场编辑回归靠手点 | 优先 `useAppNav`（jsdom + mock `matchMedia`） |
+| `src/components/`（表单控件、base 组件、布局） | 未完成 | 控件行为回归靠手点 | 引入 `@vue/test-utils` 后覆盖 `FormField` / `SelectMenu` / `DatePicker` / `SubmitButton` / `PoWCaptcha`（不渲染 DOM 的断言）/ base 组件 |
+| `src/store/`（user / onlineUsers / mapSettings / notification） | 未完成 | 登录态、权限计算回归靠手点 | `user` store 优先（mock `authApi`），断言 `isAdmin` / `hasPermission` |
+| `src/router/` 守卫 | 未完成 | 权限/续签逻辑最易出安全事故 | 用 `createMemoryHistory` + mock `utils/jwt`，覆盖公开页/无 token/过期/续签失败/权限不足 |
+| `src/api/` 拦截器 | 未完成 | 401 重放、403 跳转、PoW 注入无回归保护 | mock axios adapter，断言头注入与错误分支 |
+| `src/views/` 页面 | 未完成 | 全靠手工回归 | 暂不追求单测；优先 E2E（见下） |
+| E2E | 未完成 未引入 | 关键链路无自动化冒烟 | 建议 Playwright：登录 → 仪表盘 → 在线地图 2D/3D 切换 → 管理后台用户页 → 表单提交 → 主题切换 |
 
 ---
 
@@ -271,9 +271,9 @@ ls dist/assets | head -n 5
 
 | 命令 | 结果 |
 |---|---|
-| `cd frontend && npm run test` | ✅ **9 个测试文件 / 153 个用例全部通过**（约 4.5–6.5s） |
-| `cd frontend && npm run lint` | ✅ **通过（0 error / 0 warning）**；历史文件按 `TODO(lint-freeze)` 定向豁免 |
-| `cd frontend && npx vite build --outDir .tmp-build-docs --emptyOutDir` | ✅ 构建成功（约 7.3s）；产物：`index` ≈ 215 KB（gzip 80 KB）、`OnlineMap` ≈ 90 KB（gzip 29 KB）、`three` ≈ 605 KB（gzip 154 KB）、`pdfjs` ≈ 476 KB（gzip 142 KB）；`three` 超过 `chunkSizeWarningLimit: 600` 属**已知且可接受**（仅地图页懒加载），另见 `frontend/docs/performance.md` |
+| `cd frontend && npm run test` | 已完成 **9 个测试文件 / 153 个用例全部通过**（约 4.5–6.5s） |
+| `cd frontend && npm run lint` | 已完成 **通过（0 error / 0 warning）**；历史文件按 `TODO(lint-freeze)` 定向豁免 |
+| `cd frontend && npx vite build --outDir .tmp-build-docs --emptyOutDir` | 已完成 构建成功（约 7.3s）；产物：`index` ≈ 215 KB（gzip 80 KB）、`OnlineMap` ≈ 90 KB（gzip 29 KB）、`three` ≈ 605 KB（gzip 154 KB）、`pdfjs` ≈ 476 KB（gzip 142 KB）；`three` 超过 `chunkSizeWarningLimit: 600` 属**已知且可接受**（仅地图页懒加载），另见 `frontend/docs/performance.md` |
 | CI 工作流 | `.github/workflows/frontend-ci.yml` 已就位（Node 20/22 矩阵） |
 
 > 说明：以上为文档编写时的快照；接手后请把本节替换为最近一次全量验证的实际输出（命令 + 结果 + 日期），保持文档可追溯。

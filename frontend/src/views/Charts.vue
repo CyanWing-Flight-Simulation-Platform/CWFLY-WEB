@@ -154,7 +154,7 @@
         <span style="color:rgba(255,255,255,0.3);line-height:32px;">|</span>
         <button title="重置" style="background:none;border:none;color:#fff;font-size:14px;height:32px;cursor:pointer;border-radius:16px;padding:0 10px;" @click.stop="resetZoom">适应</button>
         <span style="color:rgba(255,255,255,0.3);line-height:32px;">|</span>
-        <button title="关闭" style="background:none;border:none;color:#fff;font-size:18px;width:32px;height:32px;cursor:pointer;border-radius:50%;display:flex;align-items:center;justify-content:center;" @click.stop="previewImg=null">✕</button>
+        <button title="关闭" style="background:none;border:none;color:#fff;font-size:18px;width:32px;height:32px;cursor:pointer;border-radius:50%;display:flex;align-items:center;justify-content:center;" @click.stop="previewImg=null">×</button>
       </div>
     </div>
     <!-- 站内提示 Toast -->

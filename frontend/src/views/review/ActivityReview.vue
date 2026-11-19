@@ -16,7 +16,7 @@
       <div class="text-sm mb-sm" v-html="renderContent(r.content)"></div>
       <div v-if="r.rating" class="flex gap-sm items-center">
         <span class="text-sm">评分:</span>
-        <span v-for="i in 5" :key="i" class="star" :class="{ filled: i <= r.rating }">★</span>
+        <svg v-for="i in 5" :key="i" class="star" :class="{ filled: i <= r.rating }" width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 22 12 18.56 5.82 22 7 14.14 2 9.27l6.91-1.01L12 2z" fill="currentColor"/></svg>
       </div>
       <p class="text-xs text-muted mt-sm">{{ r.userId }} · {{ formatTime(r.createdAt) }}</p>
     </div>

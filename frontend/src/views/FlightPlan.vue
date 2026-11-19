@@ -369,7 +369,7 @@ const shareUrl = computed(() => {
 function onAltInput() {
   const val = form.value.cruiseAlt.toUpperCase()
   if (val.startsWith('FL')) {
-    altWarning.value = '⚠️ 请勿填写 FL 开头，直接填写数字（如 35000），否则飞行计划无法被识别'
+    altWarning.value = '注意：请勿填写 FL 开头，直接填写数字（如 35000），否则飞行计划无法被识别'
   } else {
     altWarning.value = ''
   }

@@ -4,7 +4,7 @@
 - 派生：HMAC-SHA256(JWT_SECRET, f"jwt-period-{period}").hexdigest()
 - 验证窗口：当前 + 过去 7 个周期（共 8 个密钥）
 
-⚠️ 必须与 Node 版本算法逐字节一致，否则双跑期间两侧签发的 token 互不承认。
+注意： 必须与 Node 版本算法逐字节一致，否则双跑期间两侧签发的 token 互不承认。
 """
 from __future__ import annotations
 

@@ -1,6 +1,6 @@
 """Alembic 异步环境（baseline：只用于记录版本，不自动改既有表结构）。
 
-⚠️ 迁移纪律（与 Node/Prisma 共存期间）
+注意： 迁移纪律（与 Node/Prisma 共存期间）
 - 现有 51 张表由 Prisma 创建，**禁止**用 `--autogenerate` 修改既有列类型/列名；
 - 需要新增表/列时手写 migration；
 - 首次接入：`alembic stamp 0001_baseline`（把当前库标记为 baseline，不执行任何 DDL）。

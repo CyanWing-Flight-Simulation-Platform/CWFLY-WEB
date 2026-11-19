@@ -80,7 +80,7 @@ async def main() -> int:
         for item in failures:
             print("  " + item)
         return 1
-    print("全部通过 ✅")
+    print("全部通过 已完成")
     return 0
 
 

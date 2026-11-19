@@ -44,7 +44,7 @@ Vite 构建输出关键行（原样摘录）：
 .tmp-build-f-before/assets/OnlineMap-D5ujOQYp.js 128.15 kB │ gzip:  40.73 kB
 .tmp-build-f-before/assets/AppLayout-BGlO22HO.js  29.66 kB │ gzip:   9.98 kB
 .tmp-build-f-before/assets/sanitize-CPbuTMqI.js   29.20 kB │ gzip:  11.01 kB
-✓ built in 9.75s
+构建完成 in 9.75s
 ```
 
 按产品族归类（raw / gzip，字节）：
@@ -78,7 +78,7 @@ Vite 构建输出关键行（原样摘录）：
 .tmp-build-f-after/assets/OnlineMap-B8RS4xYi.js 83.16 kB │ gzip:  27.43 kB
 .tmp-build-f-after/assets/AppLayout-D3_SyhRE.js 29.69 kB │ gzip:  10.00 kB
 .tmp-build-f-after/assets/sanitize-CPbuTMqI.js  29.20 kB │ gzip:  11.01 kB
-✓ built in 10.96s
+构建完成 in 10.96s
 ```
 
 | 产物 | raw (B) | gzip (B) | 说明 |
@@ -155,11 +155,11 @@ function manualChunks(id) {
 
 | 规则 | 是否命中 | 产物 | 加载时机 |
 | --- | --- | --- | --- |
-| `three` | ✅ 命中 | `three-B6ZtOVU0.js`（605.10 kB / gzip 153.83 kB） | 仅 `/map` 路由（`OnlineMap` → `utils/aircraft3d.js`） |
-| `pdfjs` | ✅ 命中 | `pdfjs-SE7EB-lb.js`（475.59 kB / gzip 141.68 kB） | 仅 `/charts` 路由（`Charts.vue`） |
-| `socket.io-client` | ✅ 命中 | `socketio-SYmKJpIj.js`（41.61 kB / gzip 13.03 kB） | 首屏（`App.vue` → `utils/socket.js`），`modulepreload` |
-| `leaflet` | ⚠️ 未命中 | 无产物 | 当前 `src/` 无 import；规则预置，将来引用即生效 |
-| `chart.js` / `vue-chartjs` | ⚠️ 未命中 | 无产物 | 当前 `src/` 无 import；规则预置，将来引用即生效 |
+| `three` | 已完成 命中 | `three-B6ZtOVU0.js`（605.10 kB / gzip 153.83 kB） | 仅 `/map` 路由（`OnlineMap` → `utils/aircraft3d.js`） |
+| `pdfjs` | 已完成 命中 | `pdfjs-SE7EB-lb.js`（475.59 kB / gzip 141.68 kB） | 仅 `/charts` 路由（`Charts.vue`） |
+| `socket.io-client` | 已完成 命中 | `socketio-SYmKJpIj.js`（41.61 kB / gzip 13.03 kB） | 首屏（`App.vue` → `utils/socket.js`），`modulepreload` |
+| `leaflet` | 注意： 未命中 | 无产物 | 当前 `src/` 无 import；规则预置，将来引用即生效 |
+| `chart.js` / `vue-chartjs` | 注意： 未命中 | 无产物 | 当前 `src/` 无 import；规则预置，将来引用即生效 |
 
 > `index-*.js` 中出现的 `assets/pdfjs-*.js`、`assets/three-*.js` 字符串来自 Vite 为**动态 import 预加载**生成的 `__vite__mapDeps` 映射表，**不是静态 import**，entry 的静态依赖只有 `socketio` chunk（见 `index.html` 的 `modulepreload` 列表）。
 

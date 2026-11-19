@@ -43,7 +43,7 @@ mv /tmp/backend-py.extract/backend-py "$DIR"
 if [ -f "${DIR}.bak-$TS/.env" ]; then
   cp -a "${DIR}.bak-$TS/.env" "$DIR/.env"
 elif [ ! -f "$DIR/.env" ]; then
-  echo "✖ 缺少 $DIR/.env，请从备份恢复后再部署"; exit 1
+  echo "失败 缺少 $DIR/.env，请从备份恢复后再部署"; exit 1
 fi
 sed -i 's/^PORT=.*/PORT=3001/' "$DIR/.env"
 grep -q '^BACKEND_LOG_DIR=' "$DIR/.env" || echo "BACKEND_LOG_DIR=$DIR/logs" >> "$DIR/.env"

@@ -31,7 +31,7 @@
     <div v-if="result" class="card p-lg mt-md text-center">
       <h3>考试结果</h3>
       <p class="text-2xl font-bold" :class="result.passed ? 'text-green' : 'text-red'">{{ result.score }} 分</p>
-      <p>{{ result.passed ? '✅ 通过' : '❌ 未通过' }}</p>
+      <p>{{ result.passed ? '通过' : '未通过' }}</p>
     </div>
   </div>
 </template>

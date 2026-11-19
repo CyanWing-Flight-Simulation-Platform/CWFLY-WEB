@@ -56,7 +56,7 @@ async function submit() {
   msg.value = ''
   try {
     await applyApi.staff(form.value)
-    msg.value = '✅ 申请已提交成功，请等待通知'
+    msg.value = '申请已提交成功，请等待通知'
     msgType.value = 'ok'
     // 2秒后跳转到仪表盘
     setTimeout(() => router.push('/dashboard'), 2000)

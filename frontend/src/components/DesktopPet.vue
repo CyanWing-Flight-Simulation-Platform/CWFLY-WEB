@@ -17,7 +17,7 @@
     </button>
 
     <!-- 隐藏桌宠（悬停显示） -->
-    <button class="pet__hide" title="隐藏桌宠" @click.stop="hidePet">✕</button>
+    <button class="pet__hide" title="隐藏桌宠" @click.stop="hidePet">×</button>
 
     <!-- 新通知气泡 -->
     <Transition name="bubble">
@@ -46,7 +46,7 @@
         <div class="pet-panel card">
           <div class="pet-panel__header">
             <h3>桌宠自定义</h3>
-            <button class="pet-panel__close" @click="closePanel">✕</button>
+            <button class="pet-panel__close" @click="closePanel">×</button>
           </div>
 
           <div class="pet-panel__body">
@@ -130,7 +130,7 @@
                   <ul class="pet-phrases__list">
                     <li v-for="(p, i) in phrases" :key="i" class="pet-phrases__item">
                       <span class="pet-phrases__text">{{ p }}</span>
-                      <button class="pet-phrases__del" title="删除" @click="removePhrase(i)">✕</button>
+                      <button class="pet-phrases__del" title="删除" @click="removePhrase(i)">×</button>
                     </li>
                   </ul>
                   <p v-if="!phrases.length" class="text-sm text-muted" style="margin-top:8px;">已删除全部对话，点击宠物时将显示「喵～」</p>
@@ -156,7 +156,7 @@
 
   <!-- 已隐藏时的唤醒按钮 -->
   <button v-else class="pet-ghost" @click="showPet" title="显示桌宠">
-    <span class="pet-ghost__paw">🐾</span>
+    <span class="pet-ghost__paw">爪印</span>
     <span>桌宠已隐藏 · 点击唤醒</span>
   </button>
 </template>

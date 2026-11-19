@@ -35,7 +35,7 @@ snapshot() {
 echo "=== [0] Python 就绪检查 ==="
 c=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3001/health)
 echo "  /health => $c"
-[ "$c" = "200" ] || { echo "✖ Python 未就绪"; exit 1; }
+[ "$c" = "200" ] || { echo "失败 Python 未就绪"; exit 1; }
 
 echo "=== [1] 采集 Node 基线 ==="
 snapshot node
@@ -50,9 +50,9 @@ sleep 2
 echo "=== [3] Python 结果与基线比对 ==="
 snapshot py
 if diff -q /tmp/snap-node.txt /tmp/snap-py.txt >/dev/null; then
-  echo "  ✔ 公网响应与 Node 基线逐字节一致"
+  echo "  成功 公网响应与 Node 基线逐字节一致"
 else
-  echo "  ✖ 不一致，回滚"
+  echo "  失败 不一致，回滚"
   diff /tmp/snap-node.txt /tmp/snap-py.txt || true
   for f in api.cwfly.conf.conf atc.cwfly.conf.conf cwfly.conf.conf; do cp -a "/tmp/nginx-rollback-$f.$TS" "$VHOST/$f"; done
   nginx -s reload
@@ -61,7 +61,7 @@ fi
 
 SIO=$(curl -s -A "$UA" "https://www.cwflysim.cn/socket.io/?EIO=4&transport=polling" | head -c 40)
 echo "  Socket.IO: $SIO"
-case "$SIO" in 0\{*) echo "  ✔ 握手正常";; *) echo "  ✖ 握手异常，回滚";
+case "$SIO" in 0\{*) echo "  成功 握手正常";; *) echo "  失败 握手异常，回滚";
   for f in api.cwfly.conf.conf atc.cwfly.conf.conf cwfly.conf.conf; do cp -a "/tmp/nginx-rollback-$f.$TS" "$VHOST/$f"; done
   nginx -s reload; exit 1;; esac
 
@@ -69,8 +69,8 @@ echo "=== [4] 停止 Node（PM2 条目保留，可 pm2 start cwfly-api 回滚）
 pm2 stop cwfly-api >/dev/null 2>&1 || true
 sleep 3
 snapshot postnode
-diff -q /tmp/snap-node.txt /tmp/snap-postnode.txt >/dev/null && echo "  ✔ 停 Node 后行为不变" || {
-  echo "  ✖ 停 Node 后行为变化，回滚"
+diff -q /tmp/snap-node.txt /tmp/snap-postnode.txt >/dev/null && echo "  成功 停 Node 后行为不变" || {
+  echo "  失败 停 Node 后行为变化，回滚"
   for f in api.cwfly.conf.conf atc.cwfly.conf.conf cwfly.conf.conf; do cp -a "/tmp/nginx-rollback-$f.$TS" "$VHOST/$f"; done
   nginx -s reload; pm2 start cwfly-api >/dev/null 2>&1 || true; exit 1; }
 
