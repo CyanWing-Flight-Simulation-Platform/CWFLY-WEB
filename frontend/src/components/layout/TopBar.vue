@@ -94,9 +94,7 @@
         </Transition>
       </div>
 
-      <div class="app-header__center">
-        <span v-if="!shellNavTop" class="page-title">{{ pageTitle }}</span>
-      </div>
+      <div class="app-header__center"></div>
 
       <div class="app-header__actions">
         <time class="utc-clock" :class="{ 'map-shift': isMapPage }" :title="'UTC · ' + utcDate"><span class="utc-label">UTC</span> {{ utcTime }}</time>

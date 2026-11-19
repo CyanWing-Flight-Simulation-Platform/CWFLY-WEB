@@ -20,6 +20,7 @@
         <img :src="brandLogo" class="sidebar-brand__logo" alt="CWFLY" />
         <span class="sidebar-brand__text">CWFLY</span>
       </router-link>
+      <span v-if="pageTitle" class="sidebar-page-title">{{ pageTitle }}</span>
       <button
         class="nav-collapse-btn"
         type="button"
@@ -221,6 +222,7 @@ const brandLogo = computed(() => {
   void themeMode.value
   return isDarkTheme() ? '/logo/logo_dark.png' : '/logo/logo_light.jpg'
 })
+const pageTitle = computed(() => String(route.meta?.title || ''))
 const { isLinkCurrent, isSubCurrent, isGroupCurrent, isGroupActive } = useNavCurrent()
 const { expandedGroup, syncOpenGroups, onGroupToggle } = useNavAccordion()
 const { tip, showTip, hideTip } = useNavTooltip()
@@ -601,11 +603,21 @@ html[data-theme='dark'] .sidebar-user:hover { background: rgba(255, 255, 255, .0
 .sidebar-top {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 8px;
   padding: 8px 10px 4px;
   flex-shrink: 0;
 }
+.sidebar-page-title {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--c-text-muted);
+  font-size: 13px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sidebar-top .nav-collapse-btn { margin-left: auto; }
 .sidebar-brand {
   display: inline-flex;
   min-width: 0;
@@ -652,8 +664,10 @@ html[data-theme='dark'] .sidebar-user:hover { background: rgba(255, 255, 255, .0
 .app-sidebar.is-collapsed { width: 68px !important; padding-left: 8px; padding-right: 8px; }
 .app-sidebar.is-collapsed .sidebar-top { justify-content: center; gap: 4px; padding: 8px 0 2px; }
 .app-sidebar.is-collapsed .sidebar-brand { gap: 0; }
-.app-sidebar.is-collapsed .sidebar-brand__text { display: none; }
+.app-sidebar.is-collapsed .sidebar-brand__text,
+.app-sidebar.is-collapsed .sidebar-page-title { display: none; }
 .app-sidebar.is-collapsed .sidebar-brand__logo { width: 22px; height: 22px; }
+.app-sidebar.is-collapsed .sidebar-top .nav-collapse-btn { margin-left: 0; }
 .app-sidebar.is-collapsed .nav-label,
 .app-sidebar.is-collapsed .nav-group-label,
 .app-sidebar.is-collapsed .nav-item-label,
