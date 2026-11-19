@@ -690,8 +690,6 @@ html[data-theme='dark'] .layout-option.active { background: rgba(10, 132, 255, .
   .bind-btn { padding: 0 10px; font-size: 12px; }
 }
 
-</style>
-
 /* ===== 2FA ===== */
 .mfa-badge {
   display: inline-flex;
@@ -738,3 +736,4 @@ html[data-theme='dark'] .layout-option.active { background: rgba(10, 132, 255, .
   font-weight: 600;
   letter-spacing: .04em;
 }
+</style>
