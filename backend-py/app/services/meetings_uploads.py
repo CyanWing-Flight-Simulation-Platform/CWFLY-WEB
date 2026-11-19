@@ -401,6 +401,18 @@ def pdf_to_text(path: Path) -> str:
 
 
 # ==================== 解析总入口 ====================
+_PDF_WATERMARK_RE = re.compile(
+    r"^(?:CWFLY|青翼模拟飞行|CWFLY青翼模拟飞行)+$",
+    re.IGNORECASE,
+)
+
+
+def _is_pdf_watermark(line: str) -> bool:
+    """过滤 PDF 页眉/页脚中的纯品牌水印（如重复的 CWFLY）。"""
+    key = re.sub(r"\s+", "", str(line or ""))
+    return bool(key) and bool(_PDF_WATERMARK_RE.fullmatch(key))
+
+
 async def parse_document(path: Path, original_name: str | None) -> str:
     """对齐 Node parseDocument：返回要落库的 HTML。"""
     ext = os.path.splitext(original_name or "")[1].lower()
@@ -420,7 +432,7 @@ async def parse_document(path: Path, original_name: str | None) -> str:
             body = "".join(
                 f"<p>{line}</p>"
                 for line in escaped.split("\n")
-                if line.strip()
+                if line.strip() and not _is_pdf_watermark(line)
             )
             return body or "<p>PDF 文件内容为空</p>"
         except Exception as exc:  # noqa: BLE001
