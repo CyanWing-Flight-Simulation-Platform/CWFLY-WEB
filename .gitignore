@@ -23,3 +23,4 @@ __pycache__/
 backend-py/logs/
 backend-py/uploads/
 backend-py/backups/
+.artifacts/
