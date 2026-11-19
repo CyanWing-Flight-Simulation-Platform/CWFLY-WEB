@@ -63,6 +63,11 @@ class Settings(BaseSettings):
     LOGIN_CHALLENGE_TTL_SECONDS: int = 600
     TRUSTED_IP_LOGIN_HISTORY: int = 50
     TRUSTED_DEVICE_TTL_SECONDS: int = 2592000
+
+    # ---- 审计日志 ----
+    AUDIT_LOG_ALL_REQUESTS: bool = True
+    AUDIT_LOG_RETENTION_DAYS: int = 180
+
     LOGIN_LOCK_WINDOW_MINUTES: int = 15
     LOGIN_LOCK_MAX_FAILS: int = 5
 

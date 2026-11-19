@@ -9,13 +9,12 @@ from __future__ import annotations
 
 import os
 import re
-import time
 from typing import Any
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.middleware.audit_context import current_request
+from app.middleware.audit_context import current_request, mark_semantic_audit
 from app.utils.client import get_client_ip, get_user_agent
 
 CATEGORIES = ("auth", "permission", "content", "risk", "admin", "system")
@@ -151,6 +150,59 @@ async def _actor_snapshot(db: AsyncSession, cid: str) -> tuple[str, str]:
         return "", ""
 
 
+async def _insert(
+    db: AsyncSession,
+    action: str,
+    detail: str,
+    operator: str,
+    *,
+    category: str | None,
+    target_type: str,
+    target_id: Any,
+    actor_name: str,
+    actor_role: str,
+    request: Any = None,
+) -> None:
+    actor_name = actor_name or ""
+    actor_role = actor_role or ""
+    if operator and (not actor_name or not actor_role):
+        snapshot_name, snapshot_role = await _actor_snapshot(db, str(operator))
+        actor_name = actor_name or snapshot_name or str(operator)
+        actor_role = actor_role or snapshot_role
+
+    req = request if request is not None else current_request()
+    ip = get_client_ip(req) if req is not None else ""
+    ua = get_user_agent(req) if req is not None else ""
+    ua_label, ua_bot = classify_ua(ua)
+    value = str(detail or "")
+    await db.execute(
+        text(
+            "INSERT INTO `AuditLog` (`userId`, `action`, `target`, `detail`, "
+            "`category`, `actorName`, `actorRole`, `targetType`, `targetId`, "
+            "`ip`, `ua`, `uaLabel`, `uaBot`, `pid`) VALUES "
+            "(:uid, :action, :target, :detail, :category, :actorName, :actorRole, "
+            ":targetType, :targetId, :ip, :ua, :uaLabel, :uaBot, :pid)"
+        ),
+        {
+            "uid": str(operator or "system"),
+            "action": str(action or "")[:191],
+            "target": value[:191],
+            "detail": value[:191],
+            "category": category or classify_action(action),
+            "actorName": actor_name[:191],
+            "actorRole": actor_role[:64],
+            "targetType": str(target_type or "")[:64],
+            "targetId": str(target_id or "")[:191],
+            "ip": ip[:64],
+            "ua": ua[:512],
+            "uaLabel": ua_label[:64],
+            "uaBot": 1 if ua_bot else 0,
+            "pid": os.getpid(),
+        },
+    )
+    await db.commit()
+
+
 async def write(
     db: AsyncSession,
     action: str,
@@ -163,46 +215,20 @@ async def write(
     actor_name: str = "",
     actor_role: str = "",
 ) -> None:
-    """写一条审计日志；失败静默，不阻塞业务。"""
+    """写一条有业务语义的审计日志；失败静默，不阻塞业务。"""
     try:
-        actor_name = actor_name or ""
-        actor_role = actor_role or ""
-        if operator and (not actor_name or not actor_role):
-            snapshot_name, snapshot_role = await _actor_snapshot(db, str(operator))
-            actor_name = actor_name or snapshot_name or str(operator)
-            actor_role = actor_role or snapshot_role
-
-        req = current_request()
-        ip = get_client_ip(req) if req is not None else ""
-        ua = get_user_agent(req) if req is not None else ""
-        ua_label, ua_bot = classify_ua(ua)
-        value = str(detail or "")
-        await db.execute(
-            text(
-                "INSERT INTO `AuditLog` (`userId`, `action`, `target`, `detail`, "
-                "`category`, `actorName`, `actorRole`, `targetType`, `targetId`, "
-                "`ip`, `ua`, `uaLabel`, `uaBot`, `pid`) VALUES "
-                "(:uid, :action, :target, :detail, :category, :actorName, :actorRole, "
-                ":targetType, :targetId, :ip, :ua, :uaLabel, :uaBot, :pid)"
-            ),
-            {
-                "uid": str(operator or "system"),
-                "action": str(action or "")[:191],
-                "target": value[:191],
-                "detail": value[:191],
-                "category": category or classify_action(action),
-                "actorName": actor_name[:191],
-                "actorRole": actor_role[:64],
-                "targetType": str(target_type or "")[:64],
-                "targetId": str(target_id or "")[:191],
-                "ip": ip[:64],
-                "ua": ua[:512],
-                "uaLabel": ua_label[:64],
-                "uaBot": 1 if ua_bot else 0,
-                "pid": os.getpid(),
-            },
+        await _insert(
+            db,
+            action,
+            detail,
+            operator,
+            category=category,
+            target_type=target_type,
+            target_id=target_id,
+            actor_name=actor_name,
+            actor_role=actor_role,
         )
-        await db.commit()
+        mark_semantic_audit()
     except Exception:  # noqa: BLE001
         try:
             await db.rollback()
@@ -210,12 +236,71 @@ async def write(
             pass
 
 
-def _days_filter(days: int) -> int:
-    return max(1, min(int(days or 7), 90))
+def _category_for_path(path: str) -> str:
+    value = (path or "").lower()
+    if value.startswith("/api/auth"):
+        return "auth"
+    if value.startswith("/api/admin"):
+        return "admin"
+    if value.startswith("/api/security"):
+        return "risk"
+    if value.startswith("/api/profile"):
+        return "permission"
+    if value.startswith(("/api/tickets", "/api/apply", "/api/events", "/api/meetings",
+                         "/api/forum", "/api/content", "/api/training", "/api/staff")):
+        return "content"
+    return "system"
 
 
-def now_ms() -> int:
-    return int(time.time() * 1000)
+def _claims_actor(request: Any) -> tuple[str, str, str]:
+    """从 Bearer token 取操作人；无效/匿名请求记为 anonymous。"""
+    if request is None:
+        return "anonymous", "游客", ""
+    header = request.headers.get("authorization") or ""
+    if not header.startswith("Bearer "):
+        return "anonymous", "游客", ""
+    try:
+        from app.services.token import verify_token
+
+        claims = verify_token(header[len("Bearer ") :])
+    except Exception:  # noqa: BLE001
+        return "anonymous", "游客", ""
+    cid = str(claims.get("cid") or "").strip()
+    if not cid:
+        return "anonymous", "游客", ""
+    name = str(claims.get("username") or cid)
+    role = _actor_role(
+        int(claims.get("rating") or 0),
+        int(claims.get("fsdLevel") or 0),
+        str(claims.get("permissions") or ""),
+    )
+    return cid, name, role
+
+
+async def write_generic_request(
+    db: AsyncSession,
+    *,
+    method: str,
+    path: str,
+    status: int,
+    duration_ms: int,
+    request: Any = None,
+) -> None:
+    """中间件兜底：记录所有未显式审计的 /api 请求。"""
+    cid, name, role = _claims_actor(request)
+    clean_path = str(path or "")[:150]
+    await _insert(
+        db,
+        f"{method} {clean_path}",
+        f"HTTP {status} · {max(0, int(duration_ms))}ms",
+        cid,
+        category=_category_for_path(clean_path),
+        target_type="api",
+        target_id=clean_path,
+        actor_name=name,
+        actor_role=role,
+        request=request,
+    )
 
 
 __all__ = [
@@ -225,4 +310,5 @@ __all__ = [
     "classify_ua",
     "ensure_schema",
     "write",
+    "write_generic_request",
 ]
