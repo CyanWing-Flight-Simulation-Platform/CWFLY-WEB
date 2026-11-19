@@ -24,7 +24,7 @@
 
     <!-- 核心 KPI -->
     <section class="dash-kpis">
-      <div v-for="kpi in kpis" :key="kpi.label" class="kpi-card" :class="'kpi-card--' + kpi.tone">
+      <div v-for="kpi in kpis" :key="kpi.label" class="kpi-card">
         <div class="kpi-label">{{ kpi.label }}</div>
         <div class="kpi-value">{{ kpi.value }}<small v-if="kpi.unit">{{ kpi.unit }}</small></div>
         <div class="kpi-note">{{ kpi.note }}</div>
@@ -492,21 +492,6 @@ watch(() => user.profile?.avatar, (value) => {
   background: var(--glass-bg-strong);
   box-shadow: 0 8px 22px rgba(15, 23, 42, .04);
 }
-.kpi-card::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 20px;
-  width: 34px;
-  height: 2px;
-  border-radius: 99px;
-  background: var(--kpi-accent, var(--c-primary));
-  opacity: .8;
-}
-.kpi-card--blue { --kpi-accent: #2563eb; }
-.kpi-card--green { --kpi-accent: #16a34a; }
-.kpi-card--orange { --kpi-accent: #ea580c; }
-.kpi-card--purple { --kpi-accent: #7c3aed; }
 .kpi-label { color: var(--c-text-muted); font-size: 12px; font-weight: 500; }
 .kpi-value {
   margin-top: 9px;
