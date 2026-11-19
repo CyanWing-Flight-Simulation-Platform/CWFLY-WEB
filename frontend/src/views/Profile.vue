@@ -148,12 +148,10 @@ import UserTag from '@/components/base/UserTag.vue'
 const user = useUserStore()
 const loading = ref(false)
 const profileData = ref(null)
-const totalFlightMinutes = ref(0)
-const totalControllerMinutes = ref(0)
 
 const avatarUrl = computed(() => profileData.value?.avatar || '')
-const totalFlightHours = computed(() => (totalFlightMinutes.value / 60).toFixed(1))
-const totalControllerHours = computed(() => (totalControllerMinutes.value / 60).toFixed(1))
+const totalFlightHours = computed(() => formatHours(profileData.value?.totalFlightHours))
+const totalControllerHours = computed(() => formatHours(profileData.value?.totalControllerHours))
 
 const bind = reactive({ email: '', qq: '', verifyCode: '' })
 const bindLoading = ref(false)
@@ -199,39 +197,19 @@ function formatDate(v) {
   return `${y}-${m}-${day}`
 }
 
-/** 解析 FlightPlan.flightTime（HHMM 或 H:MM）为分钟。 */
-function parseFlightMinutes(value) {
-  const text = String(value || '').trim()
-  if (!text) return 0
-  const colon = text.match(/^(\d{1,3}):([0-5]\d)$/)
-  if (colon) return Number(colon[1]) * 60 + Number(colon[2])
-  if (/^\d{4}$/.test(text)) return Number(text.slice(0, 2)) * 60 + Number(text.slice(2))
-  return 0
-}
-
-async function loadFlightTotal() {
-  try {
-    const res = await api.get('/flightplans')
-    const plans = Array.isArray(res.data) ? res.data : []
-    totalFlightMinutes.value = plans.reduce(
-      (sum, plan) => sum + parseFlightMinutes(plan.flightTime),
-      0
-    )
-  } catch { /* 无飞行计划时保持 0 */ }
+/** 时长统一由后端返回小时数，保留两位小数展示。 */
+function formatHours(value) {
+  const hours = Number(value)
+  return Number.isFinite(hours) ? hours.toFixed(2) : '0.00'
 }
 
 onMounted(async () => {
   loading.value = true
-  loadFlightTotal()
   try {
     const res = await profileApi.get()
     profileData.value = res.data
     bind.email = res.data.email || ''
     bind.qq = res.data.qq || ''
-    const controllerHours = res.data.controllerHours ?? res.data.totalHours
-    if (typeof controllerHours === 'number') {
-      totalControllerMinutes.value = controllerHours * 60
-    }
     applyBg(res.data.bgImage)
   } catch { /* ignore */ } finally {
     loading.value = false

@@ -18,6 +18,7 @@ import re
 from typing import Any
 
 from fastapi import APIRouter, Depends, File, Request, UploadFile
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
@@ -100,6 +101,58 @@ def _qq_avatar(qq: Any) -> str:
     return f"https://q1.qlogo.cn/g?b=qq&nk={text}&s=100"
 
 
+# FlightLog 没有独立 role 字段；管制呼号使用 ICAO_设施后缀（如 ZBAA_TWR / ZSHA_CT）。
+_CONTROLLER_CALLSIGN_RE = re.compile(
+    r"_(DEL|GND|TWR|APP|CTR|FSS|OBS|AP|TW|CT|AT|OB)$",
+    re.IGNORECASE,
+)
+
+
+async def _online_hours(db: AsyncSession, cid: str) -> dict[str, float]:
+    """从 FlightLog 的上下线时间计算真实在线时长，不依赖 FlightPlan.flightTime。
+
+    过滤规则：
+    - offlineAt 为空（仍在线/异常断线未补）不计；
+    - offlineAt <= createdAt（负数/零时长）不计；
+    - 管制呼号按设施后缀归入管制时长，其余归入连飞时长。
+    """
+    flight_seconds = 0
+    controller_seconds = 0
+    try:
+        rows = (
+            await db.execute(
+                text(
+                    "SELECT callsign, createdAt, offlineAt FROM `FlightLog` "
+                    "WHERE userId = :cid AND offlineAt IS NOT NULL "
+                    "AND offlineAt > createdAt"
+                ),
+                {"cid": str(cid)},
+            )
+        ).all()
+        for row in rows:
+            item = row._mapping
+            callsign = str(item.get("callsign") or "").strip().upper()
+            created = item.get("createdAt")
+            offline = item.get("offlineAt")
+            if not created or not offline:
+                continue
+            seconds = (offline - created).total_seconds()
+            if seconds <= 0:
+                continue
+            if _CONTROLLER_CALLSIGN_RE.search(callsign):
+                controller_seconds += seconds
+            else:
+                flight_seconds += seconds
+    except Exception as exc:  # noqa: BLE001 - 旧库可能尚未同步 offlineAt 列
+        log.warning("[profile.py] FlightLog 在线时长查询失败: %s", exc)
+    # TODO(兼容旧库): 若线上 FlightLog 尚未迁移 offlineAt，需要先执行 FSD 的
+    # FlightLog 迁移；此处不伪造数据，查询失败时返回 0.00，避免接口 500。
+    return {
+        "totalFlightHours": round(flight_seconds / 3600, 2),
+        "totalControllerHours": round(controller_seconds / 3600, 2),
+    }
+
+
 def _zh_now() -> str:
     """`new Date().toLocaleString('zh-CN')`（月/日不补零，与 Node ICU 输出一致）。"""
     return zh_locale(dt.datetime.now())
@@ -123,6 +176,7 @@ async def get_profile(
         user = await ps.get_profile(db, current.cid)
         if not user:
             return _fail(404, "用户不存在")
+        hours = await _online_hours(db, current.cid)
         return _ok(
             {
                 "cid": user.get("cid"),
@@ -135,6 +189,8 @@ async def get_profile(
                 "avatar": _qq_avatar(user.get("qq")),
                 "bgImage": user.get("bgImage") or "",
                 "createdAt": user.get("createdAt"),
+                "totalFlightHours": hours["totalFlightHours"],
+                "totalControllerHours": hours["totalControllerHours"],
             }
         )
     except Exception as exc:  # noqa: BLE001
@@ -313,7 +369,7 @@ async def upload_bg_image(
         if pu.count_bg_today(current.cid) >= pu.BG_DAILY_LIMIT:
             pu.remove_file(pu.BG_DIR / filename)
             return JSJSONResponse(
-                {"success": False, "message": "每日最多更换 5 次背景图，请明天再试"},
+                {"success": False, "message": "更换背景图过于频繁，请明天再试"},
                 status_code=429,
             )
 
