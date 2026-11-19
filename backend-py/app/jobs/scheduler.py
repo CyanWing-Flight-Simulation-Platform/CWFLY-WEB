@@ -38,6 +38,7 @@ from typing import Any, Dict, List, Optional
 
 from sqlalchemy import text
 
+from app.config import settings
 from app.db.session import SessionLocal
 from app.services import device_fp as device_ban_store
 from app.services import fsd_tracker, ip_ban_store, whazzup
@@ -236,6 +237,40 @@ async def backup_database() -> bool:
             pass
         return False
 
+    # 可选：用 GPG 对称加密备份（密钥文件仅 root 可读）。
+    # 配置 BACKUP_GPG_PASSPHRASE_FILE 后，明文 .sql.gz 会在加密成功后删除。
+    passphrase_file = (settings.BACKUP_GPG_PASSPHRASE_FILE or "").strip()
+    if passphrase_file and os.path.isfile(passphrase_file):
+        encrypted = filepath.with_name(filepath.name + ".gpg")
+        try:
+            enc_proc = await asyncio.create_subprocess_exec(
+                "gpg", "--batch", "--yes", "--symmetric", "--cipher-algo", "AES256",
+                "--passphrase-file", passphrase_file, "--output", str(encrypted), str(filepath),
+                stdout=asyncio.subprocess.DEVNULL,
+                stderr=asyncio.subprocess.DEVNULL,
+            )
+            await enc_proc.wait()
+            if enc_proc.returncode == 0 and encrypted.exists():
+                try:
+                    filepath.unlink()
+                except OSError:
+                    pass
+                try:
+                    encrypted.chmod(0o600)
+                except OSError:
+                    pass
+                filepath = encrypted
+            else:
+                log.error("[Backup] GPG 加密失败，保留明文备份（请检查密钥文件权限）")
+        except FileNotFoundError:
+            log.error("[Backup] 未找到 gpg，保留明文备份")
+        except Exception as exc:  # noqa: BLE001
+            log.error("[Backup] GPG 加密异常: %s", exc)
+
+    try:
+        filepath.chmod(0o600)
+    except OSError:
+        pass
     size_mb = filepath.stat().st_size / 1024 / 1024
     log.info("[Backup] 数据库已备份: %s (%.1f MB)", filepath.name, size_mb)
     return True
@@ -246,7 +281,7 @@ def _clean_old_backups_sync() -> int:
         BACKUP_DIR.mkdir(parents=True, exist_ok=True)
         cutoff = time.time() - BACKUP_RETENTION_DAYS * 86400
         deleted = 0
-        for path in BACKUP_DIR.glob("cwfly-*.sql.gz"):
+        for path in BACKUP_DIR.glob("cwfly-*.sql.gz*"):
             try:
                 if path.stat().st_mtime < cutoff:
                     path.unlink()

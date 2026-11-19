@@ -70,6 +70,9 @@ class Settings(BaseSettings):
     AUDIT_LOG_ALL_REQUESTS: bool = True
     AUDIT_LOG_RETENTION_DAYS: int = 180
 
+    # 备份加密：GPG 对称口令文件（root 600）；留空保留明文 .sql.gz
+    BACKUP_GPG_PASSPHRASE_FILE: str = ""
+
     LOGIN_LOCK_WINDOW_MINUTES: int = 15
     LOGIN_LOCK_MAX_FAILS: int = 5
 
