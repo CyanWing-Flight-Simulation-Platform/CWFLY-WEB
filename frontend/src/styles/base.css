@@ -367,7 +367,8 @@ html[data-theme='dark'] .badge-info    { background: rgba(100,210,255,.16); colo
 
 /* ---------- 动画 ---------- */
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(8px); }
-  to   { opacity: 1; transform: translateY(0); }
+  /* 只做透明度：transform 会创建 backdrop root，导致卡片 backdrop-filter 失效 */
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 .fade-in { animation: fadeIn .35s ease both; }

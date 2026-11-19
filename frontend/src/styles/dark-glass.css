@@ -1,0 +1,303 @@
+/* ============================================================
+   全站主题玻璃规范（浅色 / 深色双端）
+   - 浅色：高亮透明白色卡片 + 深灰文字
+   - 深色：低透明深色卡片 + 白色文字
+   - 表格、表单、弹窗、按钮全部跟随主题变量
+   ============================================================ */
+
+/* ---------- 浅色模式（默认） ---------- */
+:root,
+html[data-theme='light'] {
+  --ui-card-bg: rgba(255, 255, 255, .2);
+  --ui-card-filter: blur(32px) saturate(115%) contrast(85%) brightness(112%);
+  --ui-card-bg-hover: rgba(255, 255, 255, .3);
+  --ui-card-bg-solid: rgba(255, 255, 255, .88);
+  --ui-dialog-bg: rgba(255, 255, 255, .88);
+  --ui-dialog-border: rgba(15, 23, 42, .1);
+  --ui-overlay: rgba(15, 23, 42, .35);
+  --ui-text: #111827;
+  --ui-text-secondary: #6B7280;
+  --ui-text-muted: #9CA3AF;
+  --ui-border: rgba(15, 23, 42, .08);
+  --ui-divider: rgba(15, 23, 42, .06);
+  --ui-table-head: #6B7280;
+  --ui-table-row-hover: rgba(15, 23, 42, .03);
+  --ui-input-bg: rgba(255, 255, 255, .55);
+  --ui-input-border: rgba(15, 23, 42, .12);
+  --ui-ghost-bg: rgba(15, 23, 42, .05);
+  --ui-ghost-border: rgba(15, 23, 42, .12);
+  --ui-ghost-hover: rgba(15, 23, 42, .09);
+  --ui-danger-bg: rgba(239, 68, 68, .08);
+  --ui-danger-border: rgba(239, 68, 68, .22);
+  --ui-danger-text: #DC2626;
+  --ui-shadow: 0 12px 40px rgba(15, 23, 42, .1);
+
+  /* 兼容旧组件变量 */
+  --c-text: var(--ui-text);
+  --c-text-secondary: var(--ui-text-secondary);
+  --c-text-muted: var(--ui-text-muted);
+  --panel-bg: var(--ui-card-bg);
+  --panel-bg-solid: var(--ui-card-bg-solid);
+  --panel-hover: var(--ui-card-bg-hover);
+  --table-head-bg: transparent;
+  --table-head-color: var(--ui-table-head);
+  --table-text: var(--ui-text);
+  --table-border: var(--ui-divider);
+  --table-row-hover: var(--ui-table-row-hover);
+  --glass-border: transparent;
+  --glass-border-strong: transparent;
+  --shadow-sm: none;
+  --shadow-md: none;
+  --shadow-lg: none;
+}
+
+/* ---------- 深色模式 ---------- */
+html[data-theme='dark'] {
+  --ui-card-bg: rgba(15, 20, 30, .3);
+  --ui-card-filter: blur(32px);
+  --ui-card-bg-hover: rgba(15, 20, 30, .42);
+  --ui-card-bg-solid: rgba(15, 20, 30, .55);
+  --ui-dialog-bg: rgba(20, 25, 35, .85);
+  --ui-dialog-border: rgba(255, 255, 255, .1);
+  --ui-overlay: rgba(0, 0, 0, .6);
+  --ui-text: #FFFFFF;
+  --ui-text-secondary: rgba(255, 255, 255, .6);
+  --ui-text-muted: rgba(255, 255, 255, .45);
+  --ui-border: rgba(255, 255, 255, .1);
+  --ui-divider: rgba(255, 255, 255, .05);
+  --ui-table-head: rgba(255, 255, 255, .5);
+  --ui-table-row-hover: rgba(255, 255, 255, .04);
+  --ui-input-bg: rgba(255, 255, 255, .05);
+  --ui-input-border: rgba(255, 255, 255, .1);
+  --ui-ghost-bg: rgba(255, 255, 255, .1);
+  --ui-ghost-border: rgba(255, 255, 255, .2);
+  --ui-ghost-hover: rgba(255, 255, 255, .15);
+  --ui-danger-bg: rgba(239, 68, 68, .1);
+  --ui-danger-border: rgba(239, 68, 68, .25);
+  --ui-danger-text: #F87171;
+  --ui-shadow: 0 24px 80px rgba(0, 0, 0, .45);
+
+  --c-text: var(--ui-text);
+  --c-text-secondary: var(--ui-text-secondary);
+  --c-text-muted: var(--ui-text-muted);
+  --panel-bg: var(--ui-card-bg);
+  --panel-bg-solid: var(--ui-card-bg-solid);
+  --panel-hover: var(--ui-card-bg-hover);
+  --table-head-bg: transparent;
+  --table-head-color: var(--ui-table-head);
+  --table-text: var(--ui-text);
+  --table-border: var(--ui-divider);
+  --table-row-hover: var(--ui-table-row-hover);
+  --glass-border: transparent;
+  --glass-border-strong: transparent;
+  --shadow-sm: none;
+  --shadow-md: none;
+  --shadow-lg: none;
+}
+
+/* 浅色模式下给深色文字加极弱白光，压住背景线条又不影响通透 */
+html[data-theme='light'] .page-header h1,
+html[data-theme='light'] .page-header h2,
+html[data-theme='light'] .card h1,
+html[data-theme='light'] .card h2,
+html[data-theme='light'] .card h3,
+html[data-theme='light'] .card h4,
+html[data-theme='light'] .card strong,
+html[data-theme='light'] .card td,
+html[data-theme='light'] .panel h1,
+html[data-theme='light'] .panel h2,
+html[data-theme='light'] .panel h3,
+html[data-theme='light'] .panel strong,
+html[data-theme='light'] .panel td,
+html[data-theme='light'] .dashboard .kpi-value,
+html[data-theme='light'] .dashboard .online-metric strong,
+html[data-theme='light'] .dashboard .info-row strong,
+html[data-theme='light'] .dashboard .dash-card__head h2,
+html[data-theme='light'] .dashboard .dash-hero__text h1,
+html[data-theme='light'] .dashboard .event-main strong {
+  text-shadow: 0 1px 2px rgba(255, 255, 255, .8);
+}
+.btn, .btn * { text-shadow: none !important; }
+
+/* ---------- 全局卡片 ---------- */
+.card,
+.panel,
+.box,
+.modal-card,
+.cw-modal-card {
+  border: none !important;
+  background: var(--ui-card-bg) !important;
+  box-shadow: none !important;
+  backdrop-filter: var(--ui-card-filter) !important;
+  -webkit-backdrop-filter: var(--ui-card-filter) !important;
+}
+
+.card--hover:hover {
+  background: var(--ui-card-bg-hover) !important;
+  box-shadow: none !important;
+}
+
+/* 页面标题与卡片标题：跟随主题 */
+.page-header h1,
+.page-header h2,
+.card h1,
+.card h2,
+.card h3,
+.card h4,
+.panel h1,
+.panel h2,
+.panel h3,
+.panel h4,
+.modal-card h1,
+.modal-card h2,
+.modal-card h3,
+.modal-card h4 {
+  color: var(--ui-text) !important;
+  font-weight: 700 !important;
+  letter-spacing: -.01em;
+}
+
+.page-header h1 {
+  font-size: 28px !important;
+  margin-bottom: 8px;
+}
+.page-header p {
+  color: var(--ui-text-secondary) !important;
+  font-size: 14px !important;
+  line-height: 1.6;
+}
+
+/* 辅助文字 */
+.text-muted,
+.text-secondary,
+.label,
+.hint,
+.form-hint,
+.field-hint-text,
+td small,
+.card small {
+  color: var(--ui-text-secondary) !important;
+}
+
+.label {
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  margin-bottom: 8px !important;
+}
+
+.hint {
+  font-size: 12px !important;
+  line-height: 1.6 !important;
+  margin-top: 7px !important;
+}
+
+/* ---------- 全局表格 ---------- */
+table {
+  border: none !important;
+  border-collapse: collapse !important;
+  border-spacing: 0 !important;
+}
+.table-wrap { background: transparent !important; }
+.table-wrap table { border: none !important; }
+th, td { border-left: none !important; border-right: none !important; }
+
+th {
+  background: transparent !important;
+  color: var(--ui-table-head) !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  letter-spacing: .02em !important;
+  text-transform: none !important;
+  padding: 15px 18px !important;
+  border-bottom: 1px solid var(--ui-divider) !important;
+}
+
+td {
+  color: var(--ui-text) !important;
+  font-size: 13px !important;
+  line-height: 1.6 !important;
+  padding: 17px 18px !important;
+  border-bottom: 1px solid var(--ui-divider) !important;
+}
+
+tr:last-child td { border-bottom: none !important; }
+tr:hover td { background: var(--ui-table-row-hover) !important; }
+
+/* ---------- 全局表单 ---------- */
+.input,
+input:not([type='checkbox']):not([type='radio']):not([type='file']):not([type='submit']):not([type='button']):not([type='reset']),
+textarea,
+select,
+.sm-trigger,
+.dp-trigger {
+  background: var(--ui-input-bg) !important;
+  border: 1px solid var(--ui-input-border) !important;
+  border-radius: 12px !important;
+  color: var(--ui-text) !important;
+  box-shadow: none !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+}
+
+.input::placeholder,
+input::placeholder,
+textarea::placeholder {
+  color: var(--ui-text-muted) !important;
+}
+
+.input:focus,
+input:not([type='checkbox']):not([type='radio']):not([type='file']):not([type='submit']):not([type='button']):not([type='reset']):focus,
+textarea:focus,
+select:focus,
+.sm-trigger:focus,
+.dp-trigger:focus {
+  border-color: var(--c-primary) !important;
+  box-shadow: 0 0 0 3px rgba(0, 113, 227, .18) !important;
+  outline: none !important;
+}
+
+select.input,
+select:not([class]) {
+  background-color: var(--ui-input-bg) !important;
+  color: var(--ui-text) !important;
+}
+select option {
+  background: var(--ui-card-bg-solid) !important;
+  color: var(--ui-text) !important;
+}
+
+/* 按钮基础适配：浅色模式使用深色文字 */
+.btn-outline {
+  background: var(--ui-ghost-bg) !important;
+  border-color: var(--ui-ghost-border) !important;
+  color: var(--ui-text) !important;
+  box-shadow: none !important;
+}
+.btn-outline:hover {
+  background: var(--ui-ghost-hover) !important;
+  border-color: var(--c-primary) !important;
+  color: var(--ui-text) !important;
+}
+
+/* 下拉/日期面板、弹窗内容跟随主题 */
+.sm-panel,
+.dp-panel,
+.more-panel,
+.ip-import-panel {
+  border: none !important;
+  background: var(--ui-dialog-bg) !important;
+  box-shadow: var(--ui-shadow) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+}
+
+/* 空状态辅助文字 */
+.empty-state p,
+.empty-state__title,
+.empty-state__desc {
+  color: var(--ui-text-secondary) !important;
+}
+
+/* 滚动条跟随主题 */
+::-webkit-scrollbar-thumb { background: var(--ui-ghost-border); }
+::-webkit-scrollbar-thumb:hover { background: var(--ui-text-muted); }

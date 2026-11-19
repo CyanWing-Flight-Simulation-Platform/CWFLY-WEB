@@ -1,0 +1,212 @@
+/* ============================================================
+   全局按钮规范
+   - 统一圆角、高度、字号、字重与间距
+   - 主按钮品牌蓝渐变；次按钮深色磨砂；危险按钮暗红
+   - 统一 hover / active 物理反馈
+   ============================================================ */
+
+.btn,
+.btn-sm,
+.btn-xs,
+.btn-block {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  height: 36px !important;
+  min-height: 36px !important;
+  padding: 0 16px !important;
+  border-radius: 10px !important;
+  border: 1px solid transparent !important;
+  font-family: inherit !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  line-height: 1 !important;
+  text-decoration: none !important;
+  cursor: pointer !important;
+  white-space: nowrap !important;
+  box-shadow: none !important;
+  transition: all .2s ease !important;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.btn-sm {
+  padding: 0 14px !important;
+  font-size: 13px !important;
+}
+
+.btn-xs {
+  height: 30px !important;
+  min-height: 30px !important;
+  padding: 0 10px !important;
+  border-radius: 8px !important;
+  font-size: 12px !important;
+}
+
+.btn-block {
+  width: 100% !important;
+}
+
+.btn:active,
+.btn-sm:active,
+.btn-xs:active {
+  transform: scale(.96) !important;
+}
+
+.btn:disabled,
+.btn-sm:disabled,
+.btn-xs:disabled,
+.btn[disabled] {
+  opacity: .45 !important;
+  cursor: not-allowed !important;
+  transform: none !important;
+}
+
+.btn:focus-visible,
+.btn-sm:focus-visible,
+.btn-xs:focus-visible {
+  outline: 2px solid var(--c-primary) !important;
+  outline-offset: 2px !important;
+}
+
+/* ---------- 主按钮 ---------- */
+.btn-primary {
+  border: none !important;
+  background: linear-gradient(135deg, #3B82F6, #2563EB) !important;
+  color: #FFFFFF !important;
+  box-shadow: none !important;
+}
+.btn-primary:hover {
+  background: linear-gradient(135deg, #4B8EF8, #2F6FED) !important;
+  color: #FFFFFF !important;
+}
+
+/* ---------- 次按钮 / 幽灵按钮 ---------- */
+.btn-outline,
+.btn-secondary,
+.btn-ghost,
+.btn-accent,
+.btn-success,
+.btn-warning {
+  border: 1px solid var(--ui-ghost-border) !important;
+  background: var(--ui-ghost-bg) !important;
+  color: var(--ui-text) !important;
+  box-shadow: none !important;
+}
+.btn-outline:hover,
+.btn-secondary:hover,
+.btn-ghost:hover,
+.btn-accent:hover,
+.btn-success:hover,
+.btn-warning:hover {
+  border-color: var(--ui-ghost-border) !important;
+  background: var(--ui-ghost-hover) !important;
+  color: var(--ui-text) !important;
+}
+
+/* ---------- 危险按钮 ---------- */
+.btn-danger,
+.btn[style*="--c-danger"],
+.btn-sm[style*="--c-danger"],
+.btn-xs[style*="--c-danger"] {
+  border: 1px solid var(--ui-danger-border) !important;
+  background: var(--ui-danger-bg) !important;
+  color: var(--ui-danger-text) !important;
+  box-shadow: none !important;
+}
+.btn-danger:hover,
+.btn[style*="--c-danger"]:hover,
+.btn-sm[style*="--c-danger"]:hover,
+.btn-xs[style*="--c-danger"]:hover {
+  border-color: var(--ui-danger-border) !important;
+  background: var(--ui-danger-bg) !important;
+  color: var(--ui-danger-text) !important;
+}
+
+/* 确认删除这类使用主按钮 + inline danger 背景的按钮 */
+.btn-primary[style*="--c-danger"] {
+  border: 1px solid var(--ui-danger-border) !important;
+  background: var(--ui-danger-bg) !important;
+  color: var(--ui-danger-text) !important;
+}
+
+/* ---------- 按钮组间距 ---------- */
+.users-actions,
+.fp-actions,
+.btn-group,
+.modal-actions,
+.form-actions,
+.hero__actions {
+  display: flex !important;
+  align-items: center !important;
+  flex-wrap: wrap !important;
+  gap: 12px !important;
+}
+
+/* ---------- 表格内小操作按钮 ---------- */
+.users-action,
+.fp-action {
+  height: 32px !important;
+  padding: 0 12px !important;
+  border: 1px solid var(--ui-ghost-border) !important;
+  border-radius: 8px !important;
+  background: var(--ui-ghost-bg) !important;
+  color: var(--ui-text) !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  transition: all .2s ease !important;
+}
+.users-action:hover,
+.fp-action:hover {
+  border-color: var(--ui-ghost-border) !important;
+  background: var(--ui-ghost-hover) !important;
+  color: var(--ui-text) !important;
+}
+.users-action--delete,
+.fp-action--delete {
+  border-color: var(--ui-danger-border) !important;
+  background: var(--ui-danger-bg) !important;
+  color: var(--ui-danger-text) !important;
+}
+.users-action--delete:hover,
+.fp-action--delete:hover {
+  border-color: var(--ui-danger-border) !important;
+  background: var(--ui-danger-bg) !important;
+  color: var(--ui-danger-text) !important;
+}
+
+/* ---------- 其他组件内按钮 ---------- */
+.bind-btn,
+.action-banner__btn,
+.apt-toolbar-btn,
+.apt-toolbar-ok,
+.apt-toolbar-cancel {
+  border-radius: 8px !important;
+  transition: all .2s ease !important;
+}
+
+.btn-cancel-badge,
+.btn-cancel-xs {
+  border-radius: 8px !important;
+}
+
+/* 表单/工具条中的原生小按钮 */
+.apt-toolbar-btn:active,
+.apt-toolbar-ok:active,
+.apt-toolbar-cancel:active,
+.users-action:active,
+.fp-action:active {
+  transform: scale(.96) !important;
+}
+
+/* 页面标题右侧的操作组统一 12px 间距 */
+.page-header .flex.gap-sm { gap: 12px !important; }
+
+/* 所有原生按钮统一字体与物理反馈，不强制改变图标按钮尺寸 */
+button {
+  font-family: inherit;
+  transition: all .2s ease;
+}
+button:active:not(:disabled) {
+  transform: scale(.96);
+}

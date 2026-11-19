@@ -78,7 +78,7 @@
         <div class="flex gap-sm flex-wrap">
           <button class="btn btn-primary btn-sm" @click="openJoinDialog">报名参加</button>
           <button v-if="isController" class="btn btn-outline btn-sm" @click="openCtrlDialog">管制员报名</button>
-          <button class="btn btn-accent btn-sm" @click="showCreateDialog = true">+ 自发活动</button>
+          <button class="btn btn-accent btn-sm" @click="showCreateDialog = true">自发活动</button>
         </div>
       </div>
 
@@ -118,80 +118,101 @@
     </template>
 
     <!-- 报名弹窗 -->
-    <div v-if="showJoinDialog" class="modal-overlay" @click.self="showJoinDialog = false">
-      <div class="modal card p-lg">
-        <h3 class="mb-md">报名参加活动</h3>
-        <div class="mb-md">
-          <label class="text-sm font-bold mb-sm" style="display:block;">选择活动</label>
-          <SelectMenu v-model="joinEventId" :options="activeEvents.map((e) => ({ value: e.id, label: `${e.title} (${e.date})` }))" placeholder="-- 请选择 --" />
-        </div>
-        <div class="mb-md">
-          <label class="text-sm font-bold mb-sm" style="display:block;">呼号</label>
-          <input v-model="joinCallsign" class="input" placeholder="如 CES1234" maxlength="10" />
-        </div>
-        <div class="mb-md">
-          <label class="text-sm font-bold mb-sm" style="display:block;">机型</label>
-          <input v-model="joinAircraft" class="input" placeholder="如 A320" maxlength="8" />
-        </div>
-        <div class="flex gap-sm">
-          <button class="btn btn-primary" @click="submitJoin" :disabled="joinLoading">{{ joinLoading ? '提交中...' : '确认报名' }}</button>
-          <button class="btn btn-outline" @click="showJoinDialog = false">取消</button>
+    <Teleport to="body">
+      <div v-if="showJoinDialog" class="cw-dialog-overlay" @click.self="showJoinDialog = false">
+        <div class="cw-dialog" role="dialog" aria-modal="true" aria-labelledby="join-dialog-title">
+          <div class="cw-dialog__head">
+            <h3 id="join-dialog-title">报名参加活动</h3>
+            <p>选择活动并填写本次连飞信息</p>
+          </div>
+          <div class="cw-dialog__body">
+            <label class="cw-field">
+              <span class="cw-label">选择活动</span>
+              <SelectMenu v-model="joinEventId" :options="activeEvents.map((e) => ({ value: e.id, label: `${e.title} (${e.date})` }))" placeholder="-- 请选择 --" />
+            </label>
+            <label class="cw-field">
+              <span class="cw-label">呼号</span>
+              <input v-model="joinCallsign" class="input" placeholder="如 CES1234" maxlength="10" />
+            </label>
+            <label class="cw-field">
+              <span class="cw-label">机型</span>
+              <input v-model="joinAircraft" class="input" placeholder="如 A320" maxlength="8" />
+            </label>
+          </div>
+          <div class="cw-dialog__footer">
+            <button class="btn btn-outline" @click="showJoinDialog = false">取消</button>
+            <button class="btn btn-primary" @click="submitJoin" :disabled="joinLoading">{{ joinLoading ? '提交中...' : '确认报名' }}</button>
+          </div>
         </div>
       </div>
-    </div>
+    </Teleport>
 
     <!-- 管制员报名弹窗 -->
-    <div v-if="showControllerDialog" class="modal-overlay" @click.self="showControllerDialog = false">
-      <div class="modal card p-lg">
-        <h3 class="mb-md">管制员报名</h3>
-        <div v-if="!isController" class="text-sm text-muted mb-md">仅管制员（C1 及以上）可报名管制席位。</div>
-        <div class="mb-md">
-          <label class="text-sm font-bold mb-sm" style="display:block;">选择活动</label>
-          <SelectMenu v-model="ctrlEventId" :options="activeEvents.map((e) => ({ value: e.id, label: `${e.title} (${e.date})` }))" placeholder="-- 请选择 --" :disabled="!!detailEvent" />
-        </div>
-        <div class="mb-md">
-          <label class="text-sm font-bold mb-sm" style="display:block;">管制席位</label>
-          <SelectMenu v-model="ctrlPosition" :options="Object.entries(ctrlPositions.length ? ctrlPositions : defaultPositions).map(([i, p]) => ({ value: p.callsign || p.type, label: `${positionLabel(p)}` }))" placeholder="请选择席位" :disabled="!isController" />
-        </div>
-        <div class="flex gap-sm">
-          <button class="btn btn-primary" @click="submitController" :disabled="ctrlLoading || !isController">{{ ctrlLoading ? '提交中...' : '确认报名' }}</button>
-          <button class="btn btn-outline" @click="showControllerDialog = false">取消</button>
+    <Teleport to="body">
+      <div v-if="showControllerDialog" class="cw-dialog-overlay" @click.self="showControllerDialog = false">
+        <div class="cw-dialog" role="dialog" aria-modal="true" aria-labelledby="ctrl-dialog-title">
+          <div class="cw-dialog__head">
+            <h3 id="ctrl-dialog-title">管制员报名</h3>
+            <p>选择活动与管制席位</p>
+          </div>
+          <div class="cw-dialog__body">
+            <div v-if="!isController" class="text-sm text-muted">仅管制员（C1 及以上）可报名管制席位。</div>
+            <label class="cw-field">
+              <span class="cw-label">选择活动</span>
+              <SelectMenu v-model="ctrlEventId" :options="activeEvents.map((e) => ({ value: e.id, label: `${e.title} (${e.date})` }))" placeholder="-- 请选择 --" :disabled="!!detailEvent" />
+            </label>
+            <label class="cw-field">
+              <span class="cw-label">管制席位</span>
+              <SelectMenu v-model="ctrlPosition" :options="Object.entries(ctrlPositions.length ? ctrlPositions : defaultPositions).map(([i, p]) => ({ value: p.callsign || p.type, label: `${positionLabel(p)}` }))" placeholder="请选择席位" :disabled="!isController" />
+            </label>
+          </div>
+          <div class="cw-dialog__footer">
+            <button class="btn btn-outline" @click="showControllerDialog = false">取消</button>
+            <button class="btn btn-primary" @click="submitController" :disabled="ctrlLoading || !isController">{{ ctrlLoading ? '提交中...' : '确认报名' }}</button>
+          </div>
         </div>
       </div>
-    </div>
+    </Teleport>
 
     <!-- 自发活动弹窗 -->
-    <div v-if="showCreateDialog" class="modal-overlay" @click.self="showCreateDialog = false">
-      <div class="modal card p-lg" style="width:520px;">
-        <h3 class="mb-md">发起活动 <span class="text-sm text-muted">（需管理员审批）</span></h3>
-        <div class="mb-md">
-          <label class="text-sm font-bold mb-sm" style="display:block;">活动标题</label>
-          <input v-model="createForm.title" class="input" placeholder="如 周末连飞活动" />
-        </div>
-        <div class="mb-md">
-          <label class="text-sm font-bold mb-sm" style="display:block;">活动日期</label>
-          <DatePicker v-model="createForm.date" />
-        </div>
-        <div class="flex gap-sm mb-md">
-          <div style="flex:1;">
-            <label class="text-sm font-bold mb-sm" style="display:block;">起飞机场</label>
-            <input v-model="createForm.dep" class="input" placeholder="如 ZBAA" maxlength="4" />
+    <Teleport to="body">
+      <div v-if="showCreateDialog" class="cw-dialog-overlay" @click.self="showCreateDialog = false">
+        <div class="cw-dialog cw-dialog--wide" role="dialog" aria-modal="true" aria-labelledby="create-dialog-title">
+          <div class="cw-dialog__head">
+            <h3 id="create-dialog-title">发起活动 <span class="text-sm text-muted">（需管理员审批）</span></h3>
+            <p>填写活动信息，提交后等待管理员审批</p>
           </div>
-          <div style="flex:1;">
-            <label class="text-sm font-bold mb-sm" style="display:block;">到达机场</label>
-            <input v-model="createForm.arr" class="input" placeholder="如 ZSSS" maxlength="4" />
+          <div class="cw-dialog__body">
+            <label class="cw-field">
+              <span class="cw-label">活动标题</span>
+              <input v-model="createForm.title" class="input" placeholder="如 周末连飞活动" />
+            </label>
+            <label class="cw-field">
+              <span class="cw-label">活动日期</span>
+              <DatePicker v-model="createForm.date" />
+            </label>
+            <div class="cw-field-row">
+              <label class="cw-field">
+                <span class="cw-label">起飞机场</span>
+                <input v-model="createForm.dep" class="input" placeholder="如 ZBAA" maxlength="4" />
+              </label>
+              <label class="cw-field">
+                <span class="cw-label">到达机场</span>
+                <input v-model="createForm.arr" class="input" placeholder="如 ZSSS" maxlength="4" />
+              </label>
+            </div>
+            <label class="cw-field">
+              <span class="cw-label">活动说明</span>
+              <textarea v-model="createForm.description" class="input" rows="3" placeholder="活动路线、管制安排等"></textarea>
+            </label>
           </div>
-        </div>
-        <div class="mb-md">
-          <label class="text-sm font-bold mb-sm" style="display:block;">活动说明</label>
-          <textarea v-model="createForm.description" class="input" rows="3" placeholder="活动路线、管制安排等"></textarea>
-        </div>
-        <div class="flex gap-sm">
-          <button class="btn btn-primary" @click="submitCreate" :disabled="createLoading">{{ createLoading ? '提交中...' : '提交审批' }}</button>
-          <button class="btn btn-outline" @click="showCreateDialog = false">取消</button>
+          <div class="cw-dialog__footer">
+            <button class="btn btn-outline" @click="showCreateDialog = false">取消</button>
+            <button class="btn btn-primary" @click="submitCreate" :disabled="createLoading">{{ createLoading ? '提交中...' : '提交审批' }}</button>
+          </div>
         </div>
       </div>
-    </div>
+    </Teleport>
   </div>
 </template>
 
@@ -403,13 +424,72 @@ async function submitCreate() {
 </script>
 
 <style scoped>
-.modal-overlay { position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:1000;padding:20px;background:rgba(0,0,0,0.08);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);animation:overlayFadeIn .25s ease; }
-.modal { background:#fff;border-radius:14px;box-shadow:0 8px 40px rgba(0,0,0,0.12);width:480px;max-width:100%;max-height:90vh;overflow-y:auto;animation:modalPopIn .3s cubic-bezier(.34,1.56,.64,1); }
-/* 深色模式: 遮罩加深、弹窗深色背景+边框, 避免与背景融合 */
-html[data-theme='dark'] .modal-overlay { background:rgba(0,0,0,0.55); }
-html[data-theme='dark'] .modal { background:#1c1c1e; border:1px solid var(--c-border); box-shadow:0 8px 40px rgba(0,0,0,0.55); }
-@keyframes overlayFadeIn { from{opacity:0} to{opacity:1} }
-@keyframes modalPopIn { from{opacity:0;transform:scale(.92) translateY(12px)} to{opacity:1;transform:scale(1) translateY(0)} }
+.cw-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100vw;
+  height: 100vh;
+  padding: 24px;
+  background: var(--ui-overlay);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  animation: cwOverlayIn .2s ease both;
+}
+.cw-dialog {
+  display: flex;
+  flex-direction: column;
+  width: min(520px, 100%);
+  max-height: min(88vh, 760px);
+  overflow: hidden;
+  border: 1px solid var(--ui-dialog-border);
+  border-radius: 16px;
+  background: var(--ui-dialog-bg);
+  box-shadow: var(--ui-shadow);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  animation: cwDialogIn .24s cubic-bezier(.2, .8, .2, 1) both;
+}
+.cw-dialog--wide { width: min(580px, 100%); }
+.cw-dialog__head { padding: 32px 32px 0; flex-shrink: 0; }
+.cw-dialog__head h3 { margin: 0; color: var(--ui-text); font-size: 20px; font-weight: 700; letter-spacing: -.01em; }
+.cw-dialog__head p { margin: 8px 0 0; color: var(--ui-text-secondary); font-size: 13px; line-height: 1.6; }
+.cw-dialog__body {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 24px 32px;
+  overflow-y: auto;
+}
+.cw-field { display: flex; flex-direction: column; gap: 8px; }
+.cw-field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.cw-label { color: var(--ui-text-secondary); font-size: 12px; font-weight: 500; }
+.cw-dialog .input,
+.cw-dialog .sm-trigger,
+.cw-dialog .dp-trigger { height: 44px; padding: 12px 16px; }
+.cw-dialog textarea.input { height: auto; min-height: 104px; padding: 12px 16px; }
+.cw-dialog__footer {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+  padding: 0 32px 32px;
+  margin-top: 8px;
+  flex-shrink: 0;
+}
+@keyframes cwOverlayIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes cwDialogIn { from { opacity: 0; transform: translateY(12px) scale(.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@media (max-width: 620px) {
+  .cw-dialog-overlay { padding: 16px; }
+  .cw-dialog__head { padding: 24px 22px 0; }
+  .cw-dialog__body { padding: 20px 22px; gap: 16px; }
+  .cw-dialog__footer { padding: 0 22px 24px; }
+  .cw-dialog__footer .btn { flex: 1; }
+  .cw-field-row { grid-template-columns: 1fr; gap: 16px; }
+}
 .btn-accent { background:#ff9f0a;color:#fff;border:none;padding:6px 14px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;white-space:nowrap; }
 .btn-accent:hover { background:#e89400;transform:translateY(-1px); }
 .network { max-width:960px;margin:0 auto;padding:16px; }

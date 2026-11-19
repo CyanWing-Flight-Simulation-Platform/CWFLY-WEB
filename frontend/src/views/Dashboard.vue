@@ -46,7 +46,7 @@
     <div class="dash-grid">
       <div class="dash-col dash-col--main">
         <!-- 在线网络 -->
-        <section class="dash-card">
+        <section class="dash-card online-card">
           <div class="dash-card__head">
             <div>
               <h2>在线网络</h2>
@@ -59,6 +59,17 @@
               <strong>{{ metric.value }}</strong>
               <span>{{ metric.label }}</span>
             </div>
+          </div>
+        </section>
+
+        <!-- 网络动态 -->
+        <section class="dash-card network-card">
+          <div class="dash-card__head">
+            <div>
+              <h2>网络动态</h2>
+              <p>在线机组与管制席位</p>
+            </div>
+            <router-link to="/map" class="dash-link">在线地图 →</router-link>
           </div>
           <div v-if="fsdRows.length" class="online-list">
             <div v-for="row in fsdRows.slice(0, 6)" :key="row.kind + row.callsign" class="online-row">
@@ -79,13 +90,13 @@
               查看
             </div>
           </div>
-          <div v-else class="dash-empty">暂无在线用户或 FSD 暂时不可用</div>
+          <div v-else class="dash-empty network-empty">暂无在线用户或 FSD 暂时不可用</div>
         </section>
       </div>
 
       <div class="dash-col dash-col--side">
         <!-- 个人信息 -->
-        <section class="dash-card">
+        <section class="dash-card personal-card">
           <div class="dash-card__head">
             <div>
               <h2>个人信息</h2>
@@ -102,7 +113,7 @@
         </section>
 
         <!-- 近期活动 -->
-        <section class="dash-card">
+        <section class="dash-card upcoming-card">
           <div class="dash-card__head">
             <div>
               <h2>即将举行</h2>
@@ -438,10 +449,30 @@ watch(() => user.profile?.avatar, (value) => {
 </script>
 
 <style scoped>
+/* 仪表盘：无边框、无高光、深色磨砂玻璃；全部文字不添加阴影 */
 .dashboard {
   display: flex;
   flex-direction: column;
   gap: 18px;
+  --dash-bg: var(--ui-card-bg);
+  --dash-bg-hover: var(--ui-card-bg-hover);
+  --dash-text: var(--ui-text);
+  --dash-soft: var(--ui-text-secondary);
+  --dash-faint: var(--ui-text-muted);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* 所有卡片：只保留深色磨砂底，无边框、无阴影、无内高光 */
+.dash-hero,
+.kpi-card,
+.quick-card,
+.dash-card {
+  border: none;
+  box-shadow: none;
+  background: var(--dash-bg);
+  backdrop-filter: var(--ui-card-filter);
+  -webkit-backdrop-filter: var(--ui-card-filter);
 }
 
 .dash-hero {
@@ -450,11 +481,7 @@ watch(() => user.profile?.avatar, (value) => {
   justify-content: space-between;
   gap: 20px;
   padding: 22px 26px;
-  border: 1px solid var(--glass-border-strong);
   border-radius: 18px;
-  background: var(--glass-bg-strong);
-  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-  box-shadow: 0 8px 26px rgba(15, 23, 42, .05);
 }
 .dash-hero__identity { display: flex; min-width: 0; align-items: center; gap: 16px; }
 .dash-avatar {
@@ -462,21 +489,41 @@ watch(() => user.profile?.avatar, (value) => {
   height: 64px;
   flex-shrink: 0;
   overflow: hidden;
-  border: 1px solid var(--glass-border-strong);
-  border-radius: 18px;
-  background: var(--c-bg-soft, rgba(128, 128, 128, .08));
+  border: none;
+  border-radius: 16px;
+  background: var(--ui-ghost-bg);
 }
 .dash-avatar img { width: 100%; height: 100%; object-fit: cover; }
 .dash-hero__text { min-width: 0; }
-.dash-hero__text h1 { margin: 0; color: var(--c-text); font-size: 21px; font-weight: 700; letter-spacing: .01em; }
+.dash-hero__text h1 {
+  margin: 0;
+  color: var(--dash-text);
+  font-size: 21px;
+  font-weight: 700;
+  letter-spacing: .01em;
+}
 .dash-hero__text p {
   margin: 5px 0 0;
-  color: var(--c-text-muted);
+  color: var(--dash-soft);
   font-size: 13px;
   line-height: 1.5;
 }
-.dash-hero__text .dot { margin: 0 6px; opacity: .5; }
-.dash-refresh { flex-shrink: 0; }
+.dash-hero__text .dot { margin: 0 6px; opacity: .4; }
+
+.dash-refresh {
+  flex-shrink: 0;
+  border: none;
+  box-shadow: none;
+  background: var(--ui-ghost-bg);
+  color: var(--dash-text);
+}
+.dash-refresh:hover { background: var(--ui-ghost-hover); color: var(--dash-text); }
+
+.dashboard .badge {
+  border: none;
+  background: var(--ui-ghost-bg);
+  color: var(--dash-text);
+}
 
 .dash-kpis {
   display: grid;
@@ -486,23 +533,30 @@ watch(() => user.profile?.avatar, (value) => {
 .kpi-card {
   position: relative;
   overflow: hidden;
-  padding: 18px 20px;
-  border: 1px solid var(--glass-border-strong);
+  padding: 20px 22px;
   border-radius: 16px;
-  background: var(--glass-bg-strong);
-  box-shadow: 0 8px 22px rgba(15, 23, 42, .04);
 }
-.kpi-label { color: var(--c-text-muted); font-size: 12px; font-weight: 500; }
+.kpi-label {
+  color: var(--dash-soft);
+  font-size: 11px;
+  font-weight: 400;
+}
 .kpi-value {
-  margin-top: 9px;
-  color: var(--c-text);
-  font-size: 28px;
+  margin-top: 10px;
+  color: var(--dash-text);
+  font-size: 36px;
   font-weight: 700;
-  line-height: 1.05;
+  line-height: 1;
+  letter-spacing: -.02em;
   font-variant-numeric: tabular-nums;
 }
-.kpi-value small { margin-left: 3px; color: var(--c-text-muted); font-size: 13px; font-weight: 600; }
-.kpi-note { margin-top: 7px; color: var(--c-text-muted); font-size: 11px; opacity: .75; }
+.kpi-value small {
+  margin-left: 4px;
+  color: var(--dash-soft);
+  font-size: 14px;
+  font-weight: 500;
+}
+.kpi-note { margin-top: 8px; color: var(--dash-faint); font-size: 11px; }
 
 .dash-quick {
   display: grid;
@@ -513,17 +567,14 @@ watch(() => user.profile?.avatar, (value) => {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 14px 16px;
-  border: 1px solid var(--glass-border-strong);
+  padding: 15px 17px;
   border-radius: 14px;
-  background: var(--glass-bg-strong);
-  color: var(--c-text);
+  color: var(--dash-text);
   text-decoration: none;
-  transition: transform .16s ease, border-color .16s ease, background-color .16s ease;
+  transition: background-color .18s ease, transform .18s ease;
 }
 .quick-card:hover {
-  transform: translateY(-1px);
-  border-color: rgba(37, 99, 235, .28);
+  background: var(--dash-bg-hover);
   text-decoration: none;
 }
 .quick-card__icon {
@@ -533,100 +584,159 @@ watch(() => user.profile?.avatar, (value) => {
   width: 34px;
   height: 34px;
   flex-shrink: 0;
+  border: none;
   border-radius: 10px;
-  background: rgba(37, 99, 235, .09);
-  color: var(--c-primary);
+  background: var(--ui-ghost-bg);
+  color: var(--dash-text);
 }
 .quick-card__body { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 2px; }
-.quick-card__body strong { overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
-.quick-card__body small { overflow: hidden; color: var(--c-text-muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
-.quick-card__arrow { color: var(--c-text-muted); font-size: 14px; opacity: .6; }
+.quick-card__body strong { overflow: hidden; color: var(--dash-text); font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.quick-card__body small { overflow: hidden; color: var(--dash-soft); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.quick-card__arrow { color: var(--dash-soft); font-size: 14px; }
 
 .dash-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.65fr) minmax(280px, 1fr);
+  grid-template-areas:
+    "online personal"
+    "network upcoming";
   gap: 16px;
-  align-items: start;
+  align-items: stretch;
 }
-.dash-col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+/* 两列拆成网格：在线网络只占第一行，底边与“即将举行”顶部对齐 */
+.dash-col--main,
+.dash-col--side { display: contents; }
+.dash-col {
+  min-width: 0;
+}
+.online-card { grid-area: online; }
+.network-card { grid-area: network; }
+.personal-card { grid-area: personal; }
+.upcoming-card { grid-area: upcoming; }
 .dash-card {
-  padding: 20px 22px;
-  border: 1px solid var(--glass-border-strong);
+  height: auto;
+  min-height: 0;
+  padding: 22px 24px;
   border-radius: 18px;
-  background: var(--glass-bg-strong);
-  box-shadow: 0 8px 26px rgba(15, 23, 42, .04);
 }
+/* 侧栏只按内容高度排列，避免“即将举行”被拉伸成空盒 */
+.dash-col--main > .dash-card,
+.dash-col--side > .dash-card { width: 100%; }
+.upcoming-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 100%;
+  min-height: 0;
+  align-self: stretch;
+}
+.upcoming-card .dash-empty { padding: 8px; margin: auto 0; }
 .dash-card__head {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
 }
-.dash-card__head h2 { margin: 0; color: var(--c-text); font-size: 15px; font-weight: 700; }
-.dash-card__head p { margin: 4px 0 0; color: var(--c-text-muted); font-size: 11px; }
-.dash-link { flex-shrink: 0; color: var(--c-primary); font-size: 12px; text-decoration: none; }
-.dash-link:hover { text-decoration: none; }
+.dash-card__head h2 { margin: 0; color: var(--dash-text); font-size: 15px; font-weight: 700; }
+.dash-card__head p { margin: 4px 0 0; color: var(--dash-soft); font-size: 11px; }
+.dash-link { flex-shrink: 0; color: var(--dash-soft); font-size: 12px; text-decoration: none; }
+.dash-link:hover { color: var(--dash-text); text-decoration: none; }
 
-.online-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+/* 在线网络：一整块透明容器，四项横向均分、垂直居中，无内部方块和边框 */
+.online-card { display: flex; flex-direction: column; align-self: stretch; padding-bottom: 18px; }
+.online-card .dash-card__head { margin-bottom: 0; }
+.online-metrics {
+  display: flex;
+  flex: 1;
+  justify-content: space-around;
+  align-items: center;
+  gap: 16px;
+  padding: 6px 0;
+}
 .online-metric {
-  padding: 12px;
-  border-radius: 12px;
-  background: rgba(15, 23, 42, .025);
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0 8px;
+  border: none;
+  background: none;
   text-align: center;
 }
-.online-metric strong { display: block; color: var(--c-text); font-size: 22px; line-height: 1.1; font-variant-numeric: tabular-nums; }
-.online-metric span { display: block; margin-top: 4px; color: var(--c-text-muted); font-size: 11px; }
-.online-list { margin-top: 14px; }
+.online-metric strong {
+  display: block;
+  color: var(--dash-text);
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -.02em;
+  font-variant-numeric: tabular-nums;
+}
+.online-metric span {
+  display: block;
+  margin-top: 10px;
+  color: var(--dash-soft);
+  font-size: 11px;
+  font-weight: 400;
+}
+.online-list { display: flex; flex-direction: column; gap: 2px; margin-top: 10px; }
 .online-row {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 9px 0;
-  border-top: 1px solid var(--c-border-light);
+  padding: 8px 10px;
+  border: none;
+  border-radius: 8px;
   font-size: 12px;
+  transition: background-color .16s ease;
 }
-.online-row:first-child { border-top: 0; }
-.online-row__callsign { min-width: 76px; color: var(--c-text); font-weight: 700; }
-.online-row__meta { color: var(--c-text-muted); }
-.online-row__route { margin-left: auto; color: var(--c-text-muted); text-align: right; }
-.online-more { padding-top: 10px; border-top: 1px solid var(--c-border-light); color: var(--c-text-muted); font-size: 11px; }
-.online-more a { color: var(--c-primary); text-decoration: none; }
-.dash-empty { padding: 24px 8px; color: var(--c-text-muted); font-size: 12px; text-align: center; }
+.online-row:hover { background: var(--ui-table-row-hover); }
+.online-row__callsign { min-width: 76px; color: var(--dash-text); font-weight: 600; }
+.online-row__meta { color: var(--dash-soft); }
+.online-row__route { margin-left: auto; color: var(--dash-soft); text-align: right; }
+.online-more { padding: 10px 10px 0; color: var(--dash-faint); font-size: 11px; }
+.online-more a { color: var(--dash-soft); text-decoration: none; }
+.online-more a:hover { color: var(--dash-text); }
+.dash-empty { padding: 14px 8px 6px; color: var(--dash-faint); font-size: 12px; text-align: center; }
+.network-card { display: flex; flex-direction: column; align-self: stretch; }
+.network-card .dash-empty { margin: auto 0; padding: 8px; }
 
-.info-list { display: flex; flex-direction: column; }
+/* 个人信息：无分割线，只用间距与左浅右白的字色对比 */
+.info-list { display: flex; flex-direction: column; gap: 0; }
 .info-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 17px;
-  padding: 10px 0;
-  border-top: 1px solid var(--c-border-light);
-  font-size: 12px;
+  padding: 14px 0;
+  border: none;
+  font-size: 13px;
 }
-.info-row:first-child { border-top: 0; padding-top: 0; }
-.info-row span { color: var(--c-text-muted); }
-.info-row strong { color: var(--c-text); font-weight: 600; text-align: right; }
+.info-row span { color: var(--dash-soft); font-size: 12px; font-weight: 400; }
+.info-row strong { color: var(--dash-text); font-size: 13px; font-weight: 700; text-align: right; }
 
-.event-list { display: flex; flex-direction: column; }
+.event-list { display: flex; flex-direction: column; gap: 4px; }
 .event-row {
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  padding: 10px 0;
-  border-top: 1px solid var(--c-border-light);
-  color: var(--c-text);
+  padding: 9px 0;
+  border: none;
+  color: var(--dash-text);
   text-decoration: none;
 }
-.event-row:first-child { border-top: 0; padding-top: 0; }
-.event-date { flex-shrink: 0; color: var(--c-primary); font-size: 11px; font-variant-numeric: tabular-nums; }
+.event-date { flex-shrink: 0; color: var(--dash-soft); font-size: 11px; font-variant-numeric: tabular-nums; }
 .event-main { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
-.event-main strong { overflow: hidden; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
-.event-main small { overflow: hidden; color: var(--c-text-muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.event-main strong { overflow: hidden; color: var(--dash-text); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.event-main small { overflow: hidden; color: var(--dash-soft); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 
+/* 日历：去掉表格线，用留白和轻微底色分组 */
 .calendar-card { min-width: 0; }
 .calendar-nav { display: flex; align-items: center; gap: 8px; }
-.calendar-nav strong { min-width: 94px; color: var(--c-text); font-size: 12px; font-weight: 600; text-align: center; }
+.calendar-nav strong { min-width: 94px; color: var(--dash-text); font-size: 12px; font-weight: 600; text-align: center; }
 .calendar-nav__btn,
 .calendar-today-btn {
   display: inline-flex;
@@ -634,22 +744,22 @@ watch(() => user.profile?.avatar, (value) => {
   justify-content: center;
   height: 26px;
   padding: 0 9px;
-  border: 1px solid var(--c-border-light);
+  border: none;
   border-radius: 7px;
-  background: transparent;
-  color: var(--c-text-muted);
+  background: var(--ui-ghost-bg);
+  color: var(--dash-soft);
   font-family: inherit;
   font-size: 12px;
   cursor: pointer;
 }
 .calendar-nav__btn { width: 26px; padding: 0; font-size: 16px; }
 .calendar-nav__btn:hover,
-.calendar-today-btn:hover { border-color: var(--c-primary); color: var(--c-primary); }
+.calendar-today-btn:hover { background: var(--ui-ghost-hover); color: var(--dash-text); }
 .calendar-weekdays {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
-  border-bottom: 1px solid var(--c-border-light);
-  color: var(--c-text-muted);
+  border: none;
+  color: var(--dash-soft);
   font-size: 11px;
   text-align: center;
 }
@@ -657,46 +767,56 @@ watch(() => user.profile?.avatar, (value) => {
 .calendar-grid {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
-  border-left: 1px solid var(--c-border-light);
-  border-top: 1px solid var(--c-border-light);
+  gap: 4px;
+  border: none;
 }
 .calendar-day {
-  min-height: 86px;
+  min-height: 82px;
   padding: 7px 8px;
-  border-right: 1px solid var(--c-border-light);
-  border-bottom: 1px solid var(--c-border-light);
-  background: rgba(255, 255, 255, .02);
+  border: none;
+  border-radius: 8px;
+  background: var(--ui-ghost-bg);
 }
-.calendar-day.is-empty { background: rgba(15, 23, 42, .018); }
-.calendar-day.is-today { background: rgba(37, 99, 235, .055); box-shadow: inset 0 0 0 1px rgba(37, 99, 235, .22); }
-.calendar-day__num { color: var(--c-text-muted); font-size: 11px; font-variant-numeric: tabular-nums; }
-.calendar-day.is-today .calendar-day__num { color: var(--c-primary); font-weight: 700; }
+.calendar-day.is-empty { background: transparent; }
+.calendar-day.is-today { background: var(--ui-ghost-hover); }
+.calendar-day__num { color: var(--dash-soft); font-size: 11px; font-variant-numeric: tabular-nums; }
+.calendar-day.is-today .calendar-day__num { color: var(--dash-text); font-weight: 700; }
 .calendar-day__events { display: flex; flex-direction: column; gap: 3px; margin-top: 5px; }
 .calendar-event {
   display: flex;
   align-items: baseline;
   gap: 4px;
-  padding: 2px 4px;
+  padding: 3px 5px;
   overflow: hidden;
+  border: none;
   border-radius: 4px;
-  background: rgba(37, 99, 235, .08);
-  color: var(--c-primary);
+  background: var(--ui-ghost-bg);
+  color: var(--dash-text);
   font-size: 10px;
   text-decoration: none;
 }
-.calendar-event:hover { background: rgba(37, 99, 235, .14); text-decoration: none; }
-.calendar-event__time { flex-shrink: 0; opacity: .8; }
+.calendar-event:hover { background: var(--ui-ghost-hover); text-decoration: none; }
+.calendar-event__time { flex-shrink: 0; opacity: .75; }
 .calendar-event__title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.calendar-event__more { color: var(--c-text-muted); font-size: 10px; }
+.calendar-event__more { color: var(--dash-faint); font-size: 10px; }
 
 @media (max-width: 1100px) {
-  .dash-grid { grid-template-columns: 1fr; }
+  .dash-grid {
+    grid-template-columns: 1fr;
+    grid-template-areas: none;
+  }
+  .dash-col { display: flex; flex-direction: column; gap: 16px; }
   .dash-col--side { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .online-card,
+  .network-card,
+  .personal-card,
+  .upcoming-card { grid-area: auto; }
 }
 @media (max-width: 800px) {
   .dash-kpis,
   .dash-quick { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .online-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .online-metrics { flex-wrap: wrap; }
+  .online-metric { flex: 1 1 40%; }
 }
 @media (max-width: 620px) {
   .dash-hero { align-items: flex-start; padding: 18px; }
@@ -704,7 +824,7 @@ watch(() => user.profile?.avatar, (value) => {
   .dash-kpis,
   .dash-quick,
   .dash-col--side { grid-template-columns: 1fr; }
-  .dash-card { padding: 16px; }
+  .dash-card { padding: 18px; }
   .calendar-day { min-height: 64px; padding: 5px; }
   .calendar-day__events { display: none; }
 }
