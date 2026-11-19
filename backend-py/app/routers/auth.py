@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.db.session import get_db
-from app.deps import AuthFailure, CurrentUser, get_current_user
+from app.deps import AuthFailure, CurrentUser, get_current_user, get_verified_user
 from app.routers.captcha import require_pow_token
 from app.middleware.rate_limit import (
     Limit,
@@ -671,6 +671,122 @@ async def mfa_enroll(request: Request, db: AsyncSession = Depends(get_db)) -> An
     set_auth_cookies(response, request, token)
     _issue_trusted_device(response, request, fresh)
     return response
+
+
+# ============================ 2FA 自助管理（已登录用户） ============================
+@router.get("/mfa/status")
+async def mfa_status(
+    db: AsyncSession = Depends(get_db),
+    current: CurrentUser = Depends(get_verified_user),
+) -> Any:
+    state = await mfa.get_mfa_state(db, current.cid)
+    rating = int(current.rating or 0)
+    return ok({
+        "enabled": bool(int(state.get("mfaEnabled") or 0)),
+        "required": rating >= 11,
+    })
+
+
+@router.post("/mfa/setup", dependencies=[Depends(sensitive_limiter)])
+async def mfa_setup(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current: CurrentUser = Depends(get_verified_user),
+) -> Any:
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    creds = await users.find_user_with_credentials(db, current.cid)
+    if not creds or not verify_password(str(body.get("password") or ""), creds.get("password")):
+        return fail(401, "当前密码错误")
+    state = await mfa.get_mfa_state(db, current.cid)
+    if int(state.get("mfaEnabled") or 0) == 1:
+        return fail(400, "双因素认证已启用")
+    secret = mfa.generate_secret()
+    await mfa.set_mfa_secret(db, current.cid, secret, enabled=False)
+    await audit_log.write(
+        db, "mfa_setup", "生成 2FA 绑定密钥", str(current.cid), category="auth",
+        target_type="user", target_id=current.cid,
+    )
+    return ok({
+        "secret": secret,
+        "otpauthUrl": mfa.otpauth_url(current.cid, secret),
+    })
+
+
+@router.post("/mfa/activate", dependencies=[Depends(sensitive_limiter)])
+async def mfa_activate(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current: CurrentUser = Depends(get_verified_user),
+) -> Any:
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    state = await mfa.get_mfa_state(db, current.cid)
+    secret = str(state.get("mfaSecret") or "")
+    if int(state.get("mfaEnabled") or 0) == 1:
+        return fail(400, "双因素认证已启用")
+    if not secret or not mfa.verify_totp(secret, str(body.get("code") or "")):
+        return fail(400, "动态验证码错误或已过期")
+    codes, recovery_json = mfa.generate_recovery_codes()
+    await mfa.enable_mfa(db, current.cid, secret, recovery_json)
+    await audit_log.write(
+        db, "mfa_enabled", "已启用双因素认证", str(current.cid), category="auth",
+        target_type="user", target_id=current.cid,
+    )
+    return ok({"enabled": True, "recoveryCodes": codes})
+
+
+@router.post("/mfa/disable", dependencies=[Depends(sensitive_limiter)])
+async def mfa_disable(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current: CurrentUser = Depends(get_verified_user),
+) -> Any:
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    creds = await users.find_user_with_credentials(db, current.cid)
+    if not creds or not verify_password(str(body.get("password") or ""), creds.get("password")):
+        return fail(401, "当前密码错误")
+    state = await mfa.get_mfa_state(db, current.cid)
+    secret = str(state.get("mfaSecret") or "")
+    code = str(body.get("code") or "")
+    valid = mfa.verify_totp(secret, code)
+    if not valid:
+        valid, _ = mfa.consume_recovery_code(state.get("mfaRecoveryCodes"), code)
+    if not valid:
+        return fail(400, "动态验证码错误或已过期")
+    await mfa.disable_mfa(db, current.cid)
+    await audit_log.write(
+        db, "mfa_disabled", "已关闭双因素认证", str(current.cid), category="risk",
+        target_type="user", target_id=current.cid,
+    )
+    return ok({"enabled": False})
+
+
+@router.post("/mfa/recovery-codes", dependencies=[Depends(sensitive_limiter)])
+async def mfa_recovery_codes(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current: CurrentUser = Depends(get_verified_user),
+) -> Any:
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    state = await mfa.get_mfa_state(db, current.cid)
+    if int(state.get("mfaEnabled") or 0) != 1:
+        return fail(400, "双因素认证未启用")
+    if not mfa.verify_totp(str(state.get("mfaSecret") or ""), str(body.get("code") or "")):
+        return fail(400, "动态验证码错误或已过期")
+    codes, recovery_json = mfa.generate_recovery_codes()
+    await mfa.update_recovery_codes(db, current.cid, recovery_json)
+    return ok({"recoveryCodes": codes})
 
 
 # ============================ 会话续签 ============================

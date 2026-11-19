@@ -48,6 +48,64 @@
       </div>
     </div>
 
+    <!-- 双因素认证（自研 TOTP 2FA） -->
+    <div class="card p-lg mb-lg profile-card">
+      <h3 class="mb-md">双因素认证（2FA）</h3>
+      <p class="text-sm text-muted mb-md">
+        使用手机 Authenticator 生成 6 位动态验证码。开启后登录除密码外还需动态码；管理员强制开启。
+      </p>
+      <div class="flex items-center gap-md flex-wrap">
+        <span class="mfa-badge" :class="{ 'is-on': mfaStatus.enabled }">
+          {{ mfaStatus.enabled ? '已启用' : '未启用' }}
+        </span>
+        <button v-if="!mfaStatus.enabled" type="button" class="btn btn-primary btn-sm" @click="mfaStart" :disabled="mfaLoading">
+          启用 2FA
+        </button>
+        <button v-else type="button" class="btn btn-outline btn-sm" @click="mfaStep = 'disable'" :disabled="mfaLoading">
+          关闭 2FA
+        </button>
+      </div>
+
+      <div v-if="mfaStep === 'password'" class="mfa-box">
+        <p class="text-sm mb-sm">先验证当前密码：</p>
+        <input v-model="mfaPassword" class="input" type="password" autocomplete="current-password" placeholder="当前密码" />
+        <button type="button" class="btn btn-primary btn-sm mt-sm" @click="mfaSetup" :disabled="mfaLoading">
+          {{ mfaLoading ? '请稍候...' : '生成绑定密钥' }}
+        </button>
+      </div>
+
+      <div v-if="mfaStep === 'code'" class="mfa-box">
+        <p class="text-sm mb-sm">在 Authenticator 中手动添加以下密钥（或打开链接）：</p>
+        <code class="mfa-secret">{{ mfaSecret }}</code>
+        <p class="text-xs text-muted mt-sm" style="word-break:break-all;">{{ mfaOtpauth }}</p>
+        <input v-model="mfaCode" class="input mt-sm" inputmode="numeric" maxlength="6" placeholder="输入 6 位动态验证码" />
+        <button type="button" class="btn btn-primary btn-sm mt-sm" @click="mfaActivate" :disabled="mfaLoading">
+          {{ mfaLoading ? '验证中...' : '验证并启用' }}
+        </button>
+      </div>
+
+      <div v-if="mfaStep === 'recovery'" class="mfa-box">
+        <p class="text-sm mb-sm"><b>请立即保存恢复码</b>，丢失手机时每个恢复码可使用一次：</p>
+        <div class="mfa-recovery">
+          <code v-for="code in mfaRecoveryCodes" :key="code">{{ code }}</code>
+        </div>
+        <button type="button" class="btn btn-primary btn-sm" @click="mfaStep = ''">我已保存</button>
+      </div>
+
+      <div v-if="mfaStep === 'disable'" class="mfa-box">
+        <p class="text-sm mb-sm">关闭 2FA 需要当前密码 + 动态验证码/恢复码：</p>
+        <input v-model="mfaPassword" class="input" type="password" autocomplete="current-password" placeholder="当前密码" />
+        <input v-model="mfaCode" class="input mt-sm" placeholder="动态验证码或恢复码" />
+        <button type="button" class="btn btn-danger btn-sm mt-sm" @click="mfaDisable" :disabled="mfaLoading">
+          {{ mfaLoading ? '请稍候...' : '确认关闭' }}
+        </button>
+      </div>
+
+      <p v-if="mfaMsg" class="text-sm mt-sm" :style="{ color: mfaMsgType === 'ok' ? 'var(--c-success)' : 'var(--c-danger)' }">
+        {{ mfaMsg }}
+      </p>
+    </div>
+
     <!-- 绑定信息 -->
     <div class="card p-lg mb-lg profile-card">
       <h3 class="mb-md">绑定设置</h3>
@@ -140,7 +198,7 @@
 import { ref, reactive, onMounted, computed } from 'vue'
 import { useUserStore } from '@/store/user'
 import { navLayout, narrowScreen, setNavLayout } from '@/utils/navLayout'
-import api, { profileApi } from '@/api'
+import api, { authApi, profileApi } from '@/api'
 import Skeleton from '@/components/base/Skeleton.vue'
 import UserAvatar from '@/components/base/UserAvatar.vue'
 import UserTag from '@/components/base/UserTag.vue'
@@ -172,6 +230,18 @@ const bgUploading = ref(false)
 const bgMsg = ref('')
 const bgMsgType = ref('ok')
 const currentBg = computed(() => profileData.value?.bgImage ? getBgUrl(profileData.value.bgImage) : null)
+
+// 2FA（自研 TOTP）
+const mfaStatus = reactive({ enabled: false, required: false })
+const mfaStep = ref('')
+const mfaPassword = ref('')
+const mfaCode = ref('')
+const mfaSecret = ref('')
+const mfaOtpauth = ref('')
+const mfaRecoveryCodes = ref([])
+const mfaLoading = ref(false)
+const mfaMsg = ref('')
+const mfaMsgType = ref('ok')
 
 // FSD 等级映射与用户管理页一致（以用户管理页为准）：
 // 0=飞行员 1=观察员 2=地面/放行S1 3=塔台S2 4=终端S3 5=区域C1 6=区域C2 7=区域C3
@@ -214,6 +284,7 @@ onMounted(async () => {
   } catch { /* ignore */ } finally {
     loading.value = false
   }
+  loadMfaStatus()
 })
 
 // 背景图相关
@@ -311,6 +382,78 @@ async function saveBind() {
     }
   } catch (e) { alert('保存失败: ' + e.message) }
   finally { bindLoading.value = false }
+}
+
+async function loadMfaStatus() {
+  try {
+    const res = await authApi.mfaStatus()
+    mfaStatus.enabled = !!res.data?.enabled
+    mfaStatus.required = !!res.data?.required
+  } catch { /* 未登录/接口异常时保持未启用展示 */ }
+}
+
+function mfaStart() {
+  mfaStep.value = 'password'
+  mfaPassword.value = ''
+  mfaCode.value = ''
+  mfaMsg.value = ''
+}
+
+async function mfaSetup() {
+  mfaMsg.value = ''
+  if (!mfaPassword.value) { mfaMsg.value = '请输入当前密码'; mfaMsgType.value = 'err'; return }
+  mfaLoading.value = true
+  try {
+    const res = await authApi.mfaSetup({ password: mfaPassword.value })
+    mfaSecret.value = res.data?.secret || ''
+    mfaOtpauth.value = res.data?.otpauthUrl || ''
+    mfaCode.value = ''
+    mfaStep.value = 'code'
+  } catch (e) {
+    mfaMsg.value = e.message || '生成绑定密钥失败'
+    mfaMsgType.value = 'err'
+  } finally {
+    mfaLoading.value = false
+  }
+}
+
+async function mfaActivate() {
+  mfaMsg.value = ''
+  if (!mfaCode.value) { mfaMsg.value = '请输入动态验证码'; mfaMsgType.value = 'err'; return }
+  mfaLoading.value = true
+  try {
+    const res = await authApi.mfaActivate({ code: mfaCode.value })
+    mfaRecoveryCodes.value = res.data?.recoveryCodes || []
+    mfaStatus.enabled = true
+    mfaStep.value = 'recovery'
+    mfaMsg.value = '2FA 已启用'
+    mfaMsgType.value = 'ok'
+  } catch (e) {
+    mfaMsg.value = e.message || '验证失败'
+    mfaMsgType.value = 'err'
+  } finally {
+    mfaLoading.value = false
+  }
+}
+
+async function mfaDisable() {
+  mfaMsg.value = ''
+  if (!mfaPassword.value || !mfaCode.value) { mfaMsg.value = '请输入密码和动态验证码'; mfaMsgType.value = 'err'; return }
+  mfaLoading.value = true
+  try {
+    await authApi.mfaDisable({ password: mfaPassword.value, code: mfaCode.value })
+    mfaStatus.enabled = false
+    mfaStep.value = ''
+    mfaPassword.value = ''
+    mfaCode.value = ''
+    mfaMsg.value = '2FA 已关闭'
+    mfaMsgType.value = 'ok'
+  } catch (e) {
+    mfaMsg.value = e.message || '关闭失败'
+    mfaMsgType.value = 'err'
+  } finally {
+    mfaLoading.value = false
+  }
 }
 
 async function changePwd() {
@@ -548,3 +691,50 @@ html[data-theme='dark'] .layout-option.active { background: rgba(10, 132, 255, .
 }
 
 </style>
+
+/* ===== 2FA ===== */
+.mfa-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--c-text-muted);
+  background: rgba(15, 23, 42, .06);
+}
+.mfa-badge.is-on {
+  color: #0f7b4f;
+  background: rgba(16, 185, 129, .12);
+}
+.mfa-box {
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid rgba(15, 23, 42, .08);
+  border-radius: 10px;
+  background: rgba(248, 250, 252, .75);
+}
+.mfa-secret {
+  display: block;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(37, 99, 235, .06);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  word-break: break-all;
+}
+.mfa-recovery {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  margin: 10px 0;
+}
+.mfa-recovery code {
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: rgba(15, 23, 42, .05);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .04em;
+}
