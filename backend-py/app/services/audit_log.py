@@ -57,6 +57,49 @@ _UA_BOT_RE = re.compile(
     re.IGNORECASE,
 )
 
+# 业务路由 → 可读动作名。未显式写审计的业务模块由中间件按此表补语义。
+# 每项: (method, path regex, action, category, target_type)
+_SEMANTIC_ROUTES: tuple[tuple[str, re.Pattern[str], str, str, str], ...] = (
+    ("POST", re.compile(r"^/api/profile/avatar/?$"), "更新头像", "permission", "profile"),
+    ("PUT", re.compile(r"^/api/profile/info/?$"), "更新绑定信息", "permission", "profile"),
+    ("PUT", re.compile(r"^/api/profile/?$"), "修改密码", "auth", "profile"),
+    ("POST", re.compile(r"^/api/profile/bg-image/?$"), "更新背景图", "content", "profile"),
+    ("DELETE", re.compile(r"^/api/profile/bg-image/?$"), "恢复默认背景", "content", "profile"),
+    ("POST", re.compile(r"^/api/profile/send-verify/?$"), "发送邮箱验证码", "auth", "profile"),
+    ("POST", re.compile(r"^/api/profile/verify-email/?$"), "验证并绑定邮箱", "auth", "profile"),
+    ("POST", re.compile(r"^/api/tickets/?$"), "提交工单", "content", "ticket"),
+    ("DELETE", re.compile(r"^/api/tickets/(?P<id>[^/]+)/?$"), "删除工单", "content", "ticket"),
+    ("POST", re.compile(r"^/api/apply/controller/?$"), "提交管制员申请", "permission", "application"),
+    ("POST", re.compile(r"^/api/apply/staff/?$"), "提交职员申请", "permission", "application"),
+    ("POST", re.compile(r"^/api/events/?$"), "创建活动", "content", "event"),
+    ("PUT", re.compile(r"^/api/events/(?P<id>[^/]+)/?$"), "编辑活动", "content", "event"),
+    ("DELETE", re.compile(r"^/api/events/(?P<id>[^/]+)/?$"), "删除活动", "content", "event"),
+    ("POST", re.compile(r"^/api/events/(?P<id>[^/]+)/join/?$"), "报名活动", "content", "event"),
+    ("DELETE", re.compile(r"^/api/events/(?P<id>[^/]+)/join/?$"), "取消活动报名", "content", "event"),
+    ("DELETE", re.compile(r"^/api/events/registrations/(?P<id>[^/]+)/?$"), "移除活动报名", "permission", "event"),
+    ("POST", re.compile(r"^/api/meetings/upload/?$"), "上传会议记录", "content", "meeting"),
+    ("POST", re.compile(r"^/api/forum/posts/?$"), "发布论坛帖子", "content", "forum_post"),
+    ("POST", re.compile(r"^/api/forum/posts/(?P<id>[^/]+)/reply/?$"), "回复论坛帖子", "content", "forum_post"),
+    ("POST", re.compile(r"^/api/training/courses/(?P<id>[^/]+)/enroll/?$"), "报名培训课程", "content", "training_course"),
+    ("POST", re.compile(r"^/api/training/exams/(?P<id>[^/]+)/submit/?$"), "提交培训考试", "content", "training_exam"),
+    ("POST", re.compile(r"^/api/training/schedules/?$"), "创建培训排班", "content", "training_schedule"),
+    ("POST", re.compile(r"^/api/flightplans/simbrief-import/?$"), "导入 SimBrief 飞行计划", "content", "flight_plan"),
+    ("POST", re.compile(r"^/api/flightplans/?$"), "提交飞行计划", "content", "flight_plan"),
+    ("POST", re.compile(r"^/api/flightplans/(?P<id>[^/]+)/fsd-sync/?$"), "同步飞行计划到 FSD", "content", "flight_plan"),
+    ("DELETE", re.compile(r"^/api/flightplans/(?P<id>[^/]+)/?$"), "删除飞行计划", "content", "flight_plan"),
+    ("POST", re.compile(r"^/api/checkin/?$"), "每日签到", "content", "checkin"),
+    ("POST", re.compile(r"^/api/feedback/?$"), "提交反馈", "content", "feedback"),
+    ("PUT", re.compile(r"^/api/notifications/read-all/?$"), "全部标记已读", "system", "notification"),
+    ("PUT", re.compile(r"^/api/notifications/read/(?P<id>[^/]+)/?$"), "标记通知已读", "system", "notification"),
+    ("POST", re.compile(r"^/api/auth/logout/?$"), "退出登录", "auth", "session"),
+    ("PUT", re.compile(r"^/api/auth/password/?$"), "修改密码", "auth", "account"),
+    ("POST", re.compile(r"^/api/auth/refresh/?$"), "刷新登录状态", "auth", "session"),
+    ("POST", re.compile(r"^/api/auth/login-verify/?$"), "完成登录二次验证", "auth", "session"),
+    ("POST", re.compile(r"^/api/auth/register/?$"), "注册账号", "auth", "account"),
+    ("POST", re.compile(r"^/api/auth/forgot-password/?$"), "申请找回密码", "auth", "account"),
+    ("POST", re.compile(r"^/api/auth/reset-password/?$"), "重置密码", "auth", "account"),
+)
+
 
 def classify_ua(ua: str) -> tuple[str, bool]:
     text = (ua or "").strip()
@@ -81,6 +124,20 @@ def classify_action(action: str) -> str:
         if pattern.search(value):
             return category
     return "admin"
+
+
+def semantic_action(method: str, path: str) -> tuple[str, str, str, str] | None:
+    """返回 (可读动作, 类别, 目标类型, 目标 ID)；未匹配到业务路由时返回 None。"""
+    verb = (method or "").upper()
+    clean_path = "/" + (path or "").strip("/")
+    for route_method, pattern, action, category, target_type in _SEMANTIC_ROUTES:
+        if route_method != verb:
+            continue
+        match = pattern.match(clean_path)
+        if match:
+            target_id = match.groupdict().get("id", "")
+            return action, category, target_type, str(target_id or "")
+    return None
 
 
 async def ensure_schema() -> None:
@@ -289,14 +346,24 @@ async def write_generic_request(
     """中间件兜底：记录所有未显式审计的 /api 请求。"""
     cid, name, role = _claims_actor(request)
     clean_path = str(path or "")[:150]
+    semantic = semantic_action(method, clean_path)
+    if semantic:
+        action, category, target_type, target_id = semantic
+        detail = f"{method} {clean_path} · HTTP {status} · {max(0, int(duration_ms))}ms"
+    else:
+        action = f"{method} {clean_path}"
+        category = _category_for_path(clean_path)
+        target_type = "api"
+        target_id = clean_path
+        detail = f"HTTP {status} · {max(0, int(duration_ms))}ms"
     await _insert(
         db,
-        f"{method} {clean_path}",
-        f"HTTP {status} · {max(0, int(duration_ms))}ms",
+        action,
+        detail,
         cid,
-        category=_category_for_path(clean_path),
-        target_type="api",
-        target_id=clean_path,
+        category=category,
+        target_type=target_type,
+        target_id=target_id,
         actor_name=name,
         actor_role=role,
         request=request,
@@ -309,6 +376,7 @@ __all__ = [
     "classify_action",
     "classify_ua",
     "ensure_schema",
+    "semantic_action",
     "write",
     "write_generic_request",
 ]
