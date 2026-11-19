@@ -11,6 +11,8 @@
   </div>
   <!-- 用户自定义背景层（上传后 3s 渐变显示, 覆盖在时段背景层之上） -->
   <div class="custom-bg-layer" v-show="customBgActive" ref="customBgLayer" aria-hidden="true"></div>
+  <!-- 浅色/自动白天模式：在飞机底图上覆盖明亮柔光层，保证深色文字对比度 -->
+  <div class="bg-mode-scrim" aria-hidden="true"></div>
   <router-view />
   <!-- 全局回顶按钮（滚动 > 600px 显示，点击平滑回顶） -->
   <FloatingButton />
@@ -491,6 +493,19 @@ onUnmounted(() => {
   background-size: cover;
   background-repeat: no-repeat;
   transition: none;
+}
+
+/* 浅色/自动白天：明亮柔光遮罩，压住飞机机身与云层高对比线条 */
+.bg-mode-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: transparent;
+  transition: background .3s ease;
+}
+html[data-theme='light'] .bg-mode-scrim {
+  background: linear-gradient(180deg, rgba(255, 255, 255, .58) 0%, rgba(255, 255, 255, .44) 55%, rgba(255, 255, 255, .34) 100%);
 }
 
 /* 用户自定义背景层：置于内容之下、时段背景层之上(DOM 顺序), 上传后 3s 渐变显示 */

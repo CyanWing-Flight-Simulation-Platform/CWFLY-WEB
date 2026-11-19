@@ -588,7 +588,23 @@ html[data-theme='dark'] .nav-group-title.group-active:not(.nav-group-title--open
 }
 .sidebar-logout:hover { background: rgba(255, 59, 48, .1); color: var(--c-danger, #ff3b30); }
 
-html[data-theme='dark'] .sidebar-user:hover { background: rgba(255, 255, 255, .06); }
+html[data-theme='dark'] .sidebar-user:hover { background: rgba(15, 20, 30, .7); border-color: rgba(255, 255, 255, .18); }
+
+/* 浅色模式：用户区改为浅色磨砂玻璃 + 深色文字 */
+html[data-theme='light'] .sidebar-user {
+  background: rgba(255, 255, 255, .6);
+  border-color: rgba(255, 255, 255, .75);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+html[data-theme='light'] .sidebar-user:hover {
+  background: rgba(255, 255, 255, .78);
+  border-color: rgba(255, 255, 255, .9);
+}
+html[data-theme='light'] .sidebar-user-name { color: #111827; }
+html[data-theme='light'] .sidebar-user-cid { color: #6B7280; }
+html[data-theme='light'] .sidebar-logout { color: #6B7280; }
+html[data-theme='light'] .sidebar-logout:hover { color: #DC2626; background: rgba(239, 68, 68, .08); }
 
 /* ================= 布局切换（侧边栏侧） ================= */
 .app-sidebar { transition: width .25s ease, padding .25s ease, background-color .3s ease; }
