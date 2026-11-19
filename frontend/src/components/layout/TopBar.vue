@@ -94,11 +94,25 @@
         </Transition>
       </div>
 
-      <div class="app-header__center"></div>
+      <div v-if="!shellNavTop && !narrowScreen" class="app-header__lead">
+        <span class="topbar-page-title">{{ pageTitle || '工作台' }}</span>
+        <time class="utc-clock" :title="'UTC · ' + utcDate">
+          <span class="utc-label">UTC</span> {{ utcTime }}
+          <span class="utc-date">{{ utcDate }}</span>
+        </time>
+      </div>
+
+      <div class="app-header__center">
+        <router-link v-if="!shellNavTop && !narrowScreen" to="/search" class="topbar-search">
+          <span class="topbar-search__icon" v-html="icons.search"></span>
+          <span class="topbar-search__text">搜索航图、机场、用户</span>
+          <span class="topbar-search__hint">/</span>
+        </router-link>
+      </div>
 
       <div class="app-header__actions">
-        <time class="utc-clock" :class="{ 'map-shift': isMapPage }" :title="'UTC · ' + utcDate"><span class="utc-label">UTC</span> {{ utcTime }}</time>
-        <router-link to="/search" class="header-icon-btn" :class="{ 'map-shift': isMapPage }" title="搜索"><span class="header-icon-btn__icon" v-html="icons.search"></span></router-link>
+        <time v-if="shellNavTop || narrowScreen" class="utc-clock" :class="{ 'map-shift': isMapPage }" :title="'UTC · ' + utcDate"><span class="utc-label">UTC</span> {{ utcTime }}</time>
+        <router-link v-if="shellNavTop || narrowScreen" to="/search" class="header-icon-btn" :class="{ 'map-shift': isMapPage }" title="搜索"><span class="header-icon-btn__icon" v-html="icons.search"></span></router-link>
         <div class="theme-toggle" :class="{ 'map-shift': isMapPage, 'theme-collapsed': !themeExpanded }" role="group" aria-label="主题切换" @mouseenter="expandTheme" @mouseleave="scheduleThemeCollapse">
           <button v-for="t in themeOptions" :key="t.id" type="button" class="theme-btn" :class="{ active: themeMode === t.id }" @click="themeExpanded ? setTheme(t.id, $event) : expandTheme()" :title="t.label">{{ t.label }}</button>
         </div>
@@ -430,8 +444,87 @@ defineExpose({
   color: var(--c-text); /* 深色模式自动变白 */
 }
 
-.app-header__center { flex: 1; }
-.page-title { font-size: 15px; font-weight: 600; color: var(--c-text); }
+.app-header__lead {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  min-width: 0;
+  flex-shrink: 0;
+}
+.topbar-page-title {
+  overflow: hidden;
+  max-width: 220px;
+  color: var(--c-text);
+  font-size: 15px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.topbar-page-title::after {
+  content: '·';
+  margin-left: 12px;
+  color: var(--c-text-muted);
+  opacity: .5;
+}
+.app-header__lead .utc-clock { padding: 0; }
+.utc-date {
+  margin-left: 6px;
+  color: var(--c-text-muted);
+  font-size: 11px;
+  opacity: .8;
+}
+
+.app-header__center {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  padding: 0 16px;
+}
+.topbar-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: min(100%, 360px);
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid rgba(15, 23, 42, .08);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, .38);
+  color: var(--c-text-muted);
+  text-decoration: none;
+  transition: border-color .15s ease, background-color .15s ease;
+}
+.topbar-search:hover {
+  border-color: rgba(37, 99, 235, .28);
+  background: rgba(255, 255, 255, .58);
+  text-decoration: none;
+}
+.topbar-search__icon { display: flex; flex-shrink: 0; opacity: .65; }
+.topbar-search__text {
+  flex: 1;
+  overflow: hidden;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.topbar-search__hint {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: 1px solid rgba(15, 23, 42, .10);
+  border-radius: 5px;
+  font-size: 10px;
+  line-height: 1;
+}
+html[data-theme='dark'] .topbar-search {
+  border-color: rgba(255, 255, 255, .10);
+  background: rgba(255, 255, 255, .06);
+}
+html[data-theme='dark'] .topbar-search:hover { background: rgba(255, 255, 255, .10); }
 
 .app-header__actions {
   display: flex;
