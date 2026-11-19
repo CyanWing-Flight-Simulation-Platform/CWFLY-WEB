@@ -84,7 +84,12 @@
         <div class="mfa-recovery">
           <code v-for="code in deviceRecoveryCodes" :key="code">{{ code }}</code>
         </div>
-        <button type="button" class="btn btn-primary btn-sm" @click="deviceStep = ''">我已保存</button>
+        <div class="flex gap-sm flex-wrap">
+          <button type="button" class="btn btn-outline btn-sm" @click="copyDeviceRecoveryCodes">
+            {{ deviceCopied ? '已复制' : '复制全部恢复码' }}
+          </button>
+          <button type="button" class="btn btn-primary btn-sm" @click="deviceStep = ''">我已保存</button>
+        </div>
       </div>
 
       <div v-if="deviceStep === 'rebind'" class="mfa-box">
@@ -202,6 +207,7 @@ import { useUserStore } from '@/store/user'
 import { navLayout, narrowScreen, setNavLayout } from '@/utils/navLayout'
 import api, { authApi, profileApi } from '@/api'
 import { createDeviceKey } from '@/utils/deviceKey'
+import { copyText } from '@/utils/clipboard'
 import Skeleton from '@/components/base/Skeleton.vue'
 import UserAvatar from '@/components/base/UserAvatar.vue'
 import UserTag from '@/components/base/UserTag.vue'
@@ -252,6 +258,7 @@ const deviceStep = ref('')
 const devicePassword = ref('')
 const deviceRecoveryCode = ref('')
 const deviceRecoveryCodes = ref([])
+const deviceCopied = ref(false)
 const deviceLoading = ref(false)
 const deviceMsg = ref('')
 const deviceMsgType = ref('ok')
@@ -460,6 +467,12 @@ async function deviceRebind() {
   } finally {
     deviceLoading.value = false
   }
+}
+
+async function copyDeviceRecoveryCodes() {
+  const ok = await copyText(deviceRecoveryCodes.value.join('\n'))
+  deviceCopied.value = ok
+  if (ok) setTimeout(() => { deviceCopied.value = false }, 2000)
 }
 
 async function deviceDisable() {

@@ -50,6 +50,9 @@
               <div class="mfa-recovery">
                 <code v-for="code in deviceRecoveryCodes" :key="code">{{ code }}</code>
               </div>
+              <button type="button" class="btn btn-outline btn-block mb-sm" @click="copyDeviceRecoveryCodes">
+                {{ deviceCopied ? '已复制' : '复制全部恢复码' }}
+              </button>
               <button type="button" class="btn btn-primary btn-block" @click="finishDevice2fa">
                 我已保存，进入平台
               </button>
@@ -176,6 +179,7 @@ import { waitForPowToken } from '@/utils/pow'
 import { useFieldFeedback } from '@/utils/fieldFeedback'
 import { resolvePostLoginPath } from '@/utils/redirect'
 import { createDeviceKey, signDeviceChallenge } from '@/utils/deviceKey'
+import { copyText } from '@/utils/clipboard'
 
 const route = useRoute()
 const router = useRouter()
@@ -218,6 +222,7 @@ const deviceRecoveryCodes = ref([])
 const deviceLoading = ref(false)
 const deviceErr = ref('')
 const deviceCompleted = ref(null)
+const deviceCopied = ref(false)
 
 /** 脱敏邮箱用于展示，如 ab***@x.com */
 const maskedEmail = computed(() => {
@@ -400,6 +405,12 @@ async function verifyDeviceRecovery() {
   } finally {
     deviceLoading.value = false
   }
+}
+
+async function copyDeviceRecoveryCodes() {
+  const ok = await copyText(deviceRecoveryCodes.value.join('\n'))
+  deviceCopied.value = ok
+  if (ok) setTimeout(() => { deviceCopied.value = false }, 2000)
 }
 
 function finishDevice2fa() {
