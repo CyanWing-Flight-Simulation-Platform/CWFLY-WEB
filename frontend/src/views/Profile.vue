@@ -23,42 +23,52 @@
     </div>
 
     <!-- 基本信息 -->
-    <div class="card p-lg mb-lg" :aria-busy="loading">
+    <div class="card p-lg mb-lg profile-card" :aria-busy="loading">
       <h3 class="mb-md">基本信息</h3>
-      <div v-if="loading" aria-busy="true" aria-label="正在加载个人信息">
-        <Skeleton :lines="5" :height="16" />
+      <div class="profile-hours">
+        <div class="profile-hours__item">
+          <span class="profile-hours__label">连飞总时长</span>
+          <strong class="profile-hours__value">{{ totalFlightHours }}<small>h</small></strong>
+        </div>
+        <div class="profile-hours__item">
+          <span class="profile-hours__label">管制总时长</span>
+          <strong class="profile-hours__value">{{ totalControllerHours }}<small>h</small></strong>
+        </div>
       </div>
-      <div v-else class="profile-info">
-        <div class="profile-row"><span class="text-muted">CID</span><span class="font-bold">{{ user.cid }}</span></div>
-        <div class="profile-row"><span class="text-muted">用户名</span><span>{{ user.username }}</span></div>
-        <div class="profile-row"><span class="text-muted">注册时间</span><span>{{ formatDate(profileData?.createdAt || user.profile?.createdAt) }}</span></div>
-        <div class="profile-row"><span class="text-muted">权限等级</span><UserTag :rating="profileData?.rating ?? 0" /></div>
-        <div class="profile-row"><span class="text-muted">FSD 权限</span><span class="fsd-level-badge">{{ fsdLevelName(profileData?.fsdLevel ?? 1) }}</span></div>
-
+      <div v-if="loading" aria-busy="true" aria-label="正在加载个人信息">
+        <Skeleton :lines="4" :height="16" />
+      </div>
+      <div v-else class="profile-info-grid">
+        <div class="profile-cell"><span class="profile-label">CID</span><span class="profile-value profile-value--strong">{{ user.cid }}</span></div>
+        <div class="profile-cell"><span class="profile-label">用户名</span><span class="profile-value">{{ user.username }}</span></div>
+        <div class="profile-cell"><span class="profile-label">注册时间</span><span class="profile-value">{{ formatDate(profileData?.createdAt || user.profile?.createdAt) }}</span></div>
+        <div class="profile-cell"><span class="profile-label">权限等级</span><span class="profile-value"><UserTag :rating="profileData?.rating ?? 0" /></span></div>
+        <div class="profile-cell"><span class="profile-label">FSD 权限</span><span class="profile-value fsd-level-badge">{{ fsdLevelName(profileData?.fsdLevel ?? 1) }}</span></div>
+        <div class="profile-cell"><span class="profile-label">邮箱</span><span class="profile-value">{{ profileData?.email || '未绑定' }}</span></div>
       </div>
     </div>
 
     <!-- 绑定信息 -->
-    <div class="card p-lg mb-lg">
+    <div class="card p-lg mb-lg profile-card">
       <h3 class="mb-md">绑定设置</h3>
-      <div style="max-width:400px;">
-        <div class="mb-md">
-          <label class="text-sm font-bold mb-sm" style="display:block;">邮箱</label>
-          <div class="flex gap-sm">
-            <input v-model="bind.email" class="input" placeholder="绑定邮箱" style="flex:1;" />
-            <button class="btn btn-outline btn-sm" @click="sendVerifyCode" :disabled="codeSending">{{ codeSending ? '发送中' : '发送验证码' }}</button>
+      <div class="profile-bind">
+        <div class="bind-field">
+          <label class="profile-label">邮箱</label>
+          <div class="bind-row">
+            <input v-model="bind.email" class="input bind-input" placeholder="绑定邮箱" />
+            <button class="btn btn-primary btn-sm bind-btn" @click="sendVerifyCode" :disabled="codeSending">{{ codeSending ? '发送中' : '发送验证码' }}</button>
           </div>
-          <div v-if="showVerifyInput" class="flex gap-sm mt-sm">
-            <input v-model="bind.verifyCode" class="input" placeholder="输入验证码" style="flex:1;" />
-            <button class="btn btn-primary btn-sm" @click="verifyEmail" :disabled="verifyLoading">{{ verifyLoading ? '验证中' : '验证' }}</button>
+          <div v-if="showVerifyInput" class="bind-row mt-sm">
+            <input v-model="bind.verifyCode" class="input bind-input" placeholder="输入验证码" />
+            <button class="btn btn-primary btn-sm bind-btn" @click="verifyEmail" :disabled="verifyLoading">{{ verifyLoading ? '验证中' : '验证' }}</button>
           </div>
         </div>
-        <div class="mb-md">
-          <label class="text-sm font-bold mb-sm" style="display:block;">QQ</label>
-          <input v-model="bind.qq" class="input" placeholder="绑定 QQ 号（自动获取QQ头像）" />
+        <div class="bind-field">
+          <label class="profile-label">QQ</label>
+          <input v-model="bind.qq" class="input bind-input" placeholder="绑定 QQ 号（自动获取QQ头像）" />
         </div>
-        <button class="btn btn-primary btn-sm" @click="saveBind" :disabled="bindLoading">{{ bindLoading ? '保存中...' : '保存绑定' }}</button>
-        <p v-if="bindMsg" class="text-sm mt-sm" :style="{ color: bindMsgType === 'ok' ? 'var(--c-success)' : 'var(--c-danger)' }">{{ bindMsg }}</p>
+        <button class="btn btn-primary btn-sm bind-btn bind-btn--save" @click="saveBind" :disabled="bindLoading">{{ bindLoading ? '保存中...' : '保存绑定' }}</button>
+        <p v-if="bindMsg" class="text-sm mt-sm bind-message" :style="{ color: bindMsgType === 'ok' ? 'var(--c-success)' : 'var(--c-danger)' }">{{ bindMsg }}</p>
       </div>
     </div>
 
@@ -138,8 +148,12 @@ import UserTag from '@/components/base/UserTag.vue'
 const user = useUserStore()
 const loading = ref(false)
 const profileData = ref(null)
+const totalFlightMinutes = ref(0)
+const totalControllerMinutes = ref(0)
 
 const avatarUrl = computed(() => profileData.value?.avatar || '')
+const totalFlightHours = computed(() => (totalFlightMinutes.value / 60).toFixed(1))
+const totalControllerHours = computed(() => (totalControllerMinutes.value / 60).toFixed(1))
 
 const bind = reactive({ email: '', qq: '', verifyCode: '' })
 const bindLoading = ref(false)
@@ -185,13 +199,39 @@ function formatDate(v) {
   return `${y}-${m}-${day}`
 }
 
+/** 解析 FlightPlan.flightTime（HHMM 或 H:MM）为分钟。 */
+function parseFlightMinutes(value) {
+  const text = String(value || '').trim()
+  if (!text) return 0
+  const colon = text.match(/^(\d{1,3}):([0-5]\d)$/)
+  if (colon) return Number(colon[1]) * 60 + Number(colon[2])
+  if (/^\d{4}$/.test(text)) return Number(text.slice(0, 2)) * 60 + Number(text.slice(2))
+  return 0
+}
+
+async function loadFlightTotal() {
+  try {
+    const res = await api.get('/flightplans')
+    const plans = Array.isArray(res.data) ? res.data : []
+    totalFlightMinutes.value = plans.reduce(
+      (sum, plan) => sum + parseFlightMinutes(plan.flightTime),
+      0
+    )
+  } catch { /* 无飞行计划时保持 0 */ }
+}
+
 onMounted(async () => {
   loading.value = true
+  loadFlightTotal()
   try {
     const res = await profileApi.get()
     profileData.value = res.data
     bind.email = res.data.email || ''
     bind.qq = res.data.qq || ''
+    const controllerHours = res.data.controllerHours ?? res.data.totalHours
+    if (typeof controllerHours === 'number') {
+      totalControllerMinutes.value = controllerHours * 60
+    }
     applyBg(res.data.bgImage)
   } catch { /* ignore */ } finally {
     loading.value = false
@@ -313,39 +353,151 @@ async function changePwd() {
 </script>
 
 <style scoped>
-.profile-info { max-width: 480px; }
-.profile-row {
-  display: flex; justify-content: space-between; flex-wrap: wrap; gap: 4px;
-  padding: 10px 0; border-bottom: 1px solid var(--c-border-light);
-  font-size: 14px;
+/* 让卡片从背景图中“浮”出来，内部保持干净的近白底 */
+.profile > .card {
+  margin-bottom: 28px;
+  border: 1px solid rgba(15, 23, 42, .06);
+  background: rgba(255, 255, 255, .95);
+  box-shadow: 0 10px 28px rgba(15, 23, 42, .06);
+  backdrop-filter: blur(20px) saturate(130%);
+  -webkit-backdrop-filter: blur(20px) saturate(130%);
 }
-.profile-row:last-child { border-bottom: none; }
+.profile > .card:last-child { margin-bottom: 0; }
+
+/* 两个核心时长数据 */
+.profile-hours {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 4px 0 24px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid rgba(0, 0, 0, .05);
+}
+.profile-hours__item + .profile-hours__item {
+  padding-left: 28px;
+  border-left: 1px solid rgba(0, 0, 0, .05);
+}
+.profile-hours__label {
+  display: block;
+  margin-bottom: 7px;
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: .02em;
+}
+.profile-hours__value {
+  color: #111;
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.profile-hours__value small {
+  margin-left: 3px;
+  color: #6b7280;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* 基本信息：3 × 2 网格，细线切分 */
+.profile-info-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-top: 1px solid rgba(0, 0, 0, .05);
+  border-left: 1px solid rgba(0, 0, 0, .05);
+}
+.profile-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+  padding: 14px 16px;
+  border-right: 1px solid rgba(0, 0, 0, .05);
+  border-bottom: 1px solid rgba(0, 0, 0, .05);
+}
+.profile-cell:nth-child(3n) { border-right: none; }
+.profile-cell:nth-last-child(-n + 3) { border-bottom: none; }
+.profile-label {
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+.profile-value {
+  overflow: hidden;
+  color: #111827;
+  font-size: 14px;
+  line-height: 1.5;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.profile-value--strong { font-weight: 600; }
+
 /* 头像容器边框交给页面，圆形裁剪/加载失败回退逻辑在 UserAvatar 内 */
 .profile-avatar { border: 3px solid var(--c-border); }
-.rating-value {
-  font-weight: 700;
-  color: var(--c-primary);
-  background: var(--c-bg);
-  padding: 0 10px;
-  border-radius: 10px;
-  font-size: 14px;
-}
 .fsd-level-badge {
+  display: inline-block;
+  width: fit-content;
+  padding: 2px 8px;
+  color: #2563eb;
+  border-radius: 6px;
+  background: #eff6ff;
+  font-size: 12px;
   font-weight: 600;
-  color: var(--c-primary);
-  background: #e3f2fd;
-  padding: 2px 10px;
-  border-radius: 10px;
-  font-size: 13px;
 }
-.fsd-type-badge {
-  font-weight: 600;
-  color: #e65100;
-  background: #fff3e0;
-  padding: 2px 10px;
-  border-radius: 10px;
-  font-size: 13px;
+
+/* 绑定设置：紧凑输入框 + 同行按钮 */
+.profile-bind { max-width: 400px; }
+.bind-field { margin-bottom: 16px; }
+.bind-field > .profile-label { display: block; margin-bottom: 7px; }
+.bind-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
+.bind-input {
+  flex: 1;
+  min-width: 0;
+  height: 40px;
+  padding: 0 12px;
+  border-radius: 8px;
+}
+.profile-bind > .bind-input {
+  display: block;
+  width: 100%;
+  max-width: 400px;
+}
+.bind-btn {
+  flex: 0 0 auto;
+  height: 40px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 8px;
+  box-shadow: none;
+  white-space: nowrap;
+}
+.bind-btn:hover { border: 0; box-shadow: none; }
+.bind-btn--save { min-width: 112px; }
+.bind-message { line-height: 1.5; }
+
+/* 深色主题下保持同样的“实心卡片”可读性 */
+html[data-theme='dark'] .profile > .card {
+  border-color: rgba(255, 255, 255, .08);
+  background: rgba(15, 23, 42, .92);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, .22);
+}
+html[data-theme='dark'] .profile-hours,
+html[data-theme='dark'] .profile-hours__item + .profile-hours__item,
+html[data-theme='dark'] .profile-info-grid,
+html[data-theme='dark'] .profile-cell {
+  border-color: rgba(255, 255, 255, .08);
+}
+html[data-theme='dark'] .profile-hours__value,
+html[data-theme='dark'] .profile-value { color: #f8fafc; }
+html[data-theme='dark'] .profile-hours__label,
+html[data-theme='dark'] .profile-label,
+html[data-theme='dark'] .profile-hours__value small { color: #94a3b8; }
+html[data-theme='dark'] .fsd-level-badge { color: #93c5fd; background: rgba(37, 99, 235, .16); }
+
 /* 界面布局切换卡片 */
 .layout-options {
   display: grid;
@@ -395,5 +547,26 @@ async function changePwd() {
 .layout-option__preview--topbar i:nth-child(2) { left: 8%; right: 8%; top: 40%; height: 14%; }
 html[data-theme='dark'] .layout-option:hover { background: rgba(10, 132, 255, .1); }
 html[data-theme='dark'] .layout-option.active { background: rgba(10, 132, 255, .16); box-shadow: inset 0 0 0 1px rgba(138, 180, 255, .3); }
+
+@media (max-width: 760px) {
+  .profile-info-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .profile-cell:nth-child(3n) { border-right: 1px solid rgba(0, 0, 0, .05); }
+  .profile-cell:nth-child(2n) { border-right: none; }
+  .profile-cell:nth-last-child(-n + 2) { border-bottom: none; }
+  .profile-cell:nth-last-child(3) { border-bottom: 1px solid rgba(0, 0, 0, .05); }
+}
+
+@media (max-width: 520px) {
+  .profile-hours { grid-template-columns: 1fr; }
+  .profile-hours__item + .profile-hours__item {
+    margin-top: 16px;
+    padding-top: 16px;
+    padding-left: 0;
+    border-top: 1px solid rgba(0, 0, 0, .05);
+    border-left: 0;
+  }
+  .bind-row { gap: 6px; }
+  .bind-btn { padding: 0 10px; font-size: 12px; }
+}
 
 </style>
