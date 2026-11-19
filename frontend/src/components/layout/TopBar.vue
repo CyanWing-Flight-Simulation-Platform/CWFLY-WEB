@@ -6,7 +6,7 @@
         <span></span><span></span><span></span>
       </button>
 
-      <router-link v-if="!isDashboardPage" to="/dashboard" class="app-header__brand">
+      <router-link v-if="shellNavTop" to="/dashboard" class="app-header__brand">
         <img :src="brandLogo" class="brand-logo" />
         <span class="brand-text">CWFLY</span>
       </router-link>
@@ -191,11 +191,6 @@ defineEmits([
 const route = useRoute()
 const user = useUserStore()
 const mapSettings = useMapSettingsStore()
-
-// 仪表盘把 Logo/文字放到页面内容顶部，顶栏不再重复显示品牌
-const isDashboardPage = computed(
-  () => route.name === 'Dashboard' || route.path === '/dashboard'
-)
 
 // ---------------------------------------------------------------------------
 // 导航（顶栏单项目 / 分组下拉面板 / 当前项）

@@ -14,8 +14,12 @@
     <div v-if="!isCollapsed" class="sidebar-resize-handle" @mousedown="$emit('resize-start', $event)"></div>
     <button class="side-close" type="button" title="收起菜单" aria-label="收起菜单" @click="$emit('close')" v-html="icons.close"></button>
 
-    <!-- 收拢/展开按钮（桌面端图标栏模式；移动端抽屉里隐藏） -->
+    <!-- 品牌 + 收拢/展开按钮 -->
     <div class="sidebar-top">
+      <router-link to="/dashboard" class="sidebar-brand" aria-label="CWFLY 仪表盘">
+        <img :src="brandLogo" class="sidebar-brand__logo" alt="CWFLY" />
+        <span class="sidebar-brand__text">CWFLY</span>
+      </router-link>
       <button
         class="nav-collapse-btn"
         type="button"
@@ -167,12 +171,13 @@
  * @property {string}  leavingLayout  正在退出的布局：'sidebar' | 'topbar' | ''
  * @property {string}  avatarUrl      头像地址
  */
-import { nextTick, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useUserStore } from '@/store/user'
 import { navGroups, singleNavItems, accountNavItems, icons } from '@/utils/nav'
 import { prefetchRoute } from '@/utils/prefetch'
 import { isCollapsed, narrowScreen } from '@/utils/navLayout'
+import { themeMode, isDarkTheme } from '@/utils/theme'
 import {
   FALLBACK_AVATAR,
   useNavAccordion,
@@ -211,6 +216,11 @@ defineEmits([
 const route = useRoute()
 const user = useUserStore()
 const visibleItems = useNavVisibleItems()
+
+const brandLogo = computed(() => {
+  void themeMode.value
+  return isDarkTheme() ? '/logo/logo_dark.png' : '/logo/logo_light.jpg'
+})
 const { isLinkCurrent, isSubCurrent, isGroupCurrent, isGroupActive } = useNavCurrent()
 const { expandedGroup, syncOpenGroups, onGroupToggle } = useNavAccordion()
 const { tip, showTip, hideTip } = useNavTooltip()
@@ -591,9 +601,35 @@ html[data-theme='dark'] .sidebar-user:hover { background: rgba(255, 255, 255, .0
 .sidebar-top {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
-  padding: 6px 10px 2px;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px 4px;
   flex-shrink: 0;
+}
+.sidebar-brand {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  color: var(--c-text);
+  text-decoration: none;
+}
+.sidebar-brand:hover { text-decoration: none; }
+.sidebar-brand__logo {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+.sidebar-brand__text {
+  overflow: hidden;
+  color: var(--c-text);
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: .01em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .nav-collapse-btn {
   display: inline-flex;
@@ -614,7 +650,10 @@ html[data-theme='dark'] .sidebar-user:hover { background: rgba(255, 255, 255, .0
 .app-sidebar.is-collapsed .nav-collapse-ico { transform: rotate(-90deg); }
 
 .app-sidebar.is-collapsed { width: 68px !important; padding-left: 8px; padding-right: 8px; }
-.app-sidebar.is-collapsed .sidebar-top { justify-content: center; padding: 6px 0 2px; }
+.app-sidebar.is-collapsed .sidebar-top { justify-content: center; gap: 4px; padding: 8px 0 2px; }
+.app-sidebar.is-collapsed .sidebar-brand { gap: 0; }
+.app-sidebar.is-collapsed .sidebar-brand__text { display: none; }
+.app-sidebar.is-collapsed .sidebar-brand__logo { width: 22px; height: 22px; }
 .app-sidebar.is-collapsed .nav-label,
 .app-sidebar.is-collapsed .nav-group-label,
 .app-sidebar.is-collapsed .nav-item-label,
