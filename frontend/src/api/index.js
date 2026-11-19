@@ -155,6 +155,7 @@ export const authApi = {
   device2faSetup: (data) => api.post('/auth/device2fa/setup', data),
   device2faRegister: (data) => api.post('/auth/device2fa/register', data),
   device2faVerify: (data) => api.post('/auth/device2fa/verify', data),
+  device2faRebind: (data) => api.post('/auth/device2fa/rebind', data),
   device2faDisable: (data) => api.post('/auth/device2fa/disable', data),
   logout: () => api.post('/auth/logout'),
   register: (data) => api.post('/auth/register', data),

@@ -61,9 +61,14 @@
         <button v-if="!deviceStatus.enabled" type="button" class="btn btn-primary btn-sm" @click="deviceStart" :disabled="deviceLoading">
           注册本机密钥
         </button>
-        <button v-else type="button" class="btn btn-outline btn-sm" @click="deviceStep = 'disable'; devicePassword=''; deviceRecoveryCode=''" :disabled="deviceLoading">
-          关闭 2FA
-        </button>
+        <template v-else>
+          <button type="button" class="btn btn-primary btn-sm" @click="deviceStep = 'rebind'; devicePassword=''" :disabled="deviceLoading">
+            重新绑定本机密钥
+          </button>
+          <button type="button" class="btn btn-outline btn-sm" @click="deviceStep = 'disable'; devicePassword=''; deviceRecoveryCode=''" :disabled="deviceLoading">
+            关闭 2FA
+          </button>
+        </template>
       </div>
 
       <div v-if="deviceStep === 'password'" class="mfa-box">
@@ -80,6 +85,14 @@
           <code v-for="code in deviceRecoveryCodes" :key="code">{{ code }}</code>
         </div>
         <button type="button" class="btn btn-primary btn-sm" @click="deviceStep = ''">我已保存</button>
+      </div>
+
+      <div v-if="deviceStep === 'rebind'" class="mfa-box">
+        <p class="text-sm mb-sm">换浏览器/清除站点数据后，用当前密码把新设备密钥绑定到当前浏览器；旧密钥和旧恢复码会立即失效。</p>
+        <input v-model="devicePassword" class="input" type="password" autocomplete="current-password" placeholder="当前密码" />
+        <button type="button" class="btn btn-primary btn-sm mt-sm" @click="deviceRebind" :disabled="deviceLoading">
+          {{ deviceLoading ? '正在生成...' : '生成并重新绑定' }}
+        </button>
       </div>
 
       <div v-if="deviceStep === 'disable'" class="mfa-box">
@@ -422,6 +435,27 @@ async function deviceSetup() {
     deviceMsg.value = e?.message === 'DEVICE_KEY_MISSING'
       ? '当前浏览器不支持设备密钥'
       : (e.message || '注册设备密钥失败')
+    deviceMsgType.value = 'err'
+  } finally {
+    deviceLoading.value = false
+  }
+}
+
+async function deviceRebind() {
+  deviceMsg.value = ''
+  if (!devicePassword.value) { deviceMsg.value = '请输入当前密码'; deviceMsgType.value = 'err'; return }
+  deviceLoading.value = true
+  try {
+    const cid = String(user.cid || profileData.value?.cid || '')
+    const publicKey = await createDeviceKey(cid)
+    const res = await authApi.device2faRebind({ password: devicePassword.value, publicKey })
+    deviceRecoveryCodes.value = res.data?.recoveryCodes || []
+    deviceStep.value = 'recovery'
+    devicePassword.value = ''
+    deviceMsg.value = '已重新绑定当前浏览器'
+    deviceMsgType.value = 'ok'
+  } catch (e) {
+    deviceMsg.value = e.message || '重新绑定失败'
     deviceMsgType.value = 'err'
   } finally {
     deviceLoading.value = false

@@ -885,6 +885,34 @@ async def device2fa_verify(
     return response
 
 
+@router.post("/device2fa/rebind", dependencies=[Depends(sensitive_limiter)])
+async def device2fa_rebind(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current: CurrentUser = Depends(get_verified_user),
+) -> Any:
+    """已登录用户用当前密码把设备密钥重新绑定到当前浏览器（覆盖旧公钥）。"""
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    creds = await users.find_user_with_credentials(db, current.cid)
+    if not creds or not verify_password(str(body.get("password") or ""), creds.get("password")):
+        return fail(401, "当前密码错误")
+    state = await device2fa.get_state(db, current.cid)
+    if int(state.get("device2faEnabled") or 0) != 1:
+        return fail(400, "站内设备密钥未启用")
+    try:
+        codes, _ = await device2fa.enable(db, current.cid, str(body.get("publicKey") or ""))
+    except ValueError as exc:
+        return fail(400, str(exc))
+    await audit_log.write(
+        db, "device2fa_rebound", "重新绑定站内设备密钥", str(current.cid), category="auth",
+        target_type="user", target_id=current.cid,
+    )
+    return ok({"enabled": True, "recoveryCodes": codes})
+
+
 @router.post("/device2fa/disable", dependencies=[Depends(sensitive_limiter)])
 async def device2fa_disable(
     request: Request,
