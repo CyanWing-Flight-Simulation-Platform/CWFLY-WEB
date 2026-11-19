@@ -1,50 +1,86 @@
-// ===== 全局横幅（红色提示条）=====
-// 用法：
-//   import { showBanner } from '@/utils/banner'
-//   showBanner('登录已过期,请重新登录!', { duration: 3000 })
-// 或 options API 组件：this.$banner('xxx')
-// 或任意 JS：window.showBanner('xxx')
-//
-// 行为：右上角菜单栏下方从右侧滑入（向左弹出）→ 红色背景 + 底部进度条向左收缩
-//       → 进度条结束动画触发横幅向右侧缩回消失
+// ===== 全局 Toast 通知 =====
+// 原「右上角红色横幅」已统一改为轻量 Toast：
+//   import { showToast, showBanner } from '@/utils/banner'
+//   showToast('保存成功', { type: 'success' })
+//   showBanner('登录已过期，请重新登录')  // 兼容旧调用，自动按文案推断类型
 import { reactive } from 'vue'
 import { safeRedirectPath } from '@/utils/redirect'
 
+export const toastState = reactive({
+  items: []
+})
+
+// 保留给登录过期跳转逻辑读取时长
 export const bannerState = reactive({
   visible: false,
   message: '',
-  duration: 3000,   // 进度条时长（毫秒）
-  key: 0            // 每次显示自增，强制重启进度条动画
+  duration: 3000,
+  key: 0
 })
 
-let hideTimer = null
+let seq = 0
+const timers = new Map()
 
-export function showBanner(message, opts = {}) {
-  bannerState.message = String(message ?? '')
-  bannerState.duration = Math.max(1000, opts.duration || 3000)
-  bannerState.key++
-  bannerState.visible = true
-  clearTimeout(hideTimer)
-  // 兜底：进度条 animationend 未触发（如元素被销毁）时也能隐藏
-  hideTimer = setTimeout(() => { bannerState.visible = false }, bannerState.duration + 500)
+function inferType(message) {
+  const text = String(message || '')
+  if (/失败|错误|异常|过期|不存在|不可|无法|请先|请输入|请选择|封禁|拒绝|未授权|超时/.test(text)) return 'error'
+  if (/成功|已保存|已更新|已提交|已恢复|已删除|已添加|已完成/.test(text)) return 'success'
+  return 'info'
 }
 
-export function hideBanner() {
+export function removeToast(id) {
+  const index = toastState.items.findIndex((item) => item.id === id)
+  if (index >= 0) toastState.items.splice(index, 1)
+  const timer = timers.get(id)
+  if (timer) {
+    clearTimeout(timer)
+    timers.delete(id)
+  }
+}
+
+export function showToast(message, opts = {}) {
+  const text = String(message ?? '')
+  if (!text) return 0
+  const duration = Math.max(1200, Number(opts.duration) || 3200)
+  const item = {
+    id: ++seq,
+    message: text,
+    type: opts.type || inferType(text),
+    duration
+  }
+  toastState.items.push(item)
+  // 最多同时保留 4 条，避免刷屏
+  while (toastState.items.length > 4) {
+    removeToast(toastState.items[0].id)
+  }
+  timers.set(item.id, setTimeout(() => removeToast(item.id), duration))
+  return item.id
+}
+
+/** 兼容旧调用：showBanner 现在等价于 showToast。 */
+export function showBanner(message, opts = {}) {
+  bannerState.message = String(message ?? '')
+  bannerState.duration = Math.max(1000, Number(opts.duration) || 3000)
+  bannerState.key += 1
+  bannerState.visible = true
+  return showToast(message, { ...opts, duration: bannerState.duration })
+}
+
+export function hideBanner(id) {
   bannerState.visible = false
+  if (id) {
+    removeToast(id)
+    return
+  }
+  toastState.items.forEach((item) => removeToast(item.id))
 }
 
 /**
- * 等横幅动画完整走完后跳转登录页。
- * 调用时机：登录过期等需要提示用户后再离开当前页面的场景。
- * navigate 可选：传入则用其执行路由内跳转（如 vue-router 的 next），否则整页跳 /login。
+ * 等提示完整展示后再跳转登录页。
  */
 export function navigateToLoginAfterBanner(navigate, redirectPath = '') {
-  // 进入滑入 350ms + 进度条 duration + 离开滑出 350ms + 200ms 余量
-  const enterLeave = 350
-  const barDuration = bannerState?.duration || 3000
-  const delay = enterLeave + barDuration + enterLeave + 200
+  const delay = Math.max(1000, bannerState.duration || 3000) + 300
   setTimeout(() => {
-    // 跳转前再校验一次：若期间已手动跳到登录页则跳过
     if (window.location.pathname.startsWith('/login')) return
     const redirect = safeRedirectPath(redirectPath)
     const target = redirect ? `/login?redirect=${encodeURIComponent(redirect)}` : '/login'
@@ -55,3 +91,6 @@ export function navigateToLoginAfterBanner(navigate, redirectPath = '') {
     }
   }, delay)
 }
+
+/** @deprecated 保留旧导出名 */
+export const hideToast = hideBanner

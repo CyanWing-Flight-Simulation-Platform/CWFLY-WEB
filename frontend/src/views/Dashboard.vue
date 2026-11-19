@@ -267,6 +267,16 @@ function atcFacilityName(t) {
   return ATC_FACILITY_NAMES[Number(t)] || ('FAC' + (t ?? ''))
 }
 
+const FSD_LEVEL_NAMES = {
+  0: '飞行员', 1: '观察员', 2: '地面/放行 S1', 3: '塔台 S2',
+  4: '终端 S3', 5: '区域 C1', 6: '区域 C2', 7: '区域 C3',
+  8: '塔台教员 I1', 9: '进近教员 I2', 10: '区域教员 I3',
+  11: 'SUP', 12: 'ADM'
+}
+function fsdLevelName(level) {
+  return FSD_LEVEL_NAMES[level] || `未知(${level})`
+}
+
 const fsdRows = computed(() => {
   const byCallsign = (a, b) => String(a.callsign || '').localeCompare(String(b.callsign || ''), 'zh-CN')
   const atc = [...fsdAtc.value].sort(byCallsign).map((a) => ({ kind: 'atc', ...a }))

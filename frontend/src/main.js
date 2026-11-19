@@ -6,7 +6,7 @@ import { reportPageView } from './utils/deviceFp'
 import { touchLastActive, isTokenExpired, isTokenNearExpiry, isWithinActiveWindow } from './utils/jwt'
 import api from './api'
 import tableSort from './utils/tableSort'
-import { showBanner, navigateToLoginAfterBanner } from './utils/banner'
+import { showBanner, showToast, navigateToLoginAfterBanner } from './utils/banner'
 import ToastBanner from './components/ToastBanner.vue'
 import ActionBanner from './components/ActionBanner.vue'
 import PoWCaptcha from './components/PoWCaptcha.vue'
@@ -22,7 +22,7 @@ app.use(router)
 app.use(pinia)
 // 全局表格排序指令：<table v-sort> 点击表头排序，默认首列 A-Z/1-9 升序
 app.directive('sort', tableSort)
-// 全局红色横幅：组件全局可用 + this.$banner(...) + window.showBanner(...)
+// 全局 Toast：组件全局可用 + this.$banner(...) + window.showToast(...)
 app.component('ToastBanner', ToastBanner)
 // 全局动作横幅（密码输入等控件，右侧滑入无进度条）
 app.component('ActionBanner', ActionBanner)
@@ -34,14 +34,15 @@ app.component('SelectMenu', SelectMenu)
 app.component('DatePicker', DatePicker)
 app.component('SubmitButton', SubmitButton)
 app.config.globalProperties.$banner = showBanner
-// 全局错误兜底：组件渲染/生命周期报错 → 红横幅提示
+// 全局错误兜底：组件渲染/生命周期报错 → Toast 提示
 app.config.errorHandler = (err) => {
   console.error('[GlobalError]', err)
-  showBanner('发生错误: ' + (err?.message || '未知错误'))
+  showToast(err?.message || '发生未知错误', { type: 'error', duration: 4200 })
 }
 app.mount('#app')
 // 暴露全局函数，任意 JS 可调用
 window.showBanner = showBanner
+window.showToast = showToast
 
 // 访问网页时上报真实设备指纹到服务器（SecurityEvent 证据链：IP + 指纹 + UA + 来源页）
 reportPageView()
