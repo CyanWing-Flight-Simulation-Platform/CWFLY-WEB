@@ -3,14 +3,6 @@ name: Frontend CI
 # CWFLY 前端质量门禁：单测 + ESLint（0 警告）+ 生产构建
 # 仓库根为 CWFLY-WEB，前端代码在 frontend/ 子目录，所有 run 步骤默认 working-directory: frontend
 on:
-  push:
-    paths:
-      - 'frontend/**'
-      - '.github/workflows/frontend-ci.yml'
-  pull_request:
-    paths:
-      - 'frontend/**'
-      - '.github/workflows/frontend-ci.yml'
   workflow_dispatch:
 
 permissions:
