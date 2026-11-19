@@ -10,12 +10,36 @@ from typing import Any
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.db.session import engine
 from app.services.content_service import normalize_row
 from app.services.zh_time_service import zh_now
 
 TICKET_COLUMNS = (
-    "id, userId, title, category, priority, content, status, assignee, reply, createdAt, updatedAt"
+    "id, userId, title, category, priority, content, status, assignee, reply, attachment, createdAt, updatedAt"
 )
+
+
+async def ensure_schema() -> None:
+    """幂等补齐 Ticket.attachment（项目无 Prisma 迁移，沿用既有 ensure_schema 模式）。"""
+    async with engine.begin() as conn:
+        row = (
+            await conn.execute(
+                text(
+                    "SELECT COLUMN_NAME FROM information_schema.COLUMNS "
+                    "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'Ticket' "
+                    "AND COLUMN_NAME = 'attachment' LIMIT 1"
+                )
+            )
+        ).first()
+        if row:
+            return
+        try:
+            await conn.execute(
+                text("ALTER TABLE `Ticket` ADD COLUMN `attachment` VARCHAR(255) NOT NULL DEFAULT ''")
+            )
+        except Exception:
+            # 并发 worker 可能同时执行；列已存在时忽略
+            pass
 
 
 async def list_tickets(db: AsyncSession, user_id: str) -> list[dict[str, Any]]:
@@ -47,13 +71,14 @@ async def create_ticket(
     category: Any,
     priority: Any,
     content: Any,
+    attachment: Any = "",
 ) -> dict[str, Any]:
     now = zh_now()
     result = await db.execute(
         text(
-            "INSERT INTO `Ticket` (userId, title, category, priority, content, status, "
+            "INSERT INTO `Ticket` (userId, title, category, priority, content, status, attachment, "
             "createdAt, updatedAt) VALUES (:userId, :title, :category, :priority, :content, "
-            ":status, :createdAt, :updatedAt)"
+            ":status, :attachment, :createdAt, :updatedAt)"
         ),
         {
             "userId": user_id,
@@ -62,6 +87,7 @@ async def create_ticket(
             "priority": priority or "normal",
             "content": content,
             "status": "open",
+            "attachment": attachment or "",
             "createdAt": now,
             "updatedAt": now,
         },
@@ -78,6 +104,7 @@ async def delete_ticket(db: AsyncSession, ticket_id: int) -> None:
 
 __all__ = [
     "TICKET_COLUMNS",
+    "ensure_schema",
     "list_tickets",
     "get_ticket",
     "create_ticket",

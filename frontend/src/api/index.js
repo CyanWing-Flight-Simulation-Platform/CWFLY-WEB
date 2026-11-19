@@ -333,6 +333,9 @@ export const chartApi = {
 
 export const ticketApi = {
   list: (params) => api.get('/tickets', { params }),
+  upload: (formData) => api.post('/tickets/upload', formData, {
+    headers: { 'Content-Type': undefined }
+  }),
   create: (data) => api.post('/tickets', data),
   get: (id) => api.get(`/tickets/${id}`),
   update: (id, data) => api.put(`/tickets/${id}`, data),

@@ -19,15 +19,14 @@
         <EmptyState icon="ticket" title="暂无工单" description="当前筛选条件下没有工单，用户提交后会出现在这里。" />
       </div>
       <div v-else class="table-wrap">
-        <table v-sort="{ index: 8, desc: true }">
+        <table v-sort="{ index: 7, desc: true }">
           <thead>
             <tr>
               <th>ID</th>
               <th>CID</th>
               <th>标题</th>
-              <th>分类</th>
-              <th>优先级</th>
               <th>内容</th>
+              <th>附件</th>
               <th>负责人</th>
               <th>状态</th>
               <th>提交时间</th>
@@ -39,11 +38,11 @@
               <td>{{ t.id }}</td>
               <td class="font-bold">{{ t.userId }}</td>
               <td class="font-bold truncate" style="max-width:150px;">{{ t.title }}</td>
-              <td><span class="badge badge-info">{{ categoryLabel(t.category) }}</span></td>
-              <td>
-                <span class="badge" :class="priorityBadge(t.priority)">{{ priorityLabel(t.priority) }}</span>
-              </td>
               <td class="text-sm text-muted truncate" style="max-width:180px;">{{ t.content }}</td>
+              <td>
+                <a v-if="t.attachment" :href="t.attachment" class="attachment-link" target="_blank" rel="noopener">查看附件</a>
+                <span v-else class="text-muted">-</span>
+              </td>
               <td class="text-sm truncate" style="max-width:100px;">{{ t.assignee || '-' }}</td>
               <td>
                 <span v-if="editing === t.id">
@@ -123,19 +122,6 @@ function statusBadge(s) {
 
 function statusLabel(s) {
   return s === 'open' ? '待处理' : s === 'in_progress' ? '处理中' : s === 'resolved' ? '已解决' : '已关闭'
-}
-
-function priorityBadge(p) {
-  return p === 'urgent' ? 'badge-danger' : p === 'high' ? 'badge-warning' : p === 'normal' ? 'badge-info' : 'badge-default'
-}
-
-function priorityLabel(p) {
-  return p === 'urgent' ? '紧急' : p === 'high' ? '高' : p === 'normal' ? '普通' : '低'
-}
-
-function categoryLabel(c) {
-  const map = { general: '通用', technical: '技术', account: '账号', feedback: '反馈', complaint: '投诉', other: '其他' }
-  return map[c] || c
 }
 
 onMounted(() => {

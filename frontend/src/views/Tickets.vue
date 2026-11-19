@@ -16,19 +16,21 @@
           <label class="text-sm font-bold mb-sm" style="display:block;">标题</label>
           <input v-model="form.title" class="input" placeholder="工单标题" />
         </div>
-        <div class="form-row">
-          <div class="form-col">
-            <label class="text-sm font-bold mb-sm" style="display:block;">分类</label>
-            <SelectMenu v-model="form.category" :options="[{ value: 'general', label: '通用咨询' }, { value: 'technical', label: '技术支持' }, { value: 'account', label: '账号问题' }, { value: 'feedback', label: '意见建议' }, { value: 'complaint', label: '投诉' }, { value: 'other', label: '其他' }]" />
-          </div>
-          <div class="form-col">
-            <label class="text-sm font-bold mb-sm" style="display:block;">优先级</label>
-            <SelectMenu v-model="form.priority" :options="[{ value: 'low', label: '低' }, { value: 'normal', label: '普通' }, { value: 'high', label: '高' }, { value: 'urgent', label: '紧急' }]" />
-          </div>
-        </div>
         <div class="mb-md">
           <label class="text-sm font-bold mb-sm" style="display:block;">内容</label>
           <textarea v-model="form.content" class="input" rows="6" placeholder="详细描述你的问题或建议..." style="resize:vertical;"></textarea>
+        </div>
+        <div class="mb-md">
+          <label class="text-sm font-bold mb-sm" style="display:block;">附件</label>
+          <input ref="fileInput" type="file" accept=".png,.jpg,.jpeg,.docx,.pdf" style="display:none;" @change="onFileChange" />
+          <button type="button" class="btn btn-outline btn-sm" :disabled="uploading" @click="fileInput.click()">
+            {{ uploading ? '上传中...' : '添加附件' }}
+          </button>
+          <div v-if="attachment" class="attachment-chip">
+            <span>{{ attachment.name || '附件' }}</span>
+            <button type="button" class="attachment-remove" aria-label="移除附件" @click="clearAttachment">×</button>
+          </div>
+          <p class="hint">支持 PNG / JPG / DOCX / PDF，最大 10MB</p>
         </div>
         <div class="flex gap-sm">
           <button class="btn btn-primary" @click="submitTicket" :disabled="submitting">
@@ -63,8 +65,7 @@
             <tr>
               <th>ID</th>
               <th>标题</th>
-              <th>分类</th>
-              <th>优先级</th>
+              <th>附件</th>
               <th>状态</th>
               <th>回复</th>
               <th>时间</th>
@@ -74,8 +75,10 @@
             <tr v-for="t in list" :key="t.id">
               <td>{{ t.id }}</td>
               <td class="font-bold">{{ t.title }}</td>
-              <td><span class="badge badge-info">{{ categoryLabel(t.category) }}</span></td>
-              <td><span class="badge" :class="priorityBadge(t.priority)">{{ priorityLabel(t.priority) }}</span></td>
+              <td>
+                <a v-if="t.attachment" :href="t.attachment" class="attachment-link" target="_blank" rel="noopener">下载附件</a>
+                <span v-else class="text-muted">-</span>
+              </td>
               <td><span class="badge" :class="statusBadge(t.status)">{{ statusLabel(t.status) }}</span></td>
               <td class="text-sm text-muted" style="max-width:200px;">{{ t.reply || '等待回复' }}</td>
               <td class="text-muted text-sm">{{ t.createdAt }}</td>
@@ -97,9 +100,10 @@ const list = ref([])
 const loading = ref(false)
 const showForm = ref(false)
 const submitting = ref(false)
-const form = ref({
-  title: '', category: 'general', priority: 'normal', content: ''
-})
+const uploading = ref(false)
+const fileInput = ref(null)
+const attachment = ref(null)
+const form = ref({ title: '', content: '' })
 
 function statusBadge(s) {
   return s === 'open' ? 'badge-warning' : s === 'in_progress' ? 'badge-info' : s === 'resolved' ? 'badge-success' : 'badge-default'
@@ -107,17 +111,6 @@ function statusBadge(s) {
 function statusLabel(s) {
   return s === 'open' ? '待处理' : s === 'in_progress' ? '处理中' : s === 'resolved' ? '已解决' : '已关闭'
 }
-function priorityBadge(p) {
-  return p === 'urgent' ? 'badge-danger' : p === 'high' ? 'badge-warning' : p === 'normal' ? 'badge-info' : 'badge-default'
-}
-function priorityLabel(p) {
-  return p === 'urgent' ? '紧急' : p === 'high' ? '高' : p === 'normal' ? '普通' : '低'
-}
-function categoryLabel(c) {
-  const map = { general: '通用', technical: '技术', account: '账号', feedback: '反馈', complaint: '投诉', other: '其他' }
-  return map[c] || c
-}
-
 onMounted(async () => {
   loading.value = true
   try {
@@ -129,14 +122,50 @@ onMounted(async () => {
 })
 
 function resetForm() {
-  form.value = { title: '', category: 'general', priority: 'normal', content: '' }
+  form.value = { title: '', content: '' }
+  attachment.value = null
+  if (fileInput.value) fileInput.value.value = ''
+}
+
+function clearAttachment() {
+  attachment.value = null
+  if (fileInput.value) fileInput.value.value = ''
+}
+
+async function onFileChange(e) {
+  const file = e.target.files?.[0]
+  if (!file) return
+  const ext = file.name.split('.').pop()?.toLowerCase()
+  if (!['png', 'jpg', 'jpeg', 'docx', 'pdf'].includes(ext)) {
+    alert('仅支持 PNG / JPG / DOCX / PDF 附件')
+    e.target.value = ''
+    return
+  }
+  if (file.size > 10 * 1024 * 1024) {
+    alert('附件不能超过 10MB')
+    e.target.value = ''
+    return
+  }
+  uploading.value = true
+  try {
+    const fd = new FormData()
+    fd.append('file', file)
+    const res = await ticketApi.upload(fd)
+    attachment.value = { url: res.data.url, name: res.data.name || file.name }
+  } catch (err) {
+    alert('附件上传失败: ' + err.message)
+    e.target.value = ''
+  } finally {
+    uploading.value = false
+  }
 }
 
 async function submitTicket() {
   if (!form.value.title || !form.value.content) return alert('请填写标题和内容')
+  if (uploading.value) return alert('附件正在上传，请稍候')
   submitting.value = true
   try {
-    const res = await ticketApi.create(form.value)
+    const res = await ticketApi.create({ ...form.value, attachment: attachment.value?.url || '' })
     list.value.unshift(res.data)
     showForm.value = false
     resetForm()
@@ -160,4 +189,27 @@ async function submitTicket() {
   .form-row { grid-template-columns: 1fr; }
 }
 .form-col { display: flex; flex-direction: column; }
+.attachment-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--ui-ghost-bg);
+  border: 1px solid var(--ui-ghost-border);
+  color: var(--ui-text);
+  font-size: 12px;
+}
+.attachment-remove {
+  border: 0;
+  background: transparent;
+  color: var(--ui-text-secondary);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+.attachment-remove:hover { color: var(--ui-danger-text); }
+.attachment-link { color: var(--c-primary); font-size: 12px; text-decoration: none; }
+.attachment-link:hover { text-decoration: underline; }
 </style>
