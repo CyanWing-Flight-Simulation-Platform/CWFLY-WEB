@@ -148,7 +148,7 @@ COLUMNS: dict[str, str] = {
     ),
     "Ticket": (
         "`id`, `userId`, `title`, `category`, `priority`, `content`, `status`, `assignee`, `reply`, "
-        "`createdAt`, `updatedAt`"
+        "`attachment`, `createdAt`, `updatedAt`"
     ),
     "Notification": "`id`, `userId`, `type`, `title`, `content`, `link`, `read`, `createdAt`",
     "TrainingCourse": "`id`, `title`, `description`, `category`, `content`, `status`, `createdAt`",
@@ -3147,6 +3147,8 @@ async def admin_update_ticket(
         updates["status"] = status
     if reply is not None:
         updates["reply"] = reply
+        # 负责人 = 实际回复的管理员，避免前端手动选择或留空
+        updates["assignee"] = current.username or str(current.cid)
     if updates:
         set_clause = ", ".join(f"`{column}` = :{column}" for column in updates)
         params = dict(updates)

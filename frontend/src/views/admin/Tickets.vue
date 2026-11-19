@@ -80,10 +80,6 @@
           <label class="text-sm font-bold mb-sm" style="display:block;">回复内容</label>
           <textarea v-model="replyText" class="input" rows="4" placeholder="输入回复内容..." style="resize:vertical;"></textarea>
         </div>
-        <div class="mb-md">
-          <label class="text-sm font-bold mb-sm" style="display:block;">负责人</label>
-          <SelectMenu v-model="replyAssignee" :options="staffList.map((s) => ({ value: s.name, label: `${s.name} (${s.department})` }))" placeholder="-- 请选择负责人 --" />
-        </div>
       </template>
       <template #footer>
         <button class="btn btn-outline" @click="closeReply">取消</button>
@@ -111,8 +107,6 @@ const editing = ref(null)
 const editStatus = ref('')
 const replyTarget = ref(null)
 const replyText = ref('')
-const replyAssignee = ref('')
-const staffList = ref([])
 
 const maxPage = computed(() => Math.ceil(total.value / pageSize) || 1)
 
@@ -126,15 +120,7 @@ function statusLabel(s) {
 
 onMounted(() => {
   load()
-  loadStaff()
 })
-
-async function loadStaff() {
-  try {
-    const res = await adminApi.staff()
-    staffList.value = res.data || []
-  } catch { /* ignore */ }
-}
 
 async function load() {
   loading.value = true
@@ -166,7 +152,6 @@ async function saveStatus(t) {
 function openReply(t) {
   replyTarget.value = t
   replyText.value = t.reply || ''
-  replyAssignee.value = t.assignee || ''
 }
 
 function closeReply() {
@@ -176,17 +161,15 @@ function closeReply() {
 async function submitReply() {
   if (!replyText.value) return alert('请输入回复内容')
   try {
-    await adminApi.updateTicket(replyTarget.value.id, {
+    const res = await adminApi.updateTicket(replyTarget.value.id, {
       reply: replyText.value,
-      assignee: replyAssignee.value,
       status: 'in_progress'
     })
     replyTarget.value.reply = replyText.value
-    replyTarget.value.assignee = replyAssignee.value
+    replyTarget.value.assignee = res.data?.assignee || replyTarget.value.assignee
     replyTarget.value.status = 'in_progress'
     replyTarget.value = null
     replyText.value = ''
-    replyAssignee.value = ''
     alert('回复已提交')
   } catch (e) { alert(e.message) }
 }
