@@ -309,6 +309,10 @@ def _as_int(value: Any) -> int:
     return int(number)
 
 
+# Web 端日志最多可翻到最近 500 条；数据库全量保留，不做删除。
+WEB_LOG_LIMIT = 500
+
+
 def _paging(page: Any, page_size: Any) -> tuple[int, int]:
     """返回 (skip, take)：Node `(Number(page)-1)*Number(pageSize), Number(pageSize)`。"""
     # 安全(P2-6)：限制单页最大条数，避免 take=9999999 打满内存/数据库
@@ -317,6 +321,14 @@ def _paging(page: Any, page_size: Any) -> tuple[int, int]:
     if skip < 0:
         raise ValueError("negative skip")
     return skip, take
+
+
+def _web_log_paging(page: Any, page_size: Any) -> tuple[int, int]:
+    """日志页专用分页：最多暴露最近 WEB_LOG_LIMIT 条。"""
+    skip, take = _paging(page, page_size)
+    if skip >= WEB_LOG_LIMIT:
+        return WEB_LOG_LIMIT, 0
+    return skip, min(take, WEB_LOG_LIMIT - skip)
 
 
 def _maybe_int(value: Any) -> Optional[int]:
@@ -1113,13 +1125,13 @@ async def logs_login(
     _rating: CurrentUser = Depends(require_rating(12)),
     db: AsyncSession = Depends(get_db),
 ) -> JSJSONResponse:
-    skip, take = _paging(page, pageSize)
+    skip, take = _web_log_paging(page, pageSize)
     rows = (
         await db.execute(
             text(sel("LoginLog", f"ORDER BY `createdAt` DESC LIMIT {take} OFFSET {skip}"))
         )
     ).all()
-    total = (await db.execute(text("SELECT COUNT(*) AS c FROM `LoginLog`"))).scalar_one()
+    total = min(int((await db.execute(text("SELECT COUNT(*) AS c FROM `LoginLog`"))).scalar_one()), WEB_LOG_LIMIT)
     items = _rows(rows, ("success",))
     cids = [str(item.get("userId") or "") for item in items if item.get("userId")]
     user_map: dict[str, str] = {}
@@ -1164,13 +1176,13 @@ async def logs_register(
     _rating: CurrentUser = Depends(require_rating(12)),
     db: AsyncSession = Depends(get_db),
 ) -> JSJSONResponse:
-    skip, take = _paging(page, pageSize)
+    skip, take = _web_log_paging(page, pageSize)
     rows = (
         await db.execute(
             text(sel("User", f"ORDER BY `createdAt` DESC LIMIT {take} OFFSET {skip}"))
         )
     ).all()
-    total = (await db.execute(text("SELECT COUNT(*) AS c FROM `User`"))).scalar_one()
+    total = min(int((await db.execute(text("SELECT COUNT(*) AS c FROM `User`"))).scalar_one()), WEB_LOG_LIMIT)
     formatted = [
         {
             "id": item.get("id"),
@@ -1196,7 +1208,7 @@ async def logs_network(
     _rating: CurrentUser = Depends(require_rating(12)),
     db: AsyncSession = Depends(get_db),
 ) -> JSJSONResponse:
-    skip, take = _paging(page, pageSize)
+    skip, take = _web_log_paging(page, pageSize)
     rows = (
         await db.execute(
             text(
@@ -1207,7 +1219,7 @@ async def logs_network(
             )
         )
     ).all()
-    total = (await db.execute(text("SELECT COUNT(*) AS c FROM `IpVisit`"))).scalar_one()
+    total = min(int((await db.execute(text("SELECT COUNT(*) AS c FROM `IpVisit`"))).scalar_one()), WEB_LOG_LIMIT)
     items = _rows(rows)
 
     # 合并 ipTracker 内存中未落库的实时访问（Python 端暂未移植 → 空列表）
@@ -1426,7 +1438,7 @@ async def logs_audit(
     _perm: CurrentUser = Depends(require_permission(PERM_USER)),
     db: AsyncSession = Depends(get_db),
 ) -> JSJSONResponse:
-    skip, take = _paging(page, pageSize)
+    skip, take = _web_log_paging(page, pageSize)
     day_window = max(1, min(_as_int(days or 7), 90))
     category = (category or "").strip()
     if category and category not in audit_log.CATEGORIES:
@@ -1453,12 +1465,17 @@ async def logs_audit(
             params,
         )
     ).all()
-    total = (
-        await db.execute(
-            text(f"SELECT COUNT(*) AS c FROM `AuditLog` WHERE {clause}"),
-            params,
-        )
-    ).scalar_one()
+    total = min(
+        int(
+            (
+                await db.execute(
+                    text(f"SELECT COUNT(*) AS c FROM `AuditLog` WHERE {clause}"),
+                    params,
+                )
+            ).scalar_one()
+        ),
+        WEB_LOG_LIMIT,
+    )
     category_rows = (
         await db.execute(
             text(
