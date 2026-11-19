@@ -22,3 +22,4 @@ __pycache__/
 .ruff_cache/
 backend-py/logs/
 backend-py/uploads/
+backend-py/backups/

@@ -76,6 +76,7 @@ export const navGroups = [
       { path: '/admin/users', label: '用户管理', desc: '账号与管制等级', icon: S('<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>'), requiredPermission: 'user' },
       { path: '/admin/controllers', label: '管制管理', desc: '管制席位与在线状态', icon: S('<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>'), requiredPermission: 'controller' },
       { path: '/admin/announcements', label: '公告管理', desc: '发布站内公告', icon: S('<path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/>'), requiredPermission: 'staff' },
+      { path: '/admin/meetings', label: '会议记录管理', desc: '上传与管理会议纪要', icon: S('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/>'), requiredRating: 11 },
       { path: '/admin/events', label: '活动管理', desc: '活动与管制席位', icon: S('<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>'), requiredPermission: 'event' },
       { path: '/admin/tickets', label: '工单管理', desc: '处理用户工单', icon: S('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>'), requiredPermission: 'ticket' },
       { path: '/admin/permissions', label: '权限等级', desc: '权限等级定义', icon: S('<rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>'), requiredPermission: 'user' },

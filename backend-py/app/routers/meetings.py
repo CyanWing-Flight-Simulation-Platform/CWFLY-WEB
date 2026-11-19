@@ -1,6 +1,6 @@
 """/api/meetings 路由（逐接口对齐 Node src/routes/meetings.js）。
 
-- GET  /        会议列表（**需登录**，见下方 MEETINGS_REQUIRE_AUTH）
+- GET  /        会议列表（**默认公开**；设置 MEETINGS_REQUIRE_AUTH=1 可强制登录）
 - POST /upload  上传会议资料（需 rating >= 11；表单字段 `file`，20MB；先返回 processing，后台解析）
 
 返回结构：`{ success: true, data: { ...meeting, fileUrl, status: 'processing' } }`
@@ -9,7 +9,8 @@
 - 上传加「扩展名白名单 + 魔数校验 + 20MB 上限」，杜绝 `.html/.svg` 同域存储型 XSS；
 - `/uploads/**` 静态响应统一 `X-Content-Type-Options: nosniff`，非图片强制
   `Content-Disposition: attachment`（见 `app/main.py`），即便内容可执行也不会被内联渲染；
-- 会议列表属于内部纪要，改为要求登录（应急回滚开关 `MEETINGS_REQUIRE_AUTH=0`）。
+- 会议列表默认公开只读；如需收紧，设置 `MEETINGS_REQUIRE_AUTH=1`。
+  上传仍强制要求 rating >= 11，公开页不提供上传入口。
 """
 from __future__ import annotations
 
@@ -29,8 +30,8 @@ from app.utils.json_compat import JSJSONResponse
 log = logging.getLogger("cwfly.meetings")
 router = APIRouter(prefix="/meetings", tags=["meetings"])
 
-# 应急回滚开关：设为 0 时恢复「会议列表公开」（默认强制登录）。
-MEETINGS_REQUIRE_AUTH = os.getenv("MEETINGS_REQUIRE_AUTH", "1").strip().lower() not in (
+# 会议列表默认公开；设置 MEETINGS_REQUIRE_AUTH=1 可切换为仅登录用户可见。
+MEETINGS_REQUIRE_AUTH = os.getenv("MEETINGS_REQUIRE_AUTH", "0").strip().lower() not in (
     "0",
     "false",
     "no",

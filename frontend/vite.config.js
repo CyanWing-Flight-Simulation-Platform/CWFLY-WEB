@@ -70,6 +70,17 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    // Windows 下原子写入产生的临时目录可能被锁，Vite 监听会抛 EBUSY 并退出。
+    // 忽略这些临时文件，避免开发服务器因文件锁崩溃。
+    watch: {
+      ignored: [
+        '**/.git/**',
+        '**/node_modules/**',
+        '**/dist/**',
+        '**/.*.tmpdir/**',
+        '**/*.tmp'
+      ]
+    },
     proxy: {
       '/api': { target: 'http://localhost:3000', changeOrigin: true },
       '/uploads': { target: 'http://localhost:3000', changeOrigin: true },

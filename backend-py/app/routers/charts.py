@@ -210,4 +210,48 @@ async def query_route(
         return _fail(500, "操作失败")
 
 
+# ==================== 本地航路估算 ====================
+@router.get("/route/local")
+async def query_local_route(
+    dep: Optional[str] = None,
+    arr: Optional[str] = None,
+    db: AsyncSession = Depends(get_db),
+) -> JSJSONResponse:
+    """不依赖外部航路源的本地估算接口。
+
+    返回起降机场大圆距离、预计飞行时间和 DCT 航路，供机器人在上游不可达时使用。
+    """
+    if not dep or not arr:
+        return _fail(400, "缺少起降机场")
+    dep_icao, arr_icao = dep.upper().strip(), arr.upper().strip()
+    if not (len(dep_icao) == 4 and dep_icao.isalnum() and len(arr_icao) == 4 and arr_icao.isalnum()):
+        return _fail(400, "ICAO 代码必须为 4 位字母数字")
+    try:
+        dep_pos, arr_pos = await asyncio.gather(
+            navigraph.get_airport_coords(db, dep_icao),
+            navigraph.get_airport_coords(db, arr_icao),
+        )
+        if not dep_pos or not arr_pos:
+            return _fail(404, "机场坐标不存在")
+        nm = charts_cache.great_circle_distance(
+            dep_pos["lat"], dep_pos["lon"], arr_pos["lat"], arr_pos["lon"]
+        )
+        mins = max(1, charts_cache.js_round(nm / 420 * 60))
+        flight_time = f"{mins // 60}h{mins % 60:02d}m"
+        return _ok(
+            {
+                "dep": dep_icao,
+                "arr": arr_icao,
+                "route": f"{dep_icao} DCT {arr_icao}",
+                "distance": nm,
+                "flight_time": flight_time,
+                "alternate": "",
+                "source": "local-estimate",
+            }
+        )
+    except Exception as exc:  # noqa: BLE001
+        log.error("[charts.py] local route: %s", exc)
+        return _fail(500, "操作失败")
+
+
 __all__ = ["router"]

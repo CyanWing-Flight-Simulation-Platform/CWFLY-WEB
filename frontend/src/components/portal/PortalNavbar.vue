@@ -1,40 +1,91 @@
 <template>
   <nav class="portal-nav">
     <div class="portal-nav__inner">
-      <!-- Logo -->
-      <router-link to="/" class="portal-nav__logo">
+      <router-link to="/" class="portal-nav__logo" aria-label="CWFLY 首页">
         <span class="portal-nav__brand">CWFLY</span>
       </router-link>
 
-      <!-- 汉堡按钮（移动端） -->
-      <button class="portal-nav__hamburger" @click="mobileOpen = !mobileOpen" :aria-label="mobileOpen ? '关闭菜单' : '打开菜单'">
+      <button
+        class="portal-nav__hamburger"
+        :aria-expanded="mobileOpen"
+        :aria-label="mobileOpen ? '关闭菜单' : '打开菜单'"
+        @click="mobileOpen = !mobileOpen"
+      >
         <span></span><span></span><span></span>
       </button>
 
-      <!-- 导航链接 -->
       <div class="portal-nav__right" :class="{ 'portal-nav__right--open': mobileOpen }" ref="navRef">
-        <!-- 关于我们（带下拉） -->
-        <div class="portal-nav__item dropdown" @mouseenter="aboutOpen = true" @mouseleave="aboutOpen = false">
-          <button class="portal-nav__link dropdown__trigger" @click="toggleAbout">
-            <span>关于我们</span>
-            <svg class="dropdown__arrow" :class="{ 'dropdown__arrow--up': aboutOpen }" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+        <div
+          v-for="group in navGroups"
+          :key="group.id"
+          class="portal-nav__item dropdown"
+          @mouseenter="openMenu = group.id"
+          @mouseleave="openMenu = null"
+        >
+          <button
+            type="button"
+            class="portal-nav__link dropdown__trigger"
+            :class="{ 'portal-nav__link--active': openMenu === group.id }"
+            :aria-expanded="openMenu === group.id"
+            @click.stop="toggleMenu(group.id)"
+          >
+            <span>{{ group.label }}</span>
+            <svg
+              class="dropdown__arrow"
+              :class="{ 'dropdown__arrow--up': openMenu === group.id }"
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.5"
+              aria-hidden="true"
+            >
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
           </button>
+
           <Transition name="drop">
-            <div v-if="aboutOpen" class="dropdown__menu card" @click="aboutOpen = false">
-              <router-link to="/about" class="dropdown__item">关于我们</router-link>
-              <router-link to="/meetings" class="dropdown__item">会议记录</router-link>
+            <div v-if="openMenu === group.id" class="dropdown__menu card" @click="closeMenu">
+              <div class="dropdown__heading">{{ group.label }}</div>
+              <template v-for="item in group.items" :key="item.label">
+                <a
+                  v-if="item.href"
+                  :href="item.href"
+                  class="dropdown__item"
+                  target="_blank"
+                  rel="noopener"
+                >
+                  <span>{{ item.label }}</span>
+                  <small>{{ item.desc }}</small>
+                </a>
+                <router-link v-else :to="item.to" class="dropdown__item">
+                  <span>{{ item.label }}</span>
+                  <small>{{ item.desc }}</small>
+                </router-link>
+              </template>
             </div>
           </Transition>
         </div>
 
-        <router-link to="/apply/controller" class="portal-nav__link">成为管制员</router-link>
-        <router-link to="/controller-public" class="portal-nav__link">职员公示</router-link>
-
         <div class="portal-nav__spacer"></div>
 
-        <!-- 主题切换 -->
+        <div class="portal-nav__auth">
+          <router-link to="/login" class="portal-nav__login" @click="closeMenu">登录</router-link>
+          <router-link to="/register" class="portal-nav__register" @click="closeMenu">注册</router-link>
+        </div>
+
         <div class="theme-toggle" role="group" aria-label="主题切换">
-          <button v-for="t in themeOptions" :key="t.id" type="button" class="theme-btn" :class="{ active: themeMode === t.id }" @click="setTheme(t.id)">{{ t.label }}</button>
+          <button
+            v-for="t in themeOptions"
+            :key="t.id"
+            type="button"
+            class="theme-btn"
+            :class="{ active: themeMode === t.id }"
+            @click="setTheme(t.id)"
+          >
+            {{ t.label }}
+          </button>
         </div>
       </div>
     </div>
@@ -42,7 +93,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
 import { themeMode, setThemeMode } from '@/utils/theme'
 
 const themeOptions = [
@@ -51,7 +102,49 @@ const themeOptions = [
   { id: 'dark', label: '深色' },
 ]
 
-const aboutOpen = ref(false)
+const navGroups = [
+  {
+    id: 'tools',
+    label: '飞行工具',
+    items: [
+      { to: '/map', label: '在线地图', desc: '实时机组、航迹与空域' },
+      { to: '/charts', label: '航情查询', desc: '机场航图与航路资料' },
+      { to: '/weather', label: '气象报文', desc: 'METAR / TAF 查询' },
+      { to: '/flight-plan', label: '飞行计划', desc: '提交与同步连飞计划' },
+    ],
+  },
+  {
+    id: 'community',
+    label: '社区服务',
+    items: [
+      { to: '/events', label: '飞行活动', desc: '近期活动与报名' },
+      { to: '/leaderboard', label: '排行榜', desc: '积分与飞行贡献榜' },
+      { to: '/knowledge', label: '知识库', desc: '飞行与管制资料' },
+      { href: 'https://cwforum.org', label: '社区论坛', desc: '前往独立论坛' },
+    ],
+  },
+  {
+    id: 'join',
+    label: '加入我们',
+    items: [
+      { to: '/apply/controller', label: '成为管制员', desc: '加入管制团队' },
+      { to: '/apply/staff', label: '职员申请', desc: '参与平台运营' },
+      { to: '/controller-public', label: '职员公示', desc: '查看现任职员' },
+    ],
+  },
+  {
+    id: 'about',
+    label: '关于我们',
+    items: [
+      { to: '/about', label: '关于 CWFLY', desc: '了解平台与团队' },
+      { to: '/meetings', label: '会议记录', desc: '公开会议与决议' },
+      { to: '/user-agreement', label: '用户协议', desc: '平台使用规则' },
+      { to: '/privacy-policy', label: '隐私政策', desc: '数据与隐私说明' },
+    ],
+  },
+]
+
+const openMenu = ref(null)
 const mobileOpen = ref(false)
 const navRef = ref(null)
 
@@ -59,13 +152,22 @@ function setTheme(mode) {
   setThemeMode(mode)
 }
 
-function toggleAbout() {
-  aboutOpen.value = !aboutOpen.value
+function toggleMenu(id) {
+  openMenu.value = openMenu.value === id ? null : id
+}
+
+function closeMenu() {
+  openMenu.value = null
+  mobileOpen.value = false
 }
 
 function handleClickOutside(e) {
-  if (navRef.value && !navRef.value.contains(e.target)) {
-    aboutOpen.value = false
+  const target = e.target
+  const clickedHamburger = target instanceof Element && target.closest('.portal-nav__hamburger')
+  if (clickedHamburger) return
+  if (navRef.value && !navRef.value.contains(target)) {
+    openMenu.value = null
+    mobileOpen.value = false
   }
 }
 
@@ -79,207 +181,251 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside))
   top: 0;
   left: 0;
   right: 0;
-  height: var(--header-h);
-  background-color: var(--glass-bg-strong);
-  background-image: var(--glass-sheen);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  border-bottom: 1px solid var(--glass-border-strong);
+  height: var(--portal-header-h, 48px);
+  background: linear-gradient(180deg, rgba(255, 255, 255, .26), rgba(255, 255, 255, 0) 92%);
+  backdrop-filter: blur(8px) saturate(130%);
+  -webkit-backdrop-filter: blur(8px) saturate(130%);
+  border-bottom: 0;
   z-index: 1000;
-  box-shadow: var(--glass-highlight), var(--glass-shadow);
+  box-shadow: none;
+}
+html[data-theme='dark'] .portal-nav {
+  background: linear-gradient(180deg, rgba(0, 0, 0, .24), rgba(0, 0, 0, 0) 92%);
 }
 
 .portal-nav__inner {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 24px;
-  height: 100%;
   display: flex;
   align-items: center;
-  gap: 32px;
+  gap: 26px;
+  max-width: 1200px;
+  height: 100%;
+  margin: 0 auto;
+  padding: 0 24px;
 }
 
 .portal-nav__logo {
   display: flex;
   align-items: center;
-  text-decoration: none;
   flex-shrink: 0;
-  /* 品牌链接颜色固定为文字色：避免 Chrome @property 主题过渡时,
-     --c-text 短暂无效导致 span 回退继承外层链接的 --c-primary(蓝) 而闪蓝 */
   color: var(--c-text);
+  text-decoration: none;
 }
 .portal-nav__logo:hover { text-decoration: none; }
-
 .portal-nav__brand {
-  font-size: 18px;
-  font-weight: 700;
   color: var(--c-text);
-  letter-spacing: -.3px;
+  font-family: "Segoe UI Variable Display", "Avenir Next", "SF Pro Display", "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-size: 17px;
+  font-weight: 650;
+  letter-spacing: .02em;
 }
 
-/* 右侧区域 */
 .portal-nav__right {
   display: flex;
   align-items: center;
-  gap: 4px;
   flex: 1;
+  gap: 2px;
 }
-
 .portal-nav__spacer { flex: 1; }
 
-/* 导航链接 */
 .portal-nav__link {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 6px 14px;
-  border-radius: var(--radius-sm);
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--c-text);
-  text-decoration: none;
-  transition: background var(--transition);
-  white-space: nowrap;
-  background: none;
+  padding: 5px 10px;
   border: none;
-  cursor: pointer;
-}
-.portal-nav__link:hover {
-  background: var(--c-bg);
-  text-decoration: none;
-}
-.router-link-exact-active:not(.portal-nav__logo) {
-  color: var(--c-primary) !important;
-  background: var(--c-primary-light) !important;
-}
-
-/* 主题切换按钮组 */
-.theme-toggle {
-  display: flex;
-  gap: 2px;
-  align-items: center;
-  padding: 2px;
-  background: var(--glass-bg-strong);
-  border: 1px solid var(--glass-border);
   border-radius: 8px;
-  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-}
-.theme-btn {
-  padding: 3px 10px;
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 1.4;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
   background: transparent;
-  color: var(--c-text-secondary);
-  transition: background .15s, color .15s;
-}
-.theme-btn:hover {
-  background: rgba(0, 0, 0, .05);
   color: var(--c-text);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  letter-spacing: .01em;
+  white-space: nowrap;
+  transition: background .2s ease, color .2s ease;
 }
-.theme-btn.active {
+.portal-nav__link:hover,
+.portal-nav__link--active {
+  background: rgba(255, 255, 255, .34);
+  color: var(--c-primary);
+}
+html[data-theme='dark'] .portal-nav__link:hover,
+html[data-theme='dark'] .portal-nav__link--active {
+  background: rgba(255, 255, 255, .10);
+}
+.portal-nav__link--active { color: var(--c-primary); }
+
+.portal-nav__auth {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: 8px;
+}
+.portal-nav__login {
+  padding: 6px 10px;
+  color: var(--c-text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+}
+.portal-nav__login:hover { color: var(--c-primary); text-decoration: none; }
+.portal-nav__register {
+  padding: 6px 13px;
+  border-radius: 999px;
   background: var(--c-primary);
   color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: opacity .2s, transform .2s;
+}
+.portal-nav__register:hover {
+  opacity: .9;
+  text-decoration: none;
+  transform: translateY(-1px);
 }
 
-html[data-theme='dark'] .theme-btn:hover {
-  background: rgba(255, 255, 255, .08);
-  color: var(--c-text);
+/* 主题切换 */
+.theme-toggle {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid rgba(255, 255, 255, .46);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, .30);
+  backdrop-filter: blur(14px) saturate(150%);
+  -webkit-backdrop-filter: blur(14px) saturate(150%);
 }
+html[data-theme='dark'] .theme-toggle {
+  border-color: rgba(255, 255, 255, .16);
+  background: rgba(255, 255, 255, .08);
+}
+.theme-btn {
+  padding: 3px 8px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--c-text-secondary);
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.4;
+  transition: background .15s, color .15s;
+}
+.theme-btn:hover { background: rgba(0, 0, 0, .05); color: var(--c-text); }
+.theme-btn.active { background: var(--c-primary); color: #fff; }
+html[data-theme='dark'] .theme-btn:hover { background: rgba(255, 255, 255, .08); color: var(--c-text); }
 html[data-theme='dark'] .theme-btn.active {
   background: rgba(10, 132, 255, .28);
   color: rgba(255, 255, 255, .95);
   box-shadow: inset 0 0 0 1px rgba(10, 132, 255, .35);
 }
 
-/* 下拉菜单 */
+/* 下拉 */
 .dropdown { position: relative; }
-
-.dropdown__trigger {
-  font-family: inherit;
-  font-size: 14px;
-}
-
-.dropdown__arrow {
-  transition: transform .2s;
-}
+.dropdown__trigger { font-size: 13px; }
+.dropdown__arrow { transition: transform .2s; }
 .dropdown__arrow--up { transform: rotate(180deg); }
-
 .dropdown__menu {
   position: absolute;
-  top: calc(100% + 6px);
+  top: calc(100% + 8px);
   left: 0;
-  min-width: 160px;
-  padding: 6px;
+  min-width: 230px;
+  padding: 7px;
   z-index: 1001;
+  border: 1px solid var(--panel-border);
+  border-radius: 14px;
+  background: var(--panel-bg-solid);
   box-shadow: var(--shadow-md);
 }
-
+.dropdown__heading {
+  padding: 6px 10px 7px;
+  color: var(--c-text-muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
 .dropdown__item {
-  display: block;
-  padding: 8px 12px;
-  border-radius: var(--radius-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 9px 10px;
+  border-radius: 9px;
   color: var(--c-text);
-  font-size: 14px;
   text-decoration: none;
   transition: background var(--transition);
 }
-.dropdown__item:hover {
-  background: var(--c-bg);
-  text-decoration: none;
-}
+.dropdown__item span { font-size: 13px; font-weight: 600; }
+.dropdown__item small { color: var(--c-text-muted); font-size: 11px; font-weight: 400; }
+.dropdown__item:hover { background: var(--c-bg); text-decoration: none; }
+.drop-enter-active, .drop-leave-active { transition: opacity .16s ease, transform .16s ease; }
+.drop-enter-from, .drop-leave-to { opacity: 0; transform: translateY(-5px); }
 
-/* 下拉动画 */
-.drop-enter-active, .drop-leave-active { transition: all .2s ease; }
-.drop-enter-from, .drop-leave-to { opacity: 0; transform: translateY(-6px); }
-
-/* 汉堡按钮（移动端） */
+/* 汉堡 */
 .portal-nav__hamburger {
   display: none;
   flex-direction: column;
   gap: 4px;
-  background: none;
-  border: none;
-  cursor: pointer;
+  margin-left: auto;
   padding: 4px;
+  border: none;
+  background: none;
+  cursor: pointer;
 }
 .portal-nav__hamburger span {
   display: block;
   width: 22px;
   height: 2px;
-  background: var(--c-text);
   border-radius: 2px;
+  background: var(--c-text);
   transition: all .3s;
+}
+
+@media (max-width: 920px) {
+  .portal-nav__inner { gap: 16px; }
+  .portal-nav__link { padding: 6px 8px; font-size: 12px; }
+  .portal-nav__login { display: none; }
 }
 
 @media (max-width: 768px) {
   .portal-nav__hamburger { display: flex; }
   .portal-nav__right {
-    display: none;
     position: absolute;
-    top: var(--header-h);
-    left: 0;
+    top: var(--portal-header-h, 48px);
     right: 0;
-    background: var(--c-white);
-    border-bottom: 1px solid var(--c-border);
+    left: 0;
+    display: none;
     flex-direction: column;
-    padding: 12px 16px;
-    gap: 4px;
+    align-items: stretch;
+    gap: 2px;
+    max-height: calc(100vh - var(--portal-header-h, 48px));
+    overflow-y: auto;
+    padding: 12px 16px 18px;
+    border-bottom: 1px solid var(--panel-border);
+    background: var(--c-white);
     box-shadow: var(--shadow-md);
   }
   .portal-nav__right--open { display: flex; }
-  .portal-nav__link { width: 100%; }
+  .portal-nav__item { width: 100%; }
+  .portal-nav__link { width: 100%; justify-content: space-between; padding: 10px 12px; }
   .dropdown__menu {
     position: static;
-    box-shadow: none;
+    min-width: 0;
+    margin: 2px 0 6px;
+    padding: 4px;
     border: none;
-    padding-left: 20px;
-    margin-top: 4px;
+    box-shadow: none;
+    background: var(--c-bg);
   }
+  .dropdown__heading { display: none; }
+  .dropdown__item { padding: 8px 10px; }
   .portal-nav__spacer { display: none; }
+  .portal-nav__auth { width: 100%; margin: 8px 0 4px; }
+  .portal-nav__auth a { flex: 1; text-align: center; }
+  .portal-nav__login { display: block; padding: 9px 10px; }
+  .portal-nav__register { padding: 9px 10px; }
+  .theme-toggle { align-self: flex-start; margin-top: 4px; }
 }
 </style>
