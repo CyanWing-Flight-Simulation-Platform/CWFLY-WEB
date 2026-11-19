@@ -58,9 +58,11 @@ def derive_pow_key() -> str:
 
 
 # ---------------------------------------------------------------- access token
-def sign_token(user: dict[str, Any]) -> str:
-    """签发 access token（含 typ/jti/tokep，供类型校验与吊销使用）。"""
+def sign_token(user: dict[str, Any], session_start: int | None = None) -> str:
+    """签发 access token（含 typ/jti/tokep/sst，供类型校验、吊销与绝对会话上限使用）。"""
     iat = int(time.time())
+    # sst = 首次登录时间；续签时原样继承，超过 JWT_MAX_SESSION_SECONDS 后拒绝续签。
+    sst = int(session_start or iat)
     cid = str(user.get("cid") or "")
     payload: dict[str, Any] = {
         "cid": cid,
@@ -71,6 +73,7 @@ def sign_token(user: dict[str, Any]) -> str:
         "typ": ACCESS_TYP,
         "jti": secrets.token_hex(16),
         "iat": iat,
+        "sst": sst,
         "exp": iat + settings.jwt_expires_seconds,
     }
     # epoch 快照：登录时把当前用户 epoch 写进 token；epoch 前进后本 token 立即失配。
@@ -150,6 +153,12 @@ def verify_token_for_refresh(token: str) -> dict[str, Any]:
     now = int(time.time())
     if exp and exp < now and (now - exp) > settings.JWT_REFRESH_GRACE_SECONDS:
         raise TokenExpiredError("Token 已过期")
+
+    # 绝对会话上限：即使仍在宽限期/滑动续签窗口，也不能超过首次登录后的最长会话。
+    session_start = int(decoded.get("sst") or decoded.get("iat") or 0)
+    max_session = max(3600, int(settings.JWT_MAX_SESSION_SECONDS))
+    if session_start and (now - session_start) > max_session:
+        raise TokenExpiredError("会话已超过最长有效期，请重新登录")
     return decoded
 
 

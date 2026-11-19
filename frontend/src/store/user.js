@@ -63,6 +63,15 @@ export const useUserStore = defineStore('user', () => {
         loginChallenge: res.data?.loginChallenge || '',
       }
     }
+    if (res && (res.needMfa || res.needMfaSetup)) {
+      return {
+        needMfa: !!res.needMfa,
+        needMfaSetup: !!res.needMfaSetup,
+        loginChallenge: res.data?.loginChallenge || '',
+        secret: res.data?.secret || '',
+        otpauthUrl: res.data?.otpauthUrl || '',
+      }
+    }
     token.value = res.data.token
     profile.value = res.data.user
     save()

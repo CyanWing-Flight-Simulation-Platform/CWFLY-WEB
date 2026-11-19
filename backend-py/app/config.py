@@ -33,8 +33,10 @@ class Settings(BaseSettings):
 
     # ---- JWT（与 Node 完全一致）----
     JWT_SECRET: str = ""
-    JWT_EXPIRES: str = "7d"
-    JWT_REFRESH_GRACE_SECONDS: int = 86400
+    JWT_EXPIRES: str = "12h"
+    # 绝对会话上限：无论是否滑动续签，从首次登录起最多 12 小时必须重新登录
+    JWT_MAX_SESSION_SECONDS: int = 43200
+    JWT_REFRESH_GRACE_SECONDS: int = 1800
     JWT_REFRESH_BEFORE_SECONDS: int = 120
     # 安全（P0-3）：access token 必须带 typ="access"。
     # 滚动发布期如需避免存量会话集中掉线，可临时设 JWT_ALLOW_LEGACY_TYP=1，

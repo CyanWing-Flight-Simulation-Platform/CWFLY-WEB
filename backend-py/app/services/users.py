@@ -16,7 +16,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 # 与 Node findUserWithCredentials 完全相同的字段集合与顺序
 _CRED_SQL = (
     "SELECT id, cid, username, `password`, rating, permissions, fsdLevel, email, qq, avatar, "
-    "createdAt, fsdPasswordHash FROM `User` WHERE cid = :cid LIMIT 1"
+    "createdAt, fsdPasswordHash, `mfaEnabled`, `mfaSecret`, `mfaRecoveryCodes` "
+    "FROM `User` WHERE cid = :cid LIMIT 1"
 )
 
 _PUBLIC_COLS = "cid, username, rating, permissions, fsdLevel, createdAt"

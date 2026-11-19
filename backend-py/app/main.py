@@ -62,6 +62,9 @@ async def lifespan(app: FastAPI):
         from app.services.audit_log import ensure_schema as _ensure_audit_schema
 
         await _ensure_audit_schema()
+        from app.services.mfa import ensure_schema as _ensure_mfa_schema
+
+        await _ensure_mfa_schema()
     except Exception as exc:  # noqa: BLE001
         log.warning("[CWFLY] 预热失败: %s", exc)
     # 预热：DB 连接池 + FIR 边界（消除每个 worker 的首请求冷启动）
@@ -153,7 +156,9 @@ for sub in ("avatars", "posters", "backgrounds"):
         name=f"uploads-{sub}",
     )
 app.mount("/uploads/airports", StaticFiles(directory="app/data", check_dir=False), name="airport-data")
-app.mount("/uploads", StaticFiles(directory="uploads", check_dir=False), name="uploads")
+# 安全：不再把整个 uploads 目录挂成静态站点。
+# 仅允许头像/海报/背景图这些已做魔数校验的图片子目录；会议文档只解析入库，不直接对外提供，
+# 避免历史上传的 .html/.svg 在同域下被当作页面执行（存储型 XSS）。
 
 
 # ---------- 全局异常处理 ----------

@@ -137,6 +137,8 @@ export default api
 export const authApi = {
   login: (data) => api.post('/auth/login', data),
   loginVerify: (data) => api.post('/auth/login-verify', data),
+  mfaVerify: (data) => api.post('/auth/mfa/verify', data),
+  mfaEnroll: (data) => api.post('/auth/mfa/enroll', data),
   register: (data) => api.post('/auth/register', data),
   me: () => api.get('/auth/me'),
   refresh: () => api.post('/auth/refresh')

@@ -42,7 +42,7 @@ from app.services.mailer import (
     store_code,
     verify_code,
 )
-from app.services import audit_log, token_state
+from app.services import audit_log, mfa, token_state
 from app.services.token import (
     TokenError,
     TokenExpiredError,
@@ -143,6 +143,7 @@ def user_payload(user: dict[str, Any]) -> dict[str, Any]:
         "rating": user.get("rating") or 0,
         "permissions": user.get("permissions") or "",
         "fsdLevel": user.get("fsdLevel") or 0,
+        "mfaEnabled": bool(int(user.get("mfaEnabled") or 0)),
         "createdAt": user.get("createdAt"),
     }
 
@@ -367,6 +368,60 @@ async def login(request: Request, db: AsyncSession = Depends(get_db)) -> Any:
         except Exception:
             pass
 
+    # 管理员强制双因素：rating>=11 必须完成 TOTP 验证/首次绑定后才能拿到 token。
+    # 普通用户继续走原有的新 IP 邮箱二次验证。
+    if int(user.get("rating") or 0) >= 11:
+        try:
+            challenge = await create_login_challenge(db, user["cid"], ip, device_fp)
+        except LoginChallengeUnavailable:
+            return fail(503, "登录安全验证服务暂不可用，请稍后重试")
+        if int(user.get("mfaEnabled") or 0) == 1:
+            await audit_log.write(
+                db,
+                "mfa_required",
+                "管理员登录：等待动态验证码",
+                str(cid or ""),
+                category="auth",
+                target_type="user",
+                target_id=cid,
+            )
+            return JSJSONResponse(
+                {
+                    "success": True,
+                    "needMfa": True,
+                    "data": {
+                        "loginChallenge": challenge,
+                        "message": "请输入 Authenticator 动态验证码",
+                    },
+                }
+            )
+        secret = mfa.generate_secret()
+        try:
+            await mfa.set_mfa_secret(db, user["cid"], secret, enabled=False)
+        except Exception:
+            return fail(503, "双因素认证初始化失败，请稍后重试")
+        await audit_log.write(
+            db,
+            "mfa_setup_required",
+            "管理员首次登录：等待绑定 Authenticator",
+            str(cid or ""),
+            category="auth",
+            target_type="user",
+            target_id=cid,
+        )
+        return JSJSONResponse(
+            {
+                "success": True,
+                "needMfaSetup": True,
+                "data": {
+                    "loginChallenge": challenge,
+                    "secret": secret,
+                    "otpauthUrl": mfa.otpauth_url(user["cid"], secret),
+                    "message": "首次登录请绑定 Authenticator 动态验证码",
+                },
+            }
+        )
+
     # 可信 IP / 可信设备校验：两者任一命中即跳过邮箱二次验证
     trusted = await users.trusted_ips(db, user.get("registerIp"), user["cid"])
     device_trusted = _trusted_device_matches(request, user)
@@ -494,6 +549,113 @@ async def login_verify(request: Request, db: AsyncSession = Depends(get_db)) -> 
     return response
 
 
+# ============================ 管理员 TOTP 双因素认证 ============================
+async def _mfa_user_and_body(
+    request: Request, db: AsyncSession
+) -> tuple[dict[str, Any], dict[str, Any], str, str, str, str]:
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    cid = str(body.get("cid") or "")
+    challenge = str(body.get("loginChallenge") or "")
+    code = str(body.get("code") or "")
+    ip = get_client_ip(request)
+    user_agent = get_user_agent(request)
+    device_fp = get_device_fp(request)
+    user = await users.find_user_with_credentials(db, cid) if cid else None
+    return body, {"cid": cid, "challenge": challenge, "code": code, "ip": ip, "user_agent": user_agent, "device_fp": device_fp}, cid, challenge, code, ip
+
+
+async def _mfa_consume_challenge(db: AsyncSession, challenge: str, cid: str, ip: str) -> bool:
+    try:
+        return await consume_login_challenge(db, challenge, cid, ip)
+    except LoginChallengeUnavailable:
+        return False
+
+
+@router.post("/mfa/verify", dependencies=[Depends(login_limiter)])
+async def mfa_verify(request: Request, db: AsyncSession = Depends(get_db)) -> Any:
+    """管理员登录第二步：校验 TOTP 或一次性恢复码。"""
+    _body, ctx, cid, challenge, code, ip = await _mfa_user_and_body(request, db)
+    user = await users.find_user_with_credentials(db, cid) if cid else None
+    if not user or int(user.get("mfaEnabled") or 0) != 1:
+        return fail(401, "账号或双因素认证状态无效")
+    if not challenge or not code:
+        return fail(400, "请输入动态验证码")
+    if ctx["device_fp"] and await is_device_banned(ctx["device_fp"]):
+        return fail(403, "该设备已被封禁，请联系管理员", code="DEVICE_BANNED")
+    lock_msg = await check_login_lock(db, user["cid"], ip, int(user.get("rating") or 0))
+    if lock_msg:
+        return fail(429, lock_msg)
+
+    secret = str(user.get("mfaSecret") or "")
+    valid = mfa.verify_totp(secret, code)
+    remaining_codes = user.get("mfaRecoveryCodes")
+    if not valid:
+        valid, remaining_codes = mfa.consume_recovery_code(remaining_codes, code)
+
+    if not valid:
+        await record_login_failure(db, user["cid"], ip)
+        await audit_log.write(
+            db, "mfa_failed", "管理员动态验证码错误", str(cid), category="risk",
+            target_type="user", target_id=cid,
+        )
+        return fail(400, "动态验证码错误或已过期")
+
+    consumed = await _mfa_consume_challenge(db, challenge, cid, ip)
+    if not consumed:
+        return fail(400, "登录验证已失效，请重新登录")
+
+    if remaining_codes != user.get("mfaRecoveryCodes"):
+        await mfa.update_recovery_codes(db, cid, remaining_codes or "[]")
+    await clear_login_failures(db, cid)
+    await _safe_login_log(db, cid, ip, ctx["user_agent"], ctx["device_fp"], True, "mfa")
+    await audit_log.write(
+        db, "mfa_success", "管理员动态验证码通过", str(cid), category="auth",
+        target_type="user", target_id=cid,
+    )
+    token = sign_token(user)
+    response = ok({"token": token, "user": user_payload(user)})
+    _issue_trusted_device(response, request, user)
+    return response
+
+
+@router.post("/mfa/enroll", dependencies=[Depends(login_limiter)])
+async def mfa_enroll(request: Request, db: AsyncSession = Depends(get_db)) -> Any:
+    """管理员首次登录绑定 Authenticator；成功后签发 token 并返回恢复码。"""
+    _body, ctx, cid, challenge, code, ip = await _mfa_user_and_body(request, db)
+    user = await users.find_user_with_credentials(db, cid) if cid else None
+    if not user or int(user.get("rating") or 0) < 11:
+        return fail(401, "账号无效")
+    if not challenge or not code:
+        return fail(400, "请输入动态验证码")
+    secret = str(user.get("mfaSecret") or "")
+    if not secret or not mfa.verify_totp(secret, code):
+        await record_login_failure(db, user["cid"], ip)
+        return fail(400, "动态验证码错误或已过期")
+    if not await _mfa_consume_challenge(db, challenge, cid, ip):
+        return fail(400, "登录验证已失效，请重新登录")
+
+    recovery_codes, recovery_json = mfa.generate_recovery_codes()
+    await mfa.enable_mfa(db, cid, secret, recovery_json)
+    await clear_login_failures(db, cid)
+    await _safe_login_log(db, cid, ip, ctx["user_agent"], ctx["device_fp"], True, "mfa_enroll")
+    await audit_log.write(
+        db, "mfa_enabled", "管理员已绑定双因素认证", str(cid), category="auth",
+        target_type="user", target_id=cid,
+    )
+    fresh = await users.find_user_with_credentials(db, cid) or user
+    token = sign_token(fresh)
+    response = ok({
+        "token": token,
+        "user": user_payload(fresh),
+        "recoveryCodes": recovery_codes,
+    })
+    _issue_trusted_device(response, request, fresh)
+    return response
+
+
 # ============================ 会话续签 ============================
 @router.post("/refresh")
 async def refresh(request: Request, db: AsyncSession = Depends(get_db)) -> Any:
@@ -506,7 +668,13 @@ async def refresh(request: Request, db: AsyncSession = Depends(get_db)) -> Any:
         fresh = await users.find_user_public(db, str(decoded.get("cid") or ""))
         if not fresh:
             return fail(401, "账号不存在或已注销")
-        return ok({"token": sign_token(fresh), "user": user_payload(fresh)})
+        return ok({
+            "token": sign_token(
+                fresh,
+                session_start=decoded.get("sst") or decoded.get("iat"),
+            ),
+            "user": user_payload(fresh),
+        })
     except TokenExpiredError:
         log.error("[auth.py] refresh 失败: token expired")
         return fail(401, "登录已过期，请重新登录")

@@ -40,6 +40,45 @@
 
         <SubmitButton :status="status" label="登 录" @settle="status = 'idle'" />
 
+        <!-- 管理员双因素认证：TOTP / 首次绑定 -->
+        <div v-if="showMfa" class="verify-wrap">
+          <div class="verify-box">
+            <template v-if="mfaRecoveryCodes.length">
+              <p class="text-sm text-muted mb-sm">
+                Authenticator 绑定成功。请立即保存以下恢复码，丢失设备时用于登录：
+              </p>
+              <div class="mfa-recovery">
+                <code v-for="code in mfaRecoveryCodes" :key="code">{{ code }}</code>
+              </div>
+              <button type="button" class="btn btn-primary btn-block" @click="finishMfa">
+                我已保存，进入平台
+              </button>
+            </template>
+            <template v-else>
+              <p class="text-sm text-muted mb-sm">
+                {{ mfaSetup ? '首次登录需绑定 Authenticator 动态验证码' : '请输入 Authenticator 中的 6 位动态验证码' }}
+              </p>
+              <div v-if="mfaSetup" class="mfa-secret">
+                <p class="text-xs text-muted">在 Authenticator 中手动添加以下密钥：</p>
+                <code>{{ mfaSecret }}</code>
+              </div>
+              <input
+                v-model="mfaCode"
+                class="input"
+                inputmode="numeric"
+                maxlength="6"
+                autocomplete="one-time-code"
+                placeholder="6 位动态验证码"
+                @keyup.enter="confirmMfa"
+              />
+              <button type="button" class="btn btn-primary btn-block mt-sm" @click="confirmMfa" :disabled="mfaVerifying">
+                {{ mfaVerifying ? '验证中...' : (mfaSetup ? '绑定并登录' : '验证并登录') }}
+              </button>
+              <p v-if="mfaErr" class="text-xs mt-sm" style="color:var(--c-danger);">{{ mfaErr }}</p>
+            </template>
+          </div>
+        </div>
+
         <!-- 新设备/IP 登录二次验证：果冻弹出邮箱验证码框 -->
         <div v-if="showVerify" class="verify-wrap">
           <div class="verify-box">
@@ -104,6 +143,17 @@ const verifying = ref(false)
 const verifyErr = ref('')
 let cooldownTimer = null
 
+// ===== 管理员双因素认证 =====
+const showMfa = ref(false)
+const mfaSetup = ref(false)
+const mfaChallenge = ref('')
+const mfaSecret = ref('')
+const mfaCode = ref('')
+const mfaErr = ref('')
+const mfaVerifying = ref(false)
+const mfaRecoveryCodes = ref([])
+const mfaCompleted = ref(null)
+
 /** 脱敏邮箱用于展示，如 ab***@x.com */
 const maskedEmail = computed(() => {
   const e = verifyEmail.value
@@ -135,6 +185,16 @@ async function handleLogin() {
       showVerify.value = true
       verifyErr.value = ''
       sendLoginCode()
+      return
+    }
+    if (res && (res.needMfa || res.needMfaSetup)) {
+      status.value = 'idle'
+      showMfa.value = true
+      mfaSetup.value = !!res.needMfaSetup
+      mfaChallenge.value = res.loginChallenge || ''
+      mfaSecret.value = res.secret || ''
+      mfaCode.value = ''
+      mfaErr.value = ''
       return
     }
     status.value = 'success'
@@ -207,6 +267,41 @@ async function confirmLoginVerify() {
   }
 }
 
+async function confirmMfa() {
+  mfaErr.value = ''
+  const code = String(mfaCode.value || '').replace(/\D/g, '')
+  if (code.length !== 6) { mfaErr.value = '请输入 6 位动态验证码'; return }
+  if (!mfaChallenge.value) { mfaErr.value = '登录验证已失效，请重新登录'; return }
+  mfaVerifying.value = true
+  try {
+    const payload = {
+      cid: form.value.cid,
+      loginChallenge: mfaChallenge.value,
+      code,
+    }
+    if (mfaSetup.value) {
+      const res = await authApi.mfaEnroll(payload)
+      mfaCompleted.value = res.data
+      mfaRecoveryCodes.value = res.data?.recoveryCodes || []
+      mfaCode.value = ''
+    } else {
+      const res = await authApi.mfaVerify(payload)
+      userStore.applyLogin(res.data)
+      router.replace(postLoginPath())
+    }
+  } catch (e) {
+    mfaErr.value = e.message || '动态验证码验证失败'
+  } finally {
+    mfaVerifying.value = false
+  }
+}
+
+function finishMfa() {
+  if (!mfaCompleted.value) return
+  userStore.applyLogin(mfaCompleted.value)
+  router.replace(postLoginPath())
+}
+
 onUnmounted(() => {
   if (cooldownTimer) clearInterval(cooldownTimer)
   if (successTimer) clearTimeout(successTimer)
@@ -268,6 +363,36 @@ onUnmounted(() => {
 .verify-wrap {
   margin-top: 16px;
   animation: loginJellyIn .5s cubic-bezier(.34, 1.56, .64, 1) both;
+}
+.mfa-secret {
+  margin-bottom: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(37, 99, 235, .06);
+}
+.mfa-secret code {
+  display: block;
+  margin-top: 5px;
+  color: var(--c-text);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  word-break: break-all;
+}
+.mfa-recovery {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, .04);
+}
+.mfa-recovery code {
+  color: var(--c-text);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .04em;
 }
 .verify-box {
   padding: 16px;

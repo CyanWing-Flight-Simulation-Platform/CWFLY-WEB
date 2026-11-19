@@ -49,11 +49,11 @@ export function isTokenNearExpiry(ms) {
 
 /**
  * 会话续签判定（前端主导）：
- * - 若在活跃窗口内（SESS_ACTIVE_WINDOW，默认 7 天）用户有活跃（返回过页面/操作过）→ 可续签
+ * - 若在活跃窗口内（SESS_ACTIVE_WINDOW，默认 12 小时）用户有活跃（返回过页面/操作过）→ 可续签
  * - 否则返回 false → 应跳转登录页重新登录
- * - 说明：窗口只防「长期不回来」的僵尸会话，真正的过期时间看 JWT exp
+ * - 说明：服务端同时有绝对会话上限，超过 12 小时必须重新登录
  */
-export const SESS_ACTIVE_WINDOW = 7 * 24 * 60 * 60 * 1000 // 7 天（真正有效期由 token + 续签宽限决定）
+export const SESS_ACTIVE_WINDOW = 12 * 60 * 60 * 1000 // 12 小时；与服务端绝对会话上限一致
 
 export function getLastActive() {
   return Number(localStorage.getItem('cw_last_active') || 0)

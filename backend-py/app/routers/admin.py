@@ -33,7 +33,13 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
-from app.deps import AuthFailure, CurrentUser, get_current_user, require_permission, require_rating
+from app.deps import (
+    AuthFailure,
+    CurrentUser,
+    get_verified_user,
+    require_permission,
+    require_rating,
+)
 from app.middleware.rate_limit import Limit, RateLimitExceeded, rate_limiter
 from app.services import audit_log, mailer
 from app.services.device_fp import ban_device_fp, ban_user_devices, refresh_device_bans
@@ -227,7 +233,7 @@ def handle(message: str = "操作失败"):  # noqa: ANN201 - 装饰器工厂
 async def admin_guard(
     request: Request,
     response: Response,
-    user: CurrentUser = Depends(get_current_user),
+    user: CurrentUser = Depends(get_verified_user),
 ) -> CurrentUser:
     """等价 Node：authenticate → adminLimiter → requireAdminAccess。"""
     await _admin_rate(request, response)
