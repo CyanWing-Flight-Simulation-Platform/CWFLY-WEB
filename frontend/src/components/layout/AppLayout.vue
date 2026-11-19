@@ -77,7 +77,7 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '@/store/user'
-import { profileApi } from '@/api'
+import { authApi, profileApi } from '@/api'
 import { confirmDialog } from '@/utils/confirm'
 import { initNavLayout, narrowScreen, isCollapsed, toggleNavCollapsed } from '@/utils/navLayout'
 import { navGroups, singleNavItems } from '@/utils/nav'
@@ -175,6 +175,9 @@ async function logout() {
     confirmText: '退出登录',
   })
   if (!ok) return
+  try {
+    await authApi.logout()
+  } catch { /* 即使服务端失败也清除本地登录态 */ }
   user.logout()
   router.push('/')
 }

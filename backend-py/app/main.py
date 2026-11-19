@@ -20,6 +20,7 @@ from app.config import settings
 from app.db.session import dispose_engine
 from app.deps import AuthFailure
 from app.middleware.audit_context import AuditContextMiddleware
+from app.middleware.csrf import CSRFMiddleware
 from app.middleware.gateway import GatewayMiddleware
 from app.middleware.ip_ban import IpBanMiddleware, preload_bans
 from app.middleware.rate_limit import (
@@ -147,6 +148,7 @@ app.add_middleware(GatewayMiddleware)            # UA 过滤 + 安全头 + 续�
 app.add_middleware(IpBanMiddleware)              # IP 封禁（IpBan > 白名单 > IpList）
 app.add_middleware(RateLimitMiddleware, limit=GLOBAL_API)  # /api 全局 60 次/分钟
 app.add_middleware(AuditContextMiddleware)  # 审计日志读取 IP/UA 的请求上下文
+app.add_middleware(CSRFMiddleware)  # Cookie 会话的写请求 CSRF 双提交校验
 
 # ---------- 静态文件（路径与 Node 完全一致） ----------
 for sub in ("avatars", "posters", "backgrounds"):

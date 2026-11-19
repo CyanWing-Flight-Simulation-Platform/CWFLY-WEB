@@ -72,16 +72,15 @@ function getRedirectUri() {
   return 'http://localhost:5176/oauth/callback'
 }
 
-onMounted(() => {
-  // 检查是否已登录
-  const savedToken = localStorage.getItem('cw_token')
-  const savedUser = localStorage.getItem('cw_user')
-  if (savedToken && savedUser) {
-    token.value = savedToken
-    checking.value = false   // 等待用户显式点击「确认授权」
-  } else {
-    checking.value = false
+onMounted(async () => {
+  // Cookie 会话无法被 JS 读取；已登录时向服务端换取一枚仅用于本次 OAuth 跳转的 token
+  if (localStorage.getItem('cw_auth') === '1') {
+    try {
+      const res = await authApi.refresh()
+      token.value = res.data?.token || ''
+    } catch { /* 未登录或过期，展示登录表单 */ }
   }
+  checking.value = false
 })
 
 async function handleLogin() {
@@ -90,9 +89,8 @@ async function handleLogin() {
   try {
     const res = await authApi.login({ cid: form.value.cid, password: form.value.password })
     token.value = res.data.token
-    // 保存到 localStorage 以便下次自动登录
-    localStorage.setItem('cw_token', res.data.token)
     localStorage.setItem('cw_user', JSON.stringify(res.data.user))
+    localStorage.setItem('cw_auth', '1')
     granted.value = true
     const redirect = getRedirectUri()
     window.location.href = `${redirect}?token=${encodeURIComponent(res.data.token)}`

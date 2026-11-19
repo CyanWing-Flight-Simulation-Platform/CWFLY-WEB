@@ -18,6 +18,7 @@ from app.services import users
 from app.services.ip_hopping import track_request_ip
 from app.services.token import TokenError, TokenExpiredError, sign_token, should_renew, verify_token
 from app.utils.security import has_any_permission, has_permission
+from app.utils.session_cookie import access_token_from_request, set_auth_cookies
 
 MESSAGE_NOT_LOGGED_IN = "请先登录"
 MESSAGE_EXPIRED = "登录已过期，请重新登录"
@@ -46,6 +47,10 @@ class CurrentUser:
 
 
 def _bearer_token(request: Request) -> Optional[str]:
+    # 优先 HttpOnly Cookie；仍兼容 Bearer（移动端/ATC 等非浏览器客户端与滚动迁移）。
+    cookie_token = access_token_from_request(request)
+    if cookie_token:
+        return cookie_token
     header = request.headers.get("authorization") or ""
     if not header.startswith("Bearer "):
         return None
@@ -116,10 +121,12 @@ async def get_current_user(
         try:
             fresh = await users.find_user_public(db, user.cid)
             if fresh:  # 用户已删除则不再续签
-                request.state.renewed_token = sign_token(
+                renewed = sign_token(
                     fresh,
                     session_start=decoded.get("sst") or decoded.get("iat"),
                 )
+                request.state.renewed_token = renewed
+                set_auth_cookies(response, request, renewed)
                 # 同时保留注入 Response 的写法（普通 JSON 返回时也生效）；
                 # 路由直接 return Response 时由 ResponseHeadersMiddleware 回填。
                 response.headers["X-Renewed-Token"] = request.state.renewed_token

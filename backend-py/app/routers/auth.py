@@ -53,6 +53,11 @@ from app.services.token import (
 )
 from app.utils.client import get_client_ip, get_device_fp, get_user_agent
 from app.utils.json_compat import JSJSONResponse
+from app.utils.session_cookie import (
+    access_token_from_request,
+    clear_auth_cookies,
+    set_auth_cookies,
+)
 from app.utils.security import (
     hash_password,
     sha256_hex,
@@ -84,6 +89,13 @@ def fail(status_code: int, message: str, **extra: Any) -> JSJSONResponse:
 
 
 TRUSTED_DEVICE_COOKIE = "cw_trusted_device"
+
+
+def auth_ok(request: Request, token: str, data: Any = None, **extra: Any) -> JSJSONResponse:
+    """成功响应 + 写入 HttpOnly 会话 Cookie。"""
+    response = ok(data, **extra)
+    set_auth_cookies(response, request, token)
+    return response
 
 
 def _device_fp_hash(request: Request) -> str:
@@ -287,7 +299,7 @@ async def register(request: Request, db: AsyncSession = Depends(get_db)) -> Any:
             )
         )
 
-    return ok({"token": token, "user": user_payload(created)})
+    return auth_ok(request, token, {"token": token, "user": user_payload(created)})
     # Node 版异常兜底见下方包装器
 
 
@@ -452,6 +464,7 @@ async def login(request: Request, db: AsyncSession = Depends(get_db)) -> Any:
                 {"token": token, "user": user_payload(user)},
                 securityWarning="检测到新 IP 登录，但账号未绑定邮箱；请尽快绑定邮箱以启用二次验证。",
             )
+            set_auth_cookies(response, request, token)
             _issue_trusted_device(response, request, user)
             return response
 
@@ -487,6 +500,7 @@ async def login(request: Request, db: AsyncSession = Depends(get_db)) -> Any:
     )
     token = sign_token(user)
     response = ok({"token": token, "user": user_payload(user)})
+    set_auth_cookies(response, request, token)
     _issue_trusted_device(response, request, user)
     return response
 
@@ -545,6 +559,7 @@ async def login_verify(request: Request, db: AsyncSession = Depends(get_db)) -> 
     await _safe_login_log(db, user["cid"], ip, user_agent, device_fp, True, "")
     token = sign_token(user)
     response = ok({"token": token, "user": user_payload(user)})
+    set_auth_cookies(response, request, token)
     _issue_trusted_device(response, request, user)
     return response
 
@@ -617,6 +632,7 @@ async def mfa_verify(request: Request, db: AsyncSession = Depends(get_db)) -> An
     )
     token = sign_token(user)
     response = ok({"token": token, "user": user_payload(user)})
+    set_auth_cookies(response, request, token)
     _issue_trusted_device(response, request, user)
     return response
 
@@ -652,6 +668,7 @@ async def mfa_enroll(request: Request, db: AsyncSession = Depends(get_db)) -> An
         "user": user_payload(fresh),
         "recoveryCodes": recovery_codes,
     })
+    set_auth_cookies(response, request, token)
     _issue_trusted_device(response, request, fresh)
     return response
 
@@ -660,21 +677,25 @@ async def mfa_enroll(request: Request, db: AsyncSession = Depends(get_db)) -> An
 @router.post("/refresh")
 async def refresh(request: Request, db: AsyncSession = Depends(get_db)) -> Any:
     header = request.headers.get("authorization") or ""
-    if not header.startswith("Bearer "):
+    cookie_token = access_token_from_request(request)
+    token = cookie_token or (header[len("Bearer ") :] if header.startswith("Bearer ") else "")
+    if not token:
         return fail(401, "请先登录")
-    token = header[len("Bearer ") :]
     try:
         decoded = verify_token_for_refresh(token)
         fresh = await users.find_user_public(db, str(decoded.get("cid") or ""))
         if not fresh:
             return fail(401, "账号不存在或已注销")
-        return ok({
-            "token": sign_token(
-                fresh,
-                session_start=decoded.get("sst") or decoded.get("iat"),
-            ),
+        new_token = sign_token(
+            fresh,
+            session_start=decoded.get("sst") or decoded.get("iat"),
+        )
+        response = ok({
+            "token": new_token,
             "user": user_payload(fresh),
         })
+        set_auth_cookies(response, request, new_token)
+        return response
     except TokenExpiredError:
         log.error("[auth.py] refresh 失败: token expired")
         return fail(401, "登录已过期，请重新登录")
@@ -695,7 +716,9 @@ async def logout(request: Request) -> Any:
     - 幂等：无 token / 已失效 token 也返回 success，避免前端登出流程报错。
     """
     header = request.headers.get("authorization") or ""
-    token = header[len("Bearer ") :].strip() if header.startswith("Bearer ") else ""
+    token = access_token_from_request(request)
+    if not token and header.startswith("Bearer "):
+        token = header[len("Bearer ") :].strip()
     revoked = False
     mode = "noop"
     if token:
@@ -720,9 +743,11 @@ async def logout(request: Request) -> Any:
                 log.info("[auth.py] 用户登出: cid=%s mode=%s revoked=%s", cid, mode, revoked)
     # 仅结束当前登录会话；可信设备 Cookie 保留，避免同一设备每次登录都重新收码。
     # 修改密码/封禁会前移 token epoch，使旧的可信设备 Cookie 自动失效。
-    return JSJSONResponse(
+    response = JSJSONResponse(
         {"success": True, "message": "已退出登录", "data": {"mode": mode, "revoked": revoked}}
     )
+    clear_auth_cookies(response)
+    return response
 
 
 # ============================ 修改密码 ============================
@@ -783,7 +808,7 @@ async def change_password(
                 },
             )
         )
-    return JSJSONResponse(
+    response = JSJSONResponse(
         {
             "success": True,
             "message": "密码已更新",
@@ -791,6 +816,8 @@ async def change_password(
         },
         headers={"X-Renewed-Token": fresh_token},
     )
+    set_auth_cookies(response, request, fresh_token)
+    return response
 
 
 # ============================ 当前用户 ============================

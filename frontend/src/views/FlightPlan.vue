@@ -376,8 +376,8 @@ function onAltInput() {
 }
 
 onMounted(async () => {
-  // JWT 校验: 未登录则跳转登录页（路由守卫已拦截, 此处兜底）
-  if (!localStorage.getItem('cw_token')) {
+  // 登录态兜底（真实凭证在 HttpOnly Cookie，路由守卫已拦截）
+  if (localStorage.getItem('cw_auth') !== '1') {
     router.replace('/login')
     return
   }

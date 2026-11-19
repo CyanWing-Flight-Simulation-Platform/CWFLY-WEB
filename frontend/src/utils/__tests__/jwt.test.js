@@ -8,7 +8,7 @@
  * - getTokenRemaining：无 token、payload 无 exp、未过期（正数）、已过期（负数）、exp 恰好等于当前时刻
  * - isTokenExpired：无 token 视为过期、已过期、未过期、边界（剩余 0ms）
  * - isTokenNearExpiry：窗口内 / 窗口外 / 恰好等于窗口（严格小于才算临近）/ 无 token
- * - 活跃窗口：getLastActive、touchLastActive、isWithinActiveWindow 的边界（恰好 7 天 / 超出 1ms）
+ * - 活跃窗口：getLastActive、touchLastActive、isWithinActiveWindow 的边界（恰好 12 小时 / 超出 1ms）
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import {
@@ -184,8 +184,8 @@ describe('isTokenNearExpiry', () => {
 })
 
 describe('活跃窗口', () => {
-  it('SESS_ACTIVE_WINDOW 是 7 天', () => {
-    expect(SESS_ACTIVE_WINDOW).toBe(7 * 24 * 60 * 60 * 1000)
+  it('SESS_ACTIVE_WINDOW 是 12 小时', () => {
+    expect(SESS_ACTIVE_WINDOW).toBe(12 * 60 * 60 * 1000)
   })
 
   it('无记录时 getLastActive 返回 0，isWithinActiveWindow 为 false', () => {
@@ -200,12 +200,12 @@ describe('活跃窗口', () => {
     expect(isWithinActiveWindow()).toBe(true)
   })
 
-  it('恰好 7 天前活跃仍在窗口内（<= 边界）', () => {
+  it('恰好 12 小时前活跃仍在窗口内（<= 边界）', () => {
     localStorage.setItem('cw_last_active', String(NOW - SESS_ACTIVE_WINDOW))
     expect(isWithinActiveWindow()).toBe(true)
   })
 
-  it('超过 7 天 1ms 就出窗口', () => {
+  it('超过 12 小时 1ms 就出窗口', () => {
     localStorage.setItem('cw_last_active', String(NOW - SESS_ACTIVE_WINDOW - 1))
     expect(isWithinActiveWindow()).toBe(false)
   })

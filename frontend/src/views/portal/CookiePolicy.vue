@@ -39,8 +39,8 @@
           不会被浏览器自动发送；只有当页面脚本读取时才起作用。
         </p>
         <p class="text-secondary" style="line-height:1.8;">
-          本站的登录状态使用 <strong>JWT 凭证</strong>（保存在 localStorage，随请求头 Authorization 发送），
-          <strong>不依赖登录会话 Cookie</strong>。
+          本站的登录状态使用 <strong>HttpOnly 会话 Cookie</strong>（<code>cw_access</code>，JavaScript 无法读取），
+          并配合 <code>cw_csrf</code> 双提交令牌防护 CSRF；JWT 不再写入 localStorage。
         </p>
       </div>
 
@@ -56,9 +56,14 @@
             </thead>
             <tbody>
               <tr>
-                <td><code>cw_token</code></td><td>localStorage</td>
-                <td>登录凭证（JWT），请求时通过 Authorization 头携带；活跃时自动续期</td>
-                <td>6 小时（滑动续期），退出登录即清除</td><td>无法登录或登录后频繁掉线</td>
+                <td><code>cw_access</code></td><td>HttpOnly Cookie</td>
+                <td>登录凭证（JWT），浏览器自动携带；JavaScript 无法读取，降低 XSS 窃取风险</td>
+                <td>12 小时（绝对会话上限），退出登录即清除</td><td>无法登录或登录后频繁掉线</td>
+              </tr>
+              <tr>
+                <td><code>cw_csrf</code></td><td>Cookie</td>
+                <td>双提交 CSRF 令牌，写请求时通过 <code>X-CSRF-Token</code> 头校验</td>
+                <td>与登录会话一致，退出清除</td><td>写请求会被安全校验拒绝</td>
               </tr>
               <tr>
                 <td><code>cw_user</code></td><td>localStorage</td>
@@ -68,7 +73,7 @@
               <tr>
                 <td><code>cw_last_active</code></td><td>localStorage</td>
                 <td>记录最近一次操作时间，用于判断登录是否过期、是否自动续期</td>
-                <td>6 小时，退出清除</td><td>自动续期判断不准确</td>
+                <td>12 小时，退出清除</td><td>自动续期判断不准确</td>
               </tr>
               <tr>
                 <td><code>cw_theme</code></td><td>localStorage</td>

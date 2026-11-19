@@ -31,6 +31,7 @@ from app.services.token import sign_token
 from app.services.zh_time_service import zh_locale
 from app.utils.json_compat import JSJSONResponse
 from app.utils.security import hash_password, sha256_hex, validate_password, verify_password
+from app.utils.session_cookie import set_auth_cookies
 
 log = logging.getLogger("cwfly.profile")
 router = APIRouter(prefix="/profile", tags=["profile"])
@@ -270,7 +271,7 @@ async def update_password(
                         },
                     )
                 )
-            return JSJSONResponse(
+            response = JSJSONResponse(
                 {
                     "success": True,
                     "message": "更新成功",
@@ -278,6 +279,8 @@ async def update_password(
                 },
                 headers={"X-Renewed-Token": fresh_token},
             )
+            set_auth_cookies(response, request, fresh_token)
+            return response
 
         return _ok(message="更新成功")
     except Exception as exc:  # noqa: BLE001

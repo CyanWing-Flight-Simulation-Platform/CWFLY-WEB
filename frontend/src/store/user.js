@@ -3,10 +3,12 @@ import { ref, computed } from 'vue'
 import { authApi } from '@/api'
 
 export const useUserStore = defineStore('user', () => {
-  const token = ref(localStorage.getItem('cw_token') || '')
+  // 登录凭证由服务端 HttpOnly Cookie 保存，前端不再持久化 JWT
+  const token = ref('')
   const profile = ref(JSON.parse(localStorage.getItem('cw_user') || 'null'))
+  const authMarker = ref(localStorage.getItem('cw_auth') === '1')
 
-  const isLoggedIn = computed(() => !!token.value)
+  const isLoggedIn = computed(() => authMarker.value || !!profile.value)
   // 管理员判定改为 rating >= 11（原 role==='admin' 字段已移除）
   const isAdmin = computed(() => (profile.value?.rating ?? 0) >= 11)
 
@@ -47,10 +49,16 @@ export const useUserStore = defineStore('user', () => {
   const cid = computed(() => profile.value?.cid || '---')
 
   function save() {
-    if (token.value) localStorage.setItem('cw_token', token.value)
-    else localStorage.removeItem('cw_token')
-    if (profile.value) localStorage.setItem('cw_user', JSON.stringify(profile.value))
-    else localStorage.removeItem('cw_user')
+    // JWT 只存在 HttpOnly Cookie；localStorage 仅保存非敏感的资料与登录标记
+    if (profile.value) {
+      localStorage.setItem('cw_user', JSON.stringify(profile.value))
+      localStorage.setItem('cw_auth', '1')
+      authMarker.value = true
+    } else {
+      localStorage.removeItem('cw_user')
+      localStorage.removeItem('cw_auth')
+      authMarker.value = false
+    }
   }
 
   async function login(cidVal, password) {
@@ -72,16 +80,14 @@ export const useUserStore = defineStore('user', () => {
         otpauthUrl: res.data?.otpauthUrl || '',
       }
     }
-    token.value = res.data.token
     profile.value = res.data.user
     save()
     localStorage.setItem('cw_last_active', String(Date.now()))
     return res.data
   }
 
-  /** 应用登录成功数据（二次验证通过后调用，签发 JWT） */
+  /** 应用登录成功数据（二次验证通过后调用；Cookie 已由服务端写入） */
   function applyLogin(data) {
-    token.value = data.token
     profile.value = data.user
     save()
     localStorage.setItem('cw_last_active', String(Date.now()))
@@ -89,7 +95,6 @@ export const useUserStore = defineStore('user', () => {
 
   async function register(data) {
     const res = await authApi.register(data)
-    token.value = res.data.token
     profile.value = res.data.user
     save()
     localStorage.setItem('cw_last_active', String(Date.now()))
@@ -100,6 +105,8 @@ export const useUserStore = defineStore('user', () => {
     token.value = ''
     profile.value = null
     save()
+    localStorage.removeItem('cw_last_active')
+    localStorage.removeItem('cw_token')
   }
 
   function setProfile(p) {

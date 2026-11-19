@@ -3,7 +3,7 @@ import App from './App.vue'
 import router from './router'
 import pinia from './store'
 import { reportPageView } from './utils/deviceFp'
-import { touchLastActive, isTokenExpired, isTokenNearExpiry, isWithinActiveWindow } from './utils/jwt'
+import { touchLastActive, isWithinActiveWindow } from './utils/jwt'
 import api from './api'
 import tableSort from './utils/tableSort'
 import { showBanner, showToast, navigateToLoginAfterBanner } from './utils/banner'
@@ -53,7 +53,7 @@ reportPageView()
 // last_active 只在「真实用户交互 / 路由导航」时刷新；
 // 页面切回可见时先判断离开时长（见下方 checkSessionOnVisible），不直接刷新。
 function recordActive() {
-  if (localStorage.getItem('cw_token')) touchLastActive()
+  if (localStorage.getItem('cw_auth') === '1') touchLastActive()
 }
 // 用户交互（点击/键盘/滚动）时记录（节流避免高频写 localStorage）
 let activeTimer = null
@@ -77,13 +77,12 @@ window.addEventListener('scroll', throttleActive, { passive: true })
  *       因此「离开时长」≈ now - last_active，可准确判定 10 分钟窗口。
  */
 function checkSessionOnVisible() {
-  const token = localStorage.getItem('cw_token')
-  if (!token) return
+  if (localStorage.getItem('cw_auth') !== '1') return
   if (window.location.pathname.startsWith('/login')) return
 
-  // 长时间（默认 7 天）没回来：清登录态，回登录页
+  // 超过 12 小时没有活跃：清登录态，回登录页
   if (!isWithinActiveWindow()) {
-    localStorage.removeItem('cw_token')
+    localStorage.removeItem('cw_auth')
     localStorage.removeItem('cw_user')
     localStorage.removeItem('cw_last_active')
     showBanner('登录已过期，请重新登录')
@@ -92,32 +91,22 @@ function checkSessionOnVisible() {
   }
 
   touchLastActive()
-
-  // 已过期：尝试用宽限期续签，失败才登出
-  if (isTokenExpired()) {
-    renewSession(true)
-    return
-  }
-  // 临期（不足 1 小时）：静默续签，用户完全无感；失败也不影响当前会话
-  if (isTokenNearExpiry(60 * 60 * 1000)) {
-    renewSession(false)
-  }
+  // Cookie 会话在页面重新可见时静默轮换一次；失败时不立即登出（由后续 401 兜底）
+  renewSession(false)
 }
 
-/** 静默续签；logoutOnFail=true 表示续签失败就必须重新登录 */
+/** 静默续签：服务端轮换 HttpOnly Cookie，前端只同步用户资料。 */
 function renewSession(logoutOnFail) {
   api.post('/auth/refresh')
     .then(res => {
-      const newToken = res?.data?.token
-      if (!newToken) throw new Error('no token')
-      localStorage.setItem('cw_token', newToken)
-      const user = res.data?.user
+      const user = res?.data?.user
       if (user) localStorage.setItem('cw_user', JSON.stringify(user))
+      localStorage.setItem('cw_auth', '1')
       touchLastActive()
     })
     .catch(() => {
       if (!logoutOnFail) return
-      localStorage.removeItem('cw_token')
+      localStorage.removeItem('cw_auth')
       localStorage.removeItem('cw_user')
       localStorage.removeItem('cw_last_active')
       if (!window.location.pathname.startsWith('/login')) {

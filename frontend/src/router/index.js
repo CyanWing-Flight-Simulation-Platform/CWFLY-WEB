@@ -1,12 +1,11 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { getUserFromToken, isTokenExpired, isTokenNearExpiry, isWithinActiveWindow, touchLastActive } from '@/utils/jwt'
-import api from '@/api'
+import { touchLastActive } from '@/utils/jwt'
 import { showBanner, navigateToLoginAfterBanner } from '@/utils/banner'
 import { loginLocation } from '@/utils/redirect'
 
 /** 清除登录信息并弹横幅，等横幅动画完整走完后跳登录页（与 api 拦截器 401 行为一致） */
 function expireAndRedirect(next, redirectTo = '') {
-  localStorage.removeItem('cw_token')
+  localStorage.removeItem('cw_auth')
   localStorage.removeItem('cw_user')
   localStorage.removeItem('cw_last_active')
   showBanner('登录已过期,请重新登录!')
@@ -126,59 +125,32 @@ router.beforeEach(async (to, from, next) => {
   // 公开页
   const publicPages = ['/', '/about', '/meetings', '/controller-public', '/cookie-policy', '/privacy-policy', '/user-agreement', '/login', '/register', '/oauth/authorize', '/banned', '/internet-banned']
 
+  const loggedIn = localStorage.getItem('cw_auth') === '1'
+
   // 不存在的页面：已登录 → 返回仪表盘；未登录 → 跳转登录页
   if (!to.matched.length) {
-    next(localStorage.getItem('cw_token') ? '/dashboard' : '/login')
+    next(loggedIn ? '/dashboard' : '/login')
     return
   }
 
   // 公开页面直接放行（但登录页也记录一下活跃时间，方便回登录后判定）
   if (publicPages.includes(to.path)) {
-    if (localStorage.getItem('cw_token')) touchLastActive()
+    if (loggedIn) touchLastActive()
     next()
     return
   }
 
-  const token = localStorage.getItem('cw_token')
   // 未登录访问受保护页面 → 跳转登录，并携带安全的站内回跳地址
-  if (!token) {
+  if (!loggedIn) {
     next(loginLocation(to.fullPath))
     return
   }
 
-  // ===== token 过期/临近过期：前端判定续签 =====
-  // 策略：10 分钟内用户活跃过（返回页面/操作过）→ 自动续签；
-  //       超过 10 分钟未活跃 → token 已过期 → 跳转登录页重新登录。
-  if (isTokenExpired() || isTokenNearExpiry(60 * 1000)) {
-    if (isWithinActiveWindow()) {
-      try {
-        const res = await api.post('/auth/refresh')
-        const newToken = res?.data?.token
-        if (newToken) {
-          localStorage.setItem('cw_token', newToken)
-          const user = res.data?.user
-          if (user) localStorage.setItem('cw_user', JSON.stringify(user))
-          touchLastActive()
-        } else {
-          throw new Error('续签无 token')
-        }
-      } catch (e) {
-        // 续签失败（过期超宽限 / 服务器拒绝）→ 清登录信息，弹横幅等动画后跳登录
-        expireAndRedirect(next, to.fullPath)
-        return
-      }
-    } else {
-      // 超过 10 分钟未活跃 → token 过期 → 弹横幅等动画后跳登录
-      expireAndRedirect(next, to.fullPath)
-      return
-    }
-  }
-
-  // 记录活跃时间（每次导航成功即视为返回页面）
+  // Cookie 会话下不再从 JWT 读取身份；权限数据来自登录时服务端返回的 profile。
+  // 真正的权限校验始终由后端 get_verified_user 完成，前端只做入口收敛。
   touchLastActive()
-
-  // 从 JWT 解码用户身份
-  const user = getUserFromToken()
+  let user = null
+  try { user = JSON.parse(localStorage.getItem('cw_user') || 'null') } catch { user = null }
   const userRating = user?.rating ?? 0
   // 基于 JWT 的权限检查
   // 管理后台路由：整体要求 rating >= 8（协管员及以上），再检查细分权限

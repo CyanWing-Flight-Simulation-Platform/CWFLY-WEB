@@ -3,7 +3,7 @@ import { getDeviceFp } from '@/utils/deviceFp'
 import { applyPowHeader, getPowToken, waitForPowToken } from '@/utils/pow'
 
 // 需 PoW 的敏感接口（相对 baseURL /api）：验证码、注册、找回/重置密码
-const POW_ENFORCED = ['/verify/send', '/auth/login', '/auth/login-verify', '/auth/register', '/auth/forgot-password', '/auth/reset-password']
+const POW_ENFORCED = ['/verify/send', '/auth/login', '/auth/login-verify', '/auth/mfa/verify', '/auth/mfa/enroll', '/auth/register', '/auth/forgot-password', '/auth/reset-password']
 import { isWithinActiveWindow } from '@/utils/jwt'
 import { showBanner, navigateToLoginAfterBanner } from '@/utils/banner'
 import { safeRedirectPath } from '@/utils/redirect'
@@ -11,15 +11,29 @@ import { safeRedirectPath } from '@/utils/redirect'
 const api = axios.create({
   baseURL: '/api',
   timeout: 30000,
+  withCredentials: true,
   headers: { 'Content-Type': 'application/json' }
 })
 
-// 请求拦截器 —— 注入 token
+const SAFE_METHODS = new Set(['get', 'head', 'options'])
+
+function readCookie(name) {
+  try {
+    const prefix = `${name}=`
+    const hit = document.cookie.split(';').map((item) => item.trim()).find((item) => item.startsWith(prefix))
+    return hit ? decodeURIComponent(hit.slice(prefix.length)) : ''
+  } catch {
+    return ''
+  }
+}
+
+// 请求拦截器 —— Cookie 会话 + CSRF 双提交头
 api.interceptors.request.use(async config => {
-  const token = localStorage.getItem('cw_token')
-  if (token) config.headers.Authorization = `Bearer ${token}`
-  // 添加反爬虫标志
   config.headers['X-Requested-With'] = 'XMLHttpRequest'
+  if (!SAFE_METHODS.has(String(config.method || 'get').toLowerCase())) {
+    const csrf = readCookie('cw_csrf')
+    if (csrf) config.headers['X-CSRF-Token'] = csrf
+  }
   // 注入真实设备指纹（注册防重 / 证据链）
   try {
     config.headers['X-Device-Fp'] = getDeviceFp()
@@ -43,23 +57,17 @@ api.interceptors.request.use(async config => {
 let refreshingPromise = null
 
 /**
- * 自动续签：用户在活跃窗口内（默认 7 天）才尝试调 /auth/refresh。
- * 返回是否续签成功（成功则已更新 localStorage 中的 token）。
+ * 自动续签：Cookie 会话下直接调用 /auth/refresh，由服务端轮换 HttpOnly Cookie。
  */
 function tryAutoRenew() {
-  // 前端判定：活跃窗口内（默认 7 天）才续签，否则不续（交给跳登录）
   if (!isWithinActiveWindow()) return Promise.resolve(false)
   if (!refreshingPromise) {
     refreshingPromise = api.post('/auth/refresh')
       .then(res => {
-        const newToken = res.data?.token
-        if (newToken) {
-          localStorage.setItem('cw_token', newToken)
-          const user = res.data?.user
-          if (user) localStorage.setItem('cw_user', JSON.stringify(user))
-          return true
-        }
-        return false
+        const user = res.data?.user
+        if (user) localStorage.setItem('cw_user', JSON.stringify(user))
+        localStorage.setItem('cw_auth', '1')
+        return true
       })
       .catch(() => false)
       .finally(() => { refreshingPromise = null })
@@ -84,12 +92,11 @@ api.interceptors.response.use(
         if (renewed && !url.startsWith('/auth/refresh')) {
           const newConfig = { ...err.config, _retried: true }
           newConfig.headers = { ...(newConfig.headers || {}) }
-          newConfig.headers.Authorization = `Bearer ${localStorage.getItem('cw_token')}`
           return api.request(newConfig)
         }
-        // 续签失败/超时：清除登录信息，红横幅提示登录过期，等动画结束后跳登录页
-        const hadToken = !!localStorage.getItem('cw_token')
-        localStorage.removeItem('cw_token')
+        // 续签失败/超时：清除登录信息，Toast 提示登录过期后跳登录页
+        const hadToken = localStorage.getItem('cw_auth') === '1'
+        localStorage.removeItem('cw_auth')
         localStorage.removeItem('cw_user')
         localStorage.removeItem('cw_last_active')
         if (hadToken && !window.location.pathname.startsWith('/login')) {
@@ -139,6 +146,7 @@ export const authApi = {
   loginVerify: (data) => api.post('/auth/login-verify', data),
   mfaVerify: (data) => api.post('/auth/mfa/verify', data),
   mfaEnroll: (data) => api.post('/auth/mfa/enroll', data),
+  logout: () => api.post('/auth/logout'),
   register: (data) => api.post('/auth/register', data),
   me: () => api.get('/auth/me'),
   refresh: () => api.post('/auth/refresh')
