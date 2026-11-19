@@ -27,6 +27,8 @@ CSRF_EXEMPT_PREFIXES = (
     "/api/verify/",
     "/api/security/network-info",
     "/api/security/pixel",
+    "/api/security/device-init",
+    "/api/security/pow-challenge",
 )
 
 

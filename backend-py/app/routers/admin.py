@@ -51,7 +51,8 @@ from app.services.mailer_templates import (
     send_review_result,
 )
 from app.utils.json_compat import JSJSONResponse
-from app.utils.security import has_any_permission, hash_password, perms_to_string, sha256_hex
+from app.utils.security import has_any_permission, hash_password, perms_to_string, sha256_hex, validate_password
+from app.services import token_state
 
 log = logging.getLogger("cwfly.admin")
 
@@ -524,8 +525,9 @@ async def update_user(
     password_set = password is not None and password != ""
     if password_set:
         candidate = str(password)
-        if len(candidate) < 6:
-            return _fail(400, "密码长度不能少于 6 位")
+        pw_err = validate_password(candidate)
+        if pw_err:
+            return _fail(400, pw_err)
         updates["password"] = hash_password(candidate)
         updates["fsdPasswordHash"] = sha256_hex(candidate)
 
@@ -535,6 +537,12 @@ async def update_user(
         params["cid"] = cid
         await db.execute(text(f"UPDATE `User` SET {set_clause} WHERE `cid` = :cid"), params)
         await db.commit()
+        # 改密/改权限/改等级后强制目标用户所有旧会话失效
+        if password_set or "rating" in updates or "permissions" in updates:
+            try:
+                token_state.bump_token_epoch(cid)
+            except Exception:
+                pass
 
     user_row = (
         await db.execute(text(sel("User", "WHERE `cid` = :cid")), {"cid": cid})
