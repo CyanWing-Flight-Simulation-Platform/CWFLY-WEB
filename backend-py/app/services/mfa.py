@@ -1,7 +1,7 @@
 """管理员双因素认证（TOTP，RFC 6238）+ 恢复码。
 
 不依赖第三方库，使用标准库实现：
-- 登录密码通过后，管理员必须再输入 Authenticator 6 位动态码；
+- 登录密码通过后，管理员必须再输入 TOTP 6 位动态码；
 - 首次登录自动进入绑定流程，绑定成功才签发 access token；
 - 恢复码只保存 SHA-256 哈希，使用后立即失效。
 """
@@ -28,7 +28,7 @@ RECOVERY_CODE_COUNT = 8
 
 
 def generate_secret() -> str:
-    """生成 160-bit Base32 密钥（Authenticator 通用格式，无填充）。"""
+    """生成 160-bit Base32 密钥（标准 TOTP 格式，无填充）。"""
     return base64.b32encode(secrets.token_bytes(20)).decode("ascii").rstrip("=")
 
 

@@ -403,7 +403,7 @@ async def login(request: Request, db: AsyncSession = Depends(get_db)) -> Any:
                     "needMfa": True,
                     "data": {
                         "loginChallenge": challenge,
-                        "message": "请输入 Authenticator 动态验证码",
+                        "message": "请输入 TOTP 动态验证码",
                     },
                 }
             )
@@ -415,7 +415,7 @@ async def login(request: Request, db: AsyncSession = Depends(get_db)) -> Any:
         await audit_log.write(
             db,
             "mfa_setup_required",
-            "管理员首次登录：等待绑定 Authenticator",
+            "管理员首次登录：等待绑定 TOTP 验证器",
             str(cid or ""),
             category="auth",
             target_type="user",
@@ -429,7 +429,7 @@ async def login(request: Request, db: AsyncSession = Depends(get_db)) -> Any:
                     "loginChallenge": challenge,
                     "secret": secret,
                     "otpauthUrl": mfa.otpauth_url(user["cid"], secret),
-                    "message": "首次登录请绑定 Authenticator 动态验证码",
+                    "message": "首次登录请绑定 TOTP 动态验证码",
                 },
             }
         )
@@ -639,7 +639,7 @@ async def mfa_verify(request: Request, db: AsyncSession = Depends(get_db)) -> An
 
 @router.post("/mfa/enroll", dependencies=[Depends(login_limiter)])
 async def mfa_enroll(request: Request, db: AsyncSession = Depends(get_db)) -> Any:
-    """管理员首次登录绑定 Authenticator；成功后签发 token 并返回恢复码。"""
+    """管理员首次登录绑定 TOTP 验证器；成功后签发 token 并返回恢复码。"""
     _body, ctx, cid, challenge, code, ip = await _mfa_user_and_body(request, db)
     user = await users.find_user_with_credentials(db, cid) if cid else None
     if not user or int(user.get("rating") or 0) < 11:

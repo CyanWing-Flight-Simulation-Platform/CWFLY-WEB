@@ -45,7 +45,7 @@
           <div class="verify-box">
             <template v-if="mfaRecoveryCodes.length">
               <p class="text-sm text-muted mb-sm">
-                Authenticator 绑定成功。请立即保存以下恢复码，丢失设备时用于登录：
+                TOTP 验证器绑定成功。请立即保存以下恢复码，丢失设备时用于登录：
               </p>
               <div class="mfa-recovery">
                 <code v-for="code in mfaRecoveryCodes" :key="code">{{ code }}</code>
@@ -56,10 +56,10 @@
             </template>
             <template v-else>
               <p class="text-sm text-muted mb-sm">
-                {{ mfaSetup ? '首次登录需绑定 Authenticator 动态验证码' : '请输入 Authenticator 中的 6 位动态验证码' }}
+                {{ mfaSetup ? '首次登录需绑定 TOTP 动态验证码' : '请输入 TOTP 验证器中的 6 位动态验证码' }}
               </p>
               <div v-if="mfaSetup" class="mfa-secret">
-                <p class="text-xs text-muted">在 Authenticator 中手动添加以下密钥：</p>
+                <p class="text-xs text-muted">在 TOTP 验证器中手动添加以下密钥（Google Authenticator、1Password、Bitwarden 等均可）：</p>
                 <code>{{ mfaSecret }}</code>
               </div>
               <input

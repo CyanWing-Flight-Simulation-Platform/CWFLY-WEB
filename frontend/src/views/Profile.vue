@@ -52,7 +52,7 @@
     <div class="card p-lg mb-lg profile-card">
       <h3 class="mb-md">双因素认证（2FA）</h3>
       <p class="text-sm text-muted mb-md">
-        使用手机 Authenticator 生成 6 位动态验证码。开启后登录除密码外还需动态码；管理员强制开启。
+        使用任意标准 TOTP 验证器生成 6 位动态验证码（Google Authenticator、1Password、Bitwarden 等均可）。开启后登录除密码外还需动态码；管理员强制开启。
       </p>
       <div class="flex items-center gap-md flex-wrap">
         <span class="mfa-badge" :class="{ 'is-on': mfaStatus.enabled }">
@@ -75,7 +75,7 @@
       </div>
 
       <div v-if="mfaStep === 'code'" class="mfa-box">
-        <p class="text-sm mb-sm">在 Authenticator 中手动添加以下密钥（或打开链接）：</p>
+        <p class="text-sm mb-sm">在 TOTP 验证器中手动添加以下密钥（或复制 otpauth 链接）：</p>
         <code class="mfa-secret">{{ mfaSecret }}</code>
         <p class="text-xs text-muted mt-sm" style="word-break:break-all;">{{ mfaOtpauth }}</p>
         <input v-model="mfaCode" class="input mt-sm" inputmode="numeric" maxlength="6" placeholder="输入 6 位动态验证码" />
