@@ -1,16 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { touchLastActive } from '@/utils/jwt'
-import { showBanner, navigateToLoginAfterBanner } from '@/utils/banner'
 import { loginLocation } from '@/utils/redirect'
-
-/** 清除登录信息并弹横幅，等横幅动画完整走完后跳登录页（与 api 拦截器 401 行为一致） */
-function expireAndRedirect(next, redirectTo = '') {
-  localStorage.removeItem('cw_auth')
-  localStorage.removeItem('cw_user')
-  localStorage.removeItem('cw_last_active')
-  showBanner('登录已过期,请重新登录!')
-  navigateToLoginAfterBanner(next, redirectTo)
-}
 
 const routes = [
   /* ========== 首页 ========== */

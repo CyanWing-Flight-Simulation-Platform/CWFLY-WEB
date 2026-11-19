@@ -50,7 +50,7 @@ const showCreate = ref(false)
 const createLoading = ref(false)
 const newAch = ref({ name: '', icon: '', description: '', condition: '' })
 
-const EMOJI_RE = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}\u{200D}]/gu
+const EMOJI_RE = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu
 function cleanIcon(icon) {
   return String(icon || '').replace(EMOJI_RE, '').trim() || '奖'
 }

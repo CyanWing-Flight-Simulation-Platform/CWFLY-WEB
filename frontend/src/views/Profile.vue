@@ -241,17 +241,6 @@ const bgMsgType = ref('ok')
 const currentBg = computed(() => profileData.value?.bgImage ? getBgUrl(profileData.value.bgImage) : null)
 
 // 2FA（自研 TOTP）
-const mfaStatus = reactive({ enabled: false, required: false })
-const mfaStep = ref('')
-const mfaPassword = ref('')
-const mfaCode = ref('')
-const mfaSecret = ref('')
-const mfaOtpauth = ref('')
-const mfaRecoveryCodes = ref([])
-const mfaLoading = ref(false)
-const mfaMsg = ref('')
-const mfaMsgType = ref('ok')
-
 // 站内设备密钥（Passkey）
 const deviceStatus = reactive({ enabled: false, required: false })
 const deviceStep = ref('')
@@ -494,78 +483,6 @@ async function deviceDisable() {
     deviceMsgType.value = 'err'
   } finally {
     deviceLoading.value = false
-  }
-}
-
-async function loadMfaStatus() {
-  try {
-    const res = await authApi.mfaStatus()
-    mfaStatus.enabled = !!res.data?.enabled
-    mfaStatus.required = !!res.data?.required
-  } catch { /* 未登录/接口异常时保持未启用展示 */ }
-}
-
-function mfaStart() {
-  mfaStep.value = 'password'
-  mfaPassword.value = ''
-  mfaCode.value = ''
-  mfaMsg.value = ''
-}
-
-async function mfaSetup() {
-  mfaMsg.value = ''
-  if (!mfaPassword.value) { mfaMsg.value = '请输入当前密码'; mfaMsgType.value = 'err'; return }
-  mfaLoading.value = true
-  try {
-    const res = await authApi.mfaSetup({ password: mfaPassword.value })
-    mfaSecret.value = res.data?.secret || ''
-    mfaOtpauth.value = res.data?.otpauthUrl || ''
-    mfaCode.value = ''
-    mfaStep.value = 'code'
-  } catch (e) {
-    mfaMsg.value = e.message || '生成绑定密钥失败'
-    mfaMsgType.value = 'err'
-  } finally {
-    mfaLoading.value = false
-  }
-}
-
-async function mfaActivate() {
-  mfaMsg.value = ''
-  if (!mfaCode.value) { mfaMsg.value = '请输入动态验证码'; mfaMsgType.value = 'err'; return }
-  mfaLoading.value = true
-  try {
-    const res = await authApi.mfaActivate({ code: mfaCode.value })
-    mfaRecoveryCodes.value = res.data?.recoveryCodes || []
-    mfaStatus.enabled = true
-    mfaStep.value = 'recovery'
-    mfaMsg.value = '2FA 已启用'
-    mfaMsgType.value = 'ok'
-  } catch (e) {
-    mfaMsg.value = e.message || '验证失败'
-    mfaMsgType.value = 'err'
-  } finally {
-    mfaLoading.value = false
-  }
-}
-
-async function mfaDisable() {
-  mfaMsg.value = ''
-  if (!mfaPassword.value || !mfaCode.value) { mfaMsg.value = '请输入密码和动态验证码'; mfaMsgType.value = 'err'; return }
-  mfaLoading.value = true
-  try {
-    await authApi.mfaDisable({ password: mfaPassword.value, code: mfaCode.value })
-    mfaStatus.enabled = false
-    mfaStep.value = ''
-    mfaPassword.value = ''
-    mfaCode.value = ''
-    mfaMsg.value = '2FA 已关闭'
-    mfaMsgType.value = 'ok'
-  } catch (e) {
-    mfaMsg.value = e.message || '关闭失败'
-    mfaMsgType.value = 'err'
-  } finally {
-    mfaLoading.value = false
   }
 }
 

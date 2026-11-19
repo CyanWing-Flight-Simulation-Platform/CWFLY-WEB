@@ -63,7 +63,6 @@ const boundaries = ref([])
 const loading = ref(true)
 const mapError = ref('')
 const connected = ref(false)
-const lastUpdate = ref('')
 const cursorPos = ref(null)
 
 // 地图引擎与覆盖物编排（引擎就绪后通过回调触发一次机组数据加载，避免循环依赖）
