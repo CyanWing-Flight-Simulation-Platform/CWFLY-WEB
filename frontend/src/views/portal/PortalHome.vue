@@ -503,7 +503,8 @@ onUnmounted(() => {
   --status-border: rgba(255, 255, 255, .80);
   --status-tint: none;
   position: relative;
-  background: linear-gradient(180deg, rgba(6, 14, 26, .26) 0%, rgba(6, 14, 26, .04) 38%, rgba(6, 14, 26, .24) 100%);
+  /* 背景由 App.vue 的全屏固定层统一提供；此处不再叠加局部渐变，避免页面底部出现横向断层 */
+  background: transparent;
   color: var(--c-text);
 }
 
@@ -526,7 +527,7 @@ html[data-theme='dark'] .portal-home {
   --status-bg: rgba(255, 255, 255, .12);
   --status-border: rgba(255, 255, 255, .14);
   --status-tint: linear-gradient(180deg, rgba(0, 0, 0, .42), rgba(0, 0, 0, .34));
-  background: linear-gradient(180deg, rgba(2, 8, 18, .48) 0%, rgba(2, 8, 18, .08) 38%, rgba(2, 8, 18, .46) 100%);
+  background: transparent;
 }
 
 /* Hero */

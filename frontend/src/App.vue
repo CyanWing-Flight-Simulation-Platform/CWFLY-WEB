@@ -470,6 +470,7 @@ onUnmounted(() => {
   position: absolute;
   inset: 0;
   background-position: center;
+  background-attachment: fixed;
   background-size: cover;
   background-repeat: no-repeat;
   transition: opacity 3s ease;

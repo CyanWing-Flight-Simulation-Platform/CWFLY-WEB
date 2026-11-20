@@ -205,10 +205,10 @@ const qqGroupUrl = QQ_GROUP_URL
 
 /* 浅色模式 Footer：与首页一致的白磨砂玻璃 + 深色文字 */
 html[data-theme='light'] .portal__footer {
-  border-top-color: rgba(255, 255, 255, .80);
-  background: rgba(255, 255, 255, .65);
-  backdrop-filter: blur(20px) saturate(120%);
-  -webkit-backdrop-filter: blur(20px) saturate(120%);
+  border-top: 0;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 html[data-theme='light'] .portal__footer-inner { color: #4B5563; }
 html[data-theme='light'] .footer-brand__name,
