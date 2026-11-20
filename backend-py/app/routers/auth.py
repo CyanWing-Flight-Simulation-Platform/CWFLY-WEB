@@ -359,7 +359,7 @@ async def login(request: Request, db: AsyncSession = Depends(get_db)) -> Any:
         await record_login_failure(db, cid, ip)
         await _safe_login_log(db, cid or "unknown", ip, user_agent, device_fp, False, "notfound")
         await audit_log.write(
-            db, "login_unknown_cid", "登录失败：CID 不存在", str(cid or ""), category="risk"
+            db, "login_unknown_cid", "登录失败：CID 不存在", str(cid or ""), category="auth"
         )
         return fail(401, "CID 或密码错误")
 
@@ -367,7 +367,7 @@ async def login(request: Request, db: AsyncSession = Depends(get_db)) -> Any:
         await record_login_failure(db, cid, ip)
         await _safe_login_log(db, cid, ip, user_agent, device_fp, False, "password")
         await audit_log.write(
-            db, "login_wrong_password", "登录失败：密码错误", str(cid or ""), category="risk"
+            db, "login_wrong_password", "登录失败：密码错误", str(cid or ""), category="auth"
         )
         return fail(401, "CID 或密码错误")
 
@@ -591,7 +591,7 @@ async def mfa_verify(request: Request, db: AsyncSession = Depends(get_db)) -> An
     if not valid:
         await record_login_failure(db, user["cid"], ip)
         await audit_log.write(
-            db, "mfa_failed", "管理员动态验证码错误", str(cid), category="risk",
+            db, "mfa_failed", "管理员动态验证码错误", str(cid), category="auth",
             target_type="user", target_id=cid,
         )
         return fail(400, "动态验证码错误或已过期")
@@ -741,7 +741,7 @@ async def mfa_disable(
         return fail(400, "动态验证码错误或已过期")
     await mfa.disable_mfa(db, current.cid)
     await audit_log.write(
-        db, "mfa_disabled", "已关闭双因素认证", str(current.cid), category="risk",
+        db, "mfa_disabled", "已关闭双因素认证", str(current.cid), category="auth",
         target_type="user", target_id=current.cid,
     )
     return ok({"enabled": False})
@@ -934,7 +934,7 @@ async def device2fa_disable(
         return fail(400, "恢复码无效")
     await device2fa.disable(db, current.cid)
     await audit_log.write(
-        db, "device2fa_disabled", "已关闭站内设备密钥", str(current.cid), category="risk",
+        db, "device2fa_disabled", "已关闭站内设备密钥", str(current.cid), category="auth",
         target_type="user", target_id=current.cid,
     )
     return ok({"enabled": False})
