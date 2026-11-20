@@ -230,11 +230,29 @@ const fsdAtc = ref([])
 const pilotsLoaded = ref(false)
 const atcLoaded = ref(false)
 
+// 在线用户必须与在线飞行员/管制员同源：直接由 FSD 快照去重计算，
+// 不再依赖可能混入网页游客/后台账号的统计口径。
+const fsdOnlineUserCount = computed(() => {
+  const keys = new Set()
+  for (const pilot of fsdPilots.value) {
+    keys.add(String(pilot.cid || pilot.callsign || ''))
+  }
+  for (const atc of fsdAtc.value) {
+    keys.add(String(atc.cid || atc.callsign || ''))
+  }
+  keys.delete('')
+  return keys.size
+})
+
 const statusItems = computed(() => [
   { label: '在线飞行员', value: pilotsLoaded.value ? fsdPilots.value.length : '--', icon: 'pilot' },
   { label: '在线管制员', value: atcLoaded.value ? fsdAtc.value.length : '--', icon: 'radar' },
   { label: '平台活动', value: stats.value.eventCount ?? '--', icon: 'activity' },
-  { label: '在线用户', value: stats.value.onlineUsers ?? '--', icon: 'users' },
+  {
+    label: '在线用户',
+    value: pilotsLoaded.value && atcLoaded.value ? fsdOnlineUserCount.value : (stats.value.onlineUsers ?? '--'),
+    icon: 'users'
+  },
 ])
 
 let statusTimer = null
@@ -272,7 +290,7 @@ const liveStats = [
   { key: 'totalUsers', label: '注册机组', note: '加入 CWFLY 的飞行与管制成员' },
   { key: 'controllerCount', label: '认证管制员', note: '提供专业席位服务的管制成员' },
   { key: 'eventCount', label: '历史活动场次', note: '社区连飞与专题活动累计' },
-  { key: 'onlineUsers', label: '当前在线', note: '平台实时活跃用户' },
+  { key: 'onlineUsers', label: '当前在线', note: '当前连接 FSD 的机组' },
 ]
 
 const liveStatsEl = ref(null)

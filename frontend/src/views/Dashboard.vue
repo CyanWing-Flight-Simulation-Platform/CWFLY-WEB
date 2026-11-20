@@ -372,7 +372,7 @@ async function loadDashboard() {
       totalUsers: data.totalUsers ?? '--',
       controllerCount: data.controllerCount ?? '--',
       eventCount: data.eventCount ?? '--',
-      onlineUsers: data.onlineUsers ?? onlineStore.count ?? '--'
+      onlineUsers: data.webOnlineUsers ?? data.onlineUsers ?? onlineStore.count ?? '--'
     }
   }
   if (eventsRes.status === 'fulfilled') {
