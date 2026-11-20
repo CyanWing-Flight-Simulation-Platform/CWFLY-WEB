@@ -45,7 +45,7 @@
           <label for="active" class="text-sm">在职</label>
         </div>
         <div class="flex gap-sm">
-          <button class="btn btn-primary" @click="addController">添加</button>
+          <button class="btn btn-primary" :disabled="saving" @click="addController">{{ saving ? '提交中...' : '添加' }}</button>
           <button class="btn btn-outline" @click="showForm=false;resetForm()">取消</button>
         </div>
       </div>
@@ -106,7 +106,7 @@
               </td>
               <td>
                 <div v-if="editing === c.cid" class="flex gap-xs">
-                  <button class="btn btn-primary btn-sm" @click="saveController(c)">保存</button>
+                  <button class="btn btn-primary btn-sm" :disabled="saving" @click="saveController(c)">{{ saving ? '保存中...' : '保存' }}</button>
                   <button class="btn btn-outline btn-sm" @click="editing=null">取消</button>
                 </div>
                 <div v-else class="flex gap-xs">
@@ -139,6 +139,7 @@ const list = ref([])
 const users = ref([])
 const showForm = ref(false)
 const editing = ref(null)
+const saving = ref(false)
 const editName = ref('')
 const editDept = ref('')
 const editPos = ref('')
@@ -178,6 +179,8 @@ function startEdit(c) {
 }
 
 async function saveController(c) {
+  if (saving.value) return
+  saving.value = true
   try {
     await adminApi.updateController(c.cid, {
       name: editName.value,
@@ -190,11 +193,13 @@ async function saveController(c) {
     c.position = editPos.value
     c.rating = editRating.value
     editing.value = null
-  } catch (e) { alert(e.message) }
+  } catch (e) { alert(e.message) } finally { saving.value = false }
 }
 
 async function addController() {
   if (!form.value.name || !form.value.position) return alert('请填写姓名和职位')
+  if (saving.value) return
+  saving.value = true
   try {
     const res = await adminApi.createStaff({
       ...(form.value.cid ? { cid: parseInt(form.value.cid) } : {}),
@@ -207,7 +212,7 @@ async function addController() {
     list.value.push(res.data)
     showForm.value = false
     resetForm()
-  } catch (e) { alert(e.message) }
+  } catch (e) { alert(e.message) } finally { saving.value = false }
 }
 
 async function delController(c) {

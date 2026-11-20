@@ -82,7 +82,7 @@
             <img v-if="form.poster" :src="form.poster" class="poster-preview" />
           </div>
           <div class="flex gap-sm">
-            <button class="btn btn-primary" @click="submitForm">{{ editingItem ? '保存' : '发布' }}</button>
+            <button class="btn btn-primary" :disabled="submitting" @click="submitForm">{{ submitting ? '提交中...' : (editingItem ? '保存' : '发布') }}</button>
             <button class="btn btn-outline" @click="showForm=false">取消</button>
           </div>
         </div>
@@ -283,6 +283,7 @@ const sortedList = computed(() => {
 })
 const previewPoster = ref('')
 const showForm = ref(false)
+const submitting = ref(false)
 const editingItem = ref(null)
 
 // 详情视图状态
@@ -409,6 +410,8 @@ function openForm(e) {
 
 async function submitForm() {
   if (!form.value.title || !form.value.date) return alert('请填写标题和时间')
+  if (submitting.value) return
+  submitting.value = true
   const payload = { ...form.value, atcPositions: JSON.stringify(form.value.positions.filter(p => p.type)) }
   try {
     if (editingItem.value) {
@@ -421,7 +424,7 @@ async function submitForm() {
       list.value.unshift(res.data)
       showForm.value = false
     }
-  } catch (e) { alert(e.response?.data?.message || e.message || '操作失败') }
+  } catch (e) { alert(e.response?.data?.message || e.message || '操作失败') } finally { submitting.value = false }
 }
 
 async function delEvent(ev) {

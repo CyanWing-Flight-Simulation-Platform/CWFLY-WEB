@@ -25,7 +25,7 @@
           <label for="pinned" class="text-sm">置顶公告</label>
         </div>
         <div class="flex gap-sm">
-          <button class="btn btn-primary" @click="submitForm">{{ editingItem ? '保存' : '发布' }}</button>
+          <button class="btn btn-primary" :disabled="submitting" @click="submitForm">{{ submitting ? '提交中...' : (editingItem ? '保存' : '发布') }}</button>
           <button class="btn btn-outline" @click="cancelForm">取消</button>
         </div>
       </div>
@@ -74,6 +74,7 @@ import { adminApi } from '@/api'
 
 const list = ref([])
 const showForm = ref(false)
+const submitting = ref(false)
 const editingItem = ref(null)
 const form = ref({ title: '', content: '', pinned: false })
 
@@ -98,6 +99,8 @@ function editItem(a) {
 
 async function submitForm() {
   if (!form.value.title || !form.value.content) return alert('请填写标题和内容')
+  if (submitting.value) return
+  submitting.value = true
   try {
     if (editingItem.value) {
       await adminApi.updateAnnouncement(editingItem.value.id, form.value)
@@ -107,7 +110,7 @@ async function submitForm() {
       list.value.unshift(res.data)
     }
     cancelForm()
-  } catch (e) { alert(e.message) }
+  } catch (e) { alert(e.message) } finally { submitting.value = false }
 }
 
 async function delItem(a) {

@@ -107,7 +107,7 @@
           <img v-if="form.poster" :src="form.poster" class="poster-preview" />
         </div>
             <div class="modal-actions">
-              <button class="btn btn-primary" @click="submitForm">{{ editingItem ? '保存' : '创建' }}</button>
+              <button class="btn btn-primary" :disabled="submitting" @click="submitForm">{{ submitting ? '提交中...' : (editingItem ? '保存' : '创建') }}</button>
               <button class="btn btn-outline" @click="showForm=false">取消</button>
             </div>
           </div>
@@ -221,6 +221,7 @@ const sortedEvents = computed(() => {
   })
 })
 const showForm = ref(false)
+const submitting = ref(false)
 const editingItem = ref(null)
 // 席位 → 默认等级映射
 const RATING_MAP = {
@@ -431,6 +432,8 @@ function openForm(e) {
 
 async function submitForm() {
   if (!form.value.title || !form.value.date) return alert('请填写标题和时间')
+  if (submitting.value) return
+  submitting.value = true
   // 序列化席位为JSON字符串
   const payload = { ...form.value, atcPositions: JSON.stringify(form.value.positions.filter(p => p.type)) }
   try {
@@ -443,7 +446,7 @@ async function submitForm() {
     }
     showForm.value = false
     editingItem.value = null
-  } catch (e) { alert(e.message) }
+  } catch (e) { alert(e.message) } finally { submitting.value = false }
 }
 
 // 报名管理

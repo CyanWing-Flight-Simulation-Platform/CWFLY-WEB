@@ -110,7 +110,7 @@
       </template>
       <template #footer>
         <button class="btn btn-outline" @click="closeEdit">取消</button>
-        <button class="btn btn-primary" @click="saveEdit">保存</button>
+        <button class="btn btn-primary" :disabled="saveSubmitting" @click="saveEdit">{{ saveSubmitting ? '保存中...' : '保存' }}</button>
       </template>
     </AppModal>
 
@@ -147,7 +147,7 @@
       </template>
       <template #footer>
         <button class="btn btn-outline" @click="closeDelete">取消</button>
-        <button class="btn btn-primary" style="background:var(--c-danger);border-color:var(--c-danger);" @click="confirmDelete">确认删除</button>
+        <button class="btn btn-primary" :disabled="deleteSubmitting" style="background:var(--c-danger);border-color:var(--c-danger);" @click="confirmDelete">{{ deleteSubmitting ? '删除中...' : '确认删除' }}</button>
       </template>
     </AppModal>
   </div>
@@ -189,6 +189,8 @@ function formatDateTime(value) {
 
 const users = ref([])
 const loading = ref(false)
+const saveSubmitting = ref(false)
+const deleteSubmitting = ref(false)
 const editUser = ref(null)
 const editRating = ref(0)
 const editFsdLevel = ref(1)
@@ -231,7 +233,8 @@ function closeEdit() {
 
 async function saveEdit() {
   const u = editUser.value
-  if (!u) return
+  if (!u || saveSubmitting.value) return
+  saveSubmitting.value = true
   try {
     await adminApi.updateUser(u.cid, {
       rating: editRating.value,
@@ -241,7 +244,7 @@ async function saveEdit() {
     u.fsdLevel = editFsdLevel.value
     closeEdit()
     loadUsers() // 保存后重新拉取列表, 确保页面组件同步更新
-  } catch (e) { alert(e.message) }
+  } catch (e) { alert(e.message) } finally { saveSubmitting.value = false }
 }
 
 /** 重置密码：确认后由后端生成随机强密码并邮件发送给用户 */
@@ -296,7 +299,8 @@ function closeDelete() {
 
 async function confirmDelete() {
   const u = deleteTarget.value
-  if (!u) return
+  if (!u || deleteSubmitting.value) return
+  deleteSubmitting.value = true
   try {
     // 非超管：删除/删除+封禁不立即生效，提交审批等待超级管理员审批
     if (userStore.rating < 12) {
@@ -329,7 +333,7 @@ async function confirmDelete() {
     await adminApi.deleteUser(u.cid, deleteBan.value ? { banDevice: true } : undefined)
     users.value = users.value.filter(x => x.id !== u.id)
     closeDelete()
-  } catch (e) { alert(e.message) }
+  } catch (e) { alert(e.message) } finally { deleteSubmitting.value = false }
 }
 </script>
 
