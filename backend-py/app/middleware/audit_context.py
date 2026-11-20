@@ -23,8 +23,13 @@ log = logging.getLogger("cwfly.audit.middleware")
 _current_request: ContextVar[Request | None] = ContextVar("audit_current_request", default=None)
 _semantic_written: ContextVar[bool] = ContextVar("audit_semantic_written", default=False)
 
-# 公开只读轮询：即使未来改成 POST 也不写入兜底审计
-_IGNORED_POLLING_PREFIXES = ("/api/flightplans/fsd/",)
+# 高频无业务语义请求：轮询、验证码、安全像素、会话刷新，不写兜底审计
+_IGNORED_NOISE_PREFIXES = (
+    "/api/flightplans/fsd/",
+    "/api/captcha/",
+    "/api/security/pixel.gif",
+    "/api/auth/refresh",
+)
 _READ_METHODS = {"GET", "HEAD", "OPTIONS"}
 
 
@@ -46,7 +51,7 @@ class AuditContextMiddleware(BaseHTTPMiddleware):
                     settings.AUDIT_LOG_ALL_REQUESTS
                     and request.url.path.startswith("/api/")
                     and method not in _READ_METHODS
-                    and not request.url.path.startswith(_IGNORED_POLLING_PREFIXES)
+                    and not request.url.path.startswith(_IGNORED_NOISE_PREFIXES)
                     and not _semantic_written.get()
                 )
                 if should_log:
