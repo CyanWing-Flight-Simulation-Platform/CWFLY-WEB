@@ -341,7 +341,6 @@ async def login(request: Request, db: AsyncSession = Depends(get_db)) -> Any:
             "login_banned_device",
             "登录被拒绝：设备指纹已被封禁",
             str(cid or "unknown"),
-            category="risk",
             target_type="device",
         )
         return fail(403, "该设备已被封禁，请联系管理员", code="DEVICE_BANNED")
@@ -359,7 +358,7 @@ async def login(request: Request, db: AsyncSession = Depends(get_db)) -> Any:
         await record_login_failure(db, cid, ip)
         await _safe_login_log(db, cid or "unknown", ip, user_agent, device_fp, False, "notfound")
         await audit_log.write(
-            db, "login_unknown_cid", "登录失败：CID 不存在", str(cid or ""), category="auth"
+            db, "login_unknown_cid", "登录失败：CID 不存在", str(cid or "")
         )
         return fail(401, "CID 或密码错误")
 
@@ -367,7 +366,7 @@ async def login(request: Request, db: AsyncSession = Depends(get_db)) -> Any:
         await record_login_failure(db, cid, ip)
         await _safe_login_log(db, cid, ip, user_agent, device_fp, False, "password")
         await audit_log.write(
-            db, "login_wrong_password", "登录失败：密码错误", str(cid or ""), category="auth"
+            db, "login_wrong_password", "登录失败：密码错误", str(cid or "")
         )
         return fail(401, "CID 或密码错误")
 
@@ -396,7 +395,6 @@ async def login(request: Request, db: AsyncSession = Depends(get_db)) -> Any:
             "device2fa_required" if enabled else "device2fa_setup_required",
             "登录：等待站内设备密钥验证" if enabled else "登录：等待注册站内设备密钥",
             str(cid or ""),
-            category="auth",
             target_type="user",
             target_id=cid,
         )
@@ -427,7 +425,6 @@ async def login(request: Request, db: AsyncSession = Depends(get_db)) -> Any:
                 "new_ip_no_email",
                 "新 IP 登录且账号未绑定邮箱，已按高风险放行",
                 str(cid or ""),
-                category="risk",
                 target_type="user",
                 target_id=cid,
             )
@@ -472,7 +469,6 @@ async def login(request: Request, db: AsyncSession = Depends(get_db)) -> Any:
         "login_success",
         "登录成功",
         str(cid or ""),
-        category="auth",
         target_type="user",
         target_id=cid,
     )
@@ -591,7 +587,7 @@ async def mfa_verify(request: Request, db: AsyncSession = Depends(get_db)) -> An
     if not valid:
         await record_login_failure(db, user["cid"], ip)
         await audit_log.write(
-            db, "mfa_failed", "管理员动态验证码错误", str(cid), category="auth",
+            db, "mfa_failed", "管理员动态验证码错误", str(cid),
             target_type="user", target_id=cid,
         )
         return fail(400, "动态验证码错误或已过期")
@@ -605,7 +601,7 @@ async def mfa_verify(request: Request, db: AsyncSession = Depends(get_db)) -> An
     await clear_login_failures(db, cid)
     await _safe_login_log(db, cid, ip, ctx["user_agent"], ctx["device_fp"], True, "mfa")
     await audit_log.write(
-        db, "mfa_success", "管理员动态验证码通过", str(cid), category="auth",
+        db, "mfa_success", "管理员动态验证码通过", str(cid),
         target_type="user", target_id=cid,
     )
     token = sign_token(user)
@@ -636,7 +632,7 @@ async def mfa_enroll(request: Request, db: AsyncSession = Depends(get_db)) -> An
     await clear_login_failures(db, cid)
     await _safe_login_log(db, cid, ip, ctx["user_agent"], ctx["device_fp"], True, "mfa_enroll")
     await audit_log.write(
-        db, "mfa_enabled", "管理员已绑定双因素认证", str(cid), category="auth",
+        db, "mfa_enabled", "管理员已绑定双因素认证", str(cid),
         target_type="user", target_id=cid,
     )
     fresh = await users.find_user_with_credentials(db, cid) or user
@@ -684,7 +680,7 @@ async def mfa_setup(
     secret = mfa.generate_secret()
     await mfa.set_mfa_secret(db, current.cid, secret, enabled=False)
     await audit_log.write(
-        db, "mfa_setup", "生成 2FA 绑定密钥", str(current.cid), category="auth",
+        db, "mfa_setup", "生成 2FA 绑定密钥", str(current.cid),
         target_type="user", target_id=current.cid,
     )
     return ok({
@@ -712,7 +708,7 @@ async def mfa_activate(
     codes, recovery_json = mfa.generate_recovery_codes()
     await mfa.enable_mfa(db, current.cid, secret, recovery_json)
     await audit_log.write(
-        db, "mfa_enabled", "已启用双因素认证", str(current.cid), category="auth",
+        db, "mfa_enabled", "已启用双因素认证", str(current.cid),
         target_type="user", target_id=current.cid,
     )
     return ok({"enabled": True, "recoveryCodes": codes})
@@ -741,7 +737,7 @@ async def mfa_disable(
         return fail(400, "动态验证码错误或已过期")
     await mfa.disable_mfa(db, current.cid)
     await audit_log.write(
-        db, "mfa_disabled", "已关闭双因素认证", str(current.cid), category="auth",
+        db, "mfa_disabled", "已关闭双因素认证", str(current.cid),
         target_type="user", target_id=current.cid,
     )
     return ok({"enabled": False})
@@ -838,7 +834,7 @@ async def device2fa_register(
     _issue_trusted_device(response, request, fresh)
     await _safe_login_log(db, cid, ip, get_user_agent(request), get_device_fp(request), True, "device2fa_enroll")
     await audit_log.write(
-        db, "device2fa_enabled", "已注册站内设备密钥", str(cid), category="auth",
+        db, "device2fa_enabled", "已注册站内设备密钥", str(cid),
         target_type="user", target_id=cid,
     )
     return response
@@ -907,7 +903,7 @@ async def device2fa_rebind(
     except ValueError as exc:
         return fail(400, str(exc))
     await audit_log.write(
-        db, "device2fa_rebound", "重新绑定站内设备密钥", str(current.cid), category="auth",
+        db, "device2fa_rebound", "重新绑定站内设备密钥", str(current.cid),
         target_type="user", target_id=current.cid,
     )
     return ok({"enabled": True, "recoveryCodes": codes})
@@ -934,7 +930,7 @@ async def device2fa_disable(
         return fail(400, "恢复码无效")
     await device2fa.disable(db, current.cid)
     await audit_log.write(
-        db, "device2fa_disabled", "已关闭站内设备密钥", str(current.cid), category="auth",
+        db, "device2fa_disabled", "已关闭站内设备密钥", str(current.cid),
         target_type="user", target_id=current.cid,
     )
     return ok({"enabled": False})
