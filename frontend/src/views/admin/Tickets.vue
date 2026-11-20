@@ -83,7 +83,7 @@
       </template>
       <template #footer>
         <button class="btn btn-outline" @click="closeReply">取消</button>
-        <button class="btn btn-primary" @click="submitReply">提交回复</button>
+        <button class="btn btn-primary" :disabled="replySubmitting" @click="submitReply">{{ replySubmitting ? '提交中...' : '提交回复' }}</button>
       </template>
     </AppModal>
   </div>
@@ -107,6 +107,7 @@ const editing = ref(null)
 const editStatus = ref('')
 const replyTarget = ref(null)
 const replyText = ref('')
+const replySubmitting = ref(false)
 
 const maxPage = computed(() => Math.ceil(total.value / pageSize) || 1)
 
@@ -160,6 +161,8 @@ function closeReply() {
 
 async function submitReply() {
   if (!replyText.value) return alert('请输入回复内容')
+  if (replySubmitting.value) return
+  replySubmitting.value = true
   try {
     const res = await adminApi.updateTicket(replyTarget.value.id, {
       reply: replyText.value,
@@ -171,7 +174,7 @@ async function submitReply() {
     replyTarget.value = null
     replyText.value = ''
     alert('回复已提交')
-  } catch (e) { alert(e.message) }
+  } catch (e) { alert(e.message) } finally { replySubmitting.value = false }
 }
 
 async function delTicket(t) {

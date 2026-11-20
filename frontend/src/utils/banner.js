@@ -41,6 +41,15 @@ export function removeToast(id) {
 export function showToast(message, opts = {}) {
   const text = String(message ?? '')
   if (!text) return 0
+  // 同一文案已在展示时只保留一条，避免重复请求/双击导致两个完全相同的 Toast
+  const active = toastState.items.find((item) => item.message === text)
+  if (active) {
+    const oldTimer = timers.get(active.id)
+    if (oldTimer) clearTimeout(oldTimer)
+    const duration = Math.max(1200, Number(opts.duration) || 3200)
+    timers.set(active.id, setTimeout(() => removeToast(active.id), duration))
+    return active.id
+  }
   const duration = Math.max(1200, Number(opts.duration) || 3200)
   const item = {
     id: ++seq,
