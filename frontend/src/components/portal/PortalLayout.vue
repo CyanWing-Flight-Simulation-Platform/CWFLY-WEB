@@ -202,6 +202,24 @@ const qqGroupUrl = QQ_GROUP_URL
   opacity: .7;
 }
 
+
+/* 浅色模式 Footer：与首页一致的白磨砂玻璃 + 深色文字 */
+html[data-theme='light'] .portal__footer {
+  border-top-color: rgba(255, 255, 255, .80);
+  background: rgba(255, 255, 255, .65);
+  backdrop-filter: blur(20px) saturate(120%);
+  -webkit-backdrop-filter: blur(20px) saturate(120%);
+}
+html[data-theme='light'] .portal__footer-inner { color: #4B5563; }
+html[data-theme='light'] .footer-brand__name,
+html[data-theme='light'] .footer-column h4 { color: #111827; }
+html[data-theme='light'] .footer-brand p,
+html[data-theme='light'] .footer-column a,
+html[data-theme='light'] .footer-bottom p,
+html[data-theme='light'] .footer-links a,
+html[data-theme='light'] .footer-note { color: #4B5563; }
+html[data-theme='light'] .footer-bottom { border-top-color: rgba(15, 23, 42, .08); }
+
 @media (max-width: 860px) {
   .footer-top { flex-direction: column; gap: 28px; }
   .footer-brand { max-width: 420px; }

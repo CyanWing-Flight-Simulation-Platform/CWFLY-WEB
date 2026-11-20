@@ -323,12 +323,14 @@ if (typeof IntersectionObserver !== 'undefined') {
         revealObserver.unobserve(entry.target)
       })
     },
-    { threshold: 0.12, rootMargin: '0px 0px -8% 0px' },
+    { threshold: 0.05, rootMargin: '0px 0px -10% 0px' },
   )
 }
 
 const vReveal = {
   mounted(el) {
+    // 自定义指令不会自动产生 HTML 属性；补上 data-reveal 让 CSS 初始态生效
+    el.setAttribute('data-reveal', '')
     if (!revealObserver) {
       el.classList.add('is-visible')
       return
@@ -340,7 +342,20 @@ const vReveal = {
   },
 }
 
-const bentoEvents = computed(() => events.value.slice(0, 3))
+const bentoEvents = computed(() => {
+  const seenIds = new Set()
+  const seenContent = new Set()
+  const unique = []
+  for (const event of events.value) {
+    const id = String(event.id ?? '')
+    const contentKey = `${event.title || ''}|${event.date || ''}|${event.dep || ''}|${event.arr || ''}`
+    if ((id && seenIds.has(id)) || seenContent.has(contentKey)) continue
+    if (id) seenIds.add(id)
+    seenContent.add(contentKey)
+    unique.push(event)
+  }
+  return unique.slice(0, 3)
+})
 const bentoHero = computed(() => {
   const event = bentoEvents.value[0]
   if (event) {
@@ -998,14 +1013,26 @@ html[data-theme='dark'] .about-panel__text { color: rgba(255, 255, 255, .56); }
 /* ---------- Scroll Reveal ---------- */
 .portal-home [data-reveal] {
   opacity: 0;
-  transform: translateY(30px);
-  transition: opacity .7s cubic-bezier(.2, .7, .2, 1), transform .7s cubic-bezier(.2, .7, .2, 1);
+  visibility: hidden;
+  transform: translateY(40px);
+  transition:
+    opacity .8s ease-out,
+    transform .8s cubic-bezier(.25, 1, .5, 1);
   transition-delay: calc(var(--reveal-index, 0) * 100ms);
   will-change: opacity, transform;
 }
-.portal-home [data-reveal].is-visible { opacity: 1; transform: translateY(0); }
+.portal-home [data-reveal].is-visible {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
 @media (prefers-reduced-motion: reduce) {
-  .portal-home [data-reveal] { opacity: 1; transform: none; transition: none; }
+  .portal-home [data-reveal] {
+    opacity: 1;
+    visibility: visible;
+    transform: none;
+    transition: none;
+  }
 }
 
 /* ---------- 核心功能 ---------- */
@@ -1201,6 +1228,81 @@ html[data-theme='dark'] .bento-card :deep(.badge) {
 html[data-theme='dark'] .route-diagram__line::before { border-top-color: rgba(255, 255, 255, .28); }
 html[data-theme='dark'] .route-diagram__line i { background: #fff; }
 html[data-theme='dark'] .route-diagram__line svg { color: #fff; }
+
+
+/* ---------- 浅色模式：高透白玻璃 + 绝对深色文字 ---------- */
+html[data-theme='light'] .portal-home .status-bar,
+html[data-theme='light'] .portal-home .feature-card,
+html[data-theme='light'] .portal-home .live-stats,
+html[data-theme='light'] .portal-home .bento-card,
+html[data-theme='light'] .portal-home .leaderboard-panel,
+html[data-theme='light'] .portal-home .about-panel {
+  color: #111827 !important;
+  border: 1px solid rgba(255, 255, 255, .80) !important;
+  background-color: rgba(255, 255, 255, .65) !important;
+  background-image: none !important;
+  backdrop-filter: blur(20px) saturate(120%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(120%) !important;
+  box-shadow: 0 14px 34px rgba(25, 42, 64, .08) !important;
+}
+
+html[data-theme='light'] .portal-home .status-value,
+html[data-theme='light'] .portal-home .status-bar__head,
+html[data-theme='light'] .portal-home .status-bar__hint,
+html[data-theme='light'] .portal-home .status-label,
+html[data-theme='light'] .portal-home .feature-card h3,
+html[data-theme='light'] .portal-home .live-stat strong,
+html[data-theme='light'] .portal-home .live-stat span,
+html[data-theme='light'] .portal-home .bento-card h3,
+html[data-theme='light'] .portal-home .bento-card__label,
+html[data-theme='light'] .portal-home .bento-card__arrow,
+html[data-theme='light'] .portal-home .bento-card__note,
+html[data-theme='light'] .portal-home .section-title,
+html[data-theme='light'] .portal-home .about-panel__title,
+html[data-theme='light'] .portal-home .leaderboard-panel .section-title,
+html[data-theme='light'] .portal-home .rank-user {
+  color: #111827 !important;
+}
+
+html[data-theme='light'] .portal-home .feature-card p,
+html[data-theme='light'] .portal-home .live-stat small,
+html[data-theme='light'] .portal-home .bento-card__body p,
+html[data-theme='light'] .portal-home .section-subtitle,
+html[data-theme='light'] .portal-home .about-panel__text,
+html[data-theme='light'] .portal-home .leaderboard-panel .section-subtitle,
+html[data-theme='light'] .portal-home .rank-points,
+html[data-theme='light'] .portal-home .rank-points small,
+html[data-theme='light'] .portal-home .rank-empty,
+html[data-theme='light'] .portal-home .rank-index {
+  color: #4B5563 !important;
+}
+
+html[data-theme='light'] .portal-home .feature-card__icon {
+  border-color: rgba(15, 23, 42, .08) !important;
+  background: rgba(15, 23, 42, .05) !important;
+  color: #111827 !important;
+}
+html[data-theme='light'] .portal-home .live-stat,
+html[data-theme='light'] .portal-home .status-item {
+  border-color: rgba(15, 23, 42, .09) !important;
+}
+html[data-theme='light'] .portal-home .bento-card:hover {
+  background-color: rgba(255, 255, 255, .78) !important;
+}
+html[data-theme='light'] .portal-home .bento-card :deep(.badge) {
+  border-color: rgba(37, 99, 235, .14) !important;
+  background: rgba(37, 99, 235, .08) !important;
+  color: #1D4ED8 !important;
+}
+html[data-theme='light'] .portal-home .route-diagram__line::before {
+  border-top-color: rgba(15, 23, 42, .22) !important;
+}
+html[data-theme='light'] .portal-home .route-diagram__line i {
+  background: #111827 !important;
+}
+html[data-theme='light'] .portal-home .route-diagram__line svg {
+  color: #111827 !important;
+}
 
 @media (max-width: 860px) {
   .feature-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
