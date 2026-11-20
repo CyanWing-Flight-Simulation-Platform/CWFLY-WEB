@@ -17,7 +17,7 @@
     </section>
 
     <!-- 实时状态条 -->
-    <section class="status-section" aria-label="平台实时状态">
+    <section v-reveal class="status-section" aria-label="平台实时状态">
       <div class="status-bar">
         <div class="status-bar__head">
           <span>平台实时状态</span>
@@ -54,47 +54,117 @@
       </div>
     </section>
 
-    <!-- 近期活动 -->
-    <section class="section">
+    <!-- 核心功能 -->
+    <section v-reveal class="section section--features">
       <div class="section__inner">
         <div class="section-head">
           <div>
-            <h2 class="section-title">近期活动</h2>
-            <p class="section-subtitle">和社区一起起飞，参加下一场连飞活动。</p>
+            <span class="eyebrow">WHY CWFLY</span>
+            <h2 class="section-title">为每一次连飞而设计</h2>
+            <p class="section-subtitle">真实的数据、专业的人和一群认真飞行的伙伴。</p>
           </div>
-          <router-link to="/events" class="section-link section-link--overlay">查看全部活动 <span aria-hidden="true">→</span></router-link>
         </div>
-
-        <div v-if="events.length" class="event-grid">
-          <router-link
-            v-for="e in events"
-            :key="e.id"
-            :to="`/events`"
-            class="event-card card card--hover"
+        <div class="feature-grid">
+          <article
+            v-for="(feature, index) in features"
+            :key="feature.title"
+            v-reveal
+            class="feature-card"
+            :style="{ '--reveal-index': index }"
           >
-            <div class="event-card__date">
-              <span class="event-card__day">{{ dayOf(e.date) }}</span>
-              <span class="event-card__mon">{{ monthOf(e.date) }}</span>
-            </div>
-            <div class="event-card__body">
-              <h3 class="event-card__title">{{ e.title }}</h3>
-              <p class="event-card__meta">{{ e.date }} · {{ e.dep || 'TBA' }} → {{ e.arr || 'TBA' }}</p>
-            </div>
-            <span class="badge" :class="eventBadgeClass(e.status)">{{ e.status || '活动' }}</span>
-          </router-link>
-        </div>
-        <div v-else class="empty-state">
-          <p>近期活动正在筹备中</p>
-          <router-link to="/events" class="btn btn-outline btn-sm">先去活动中心看看</router-link>
+            <span class="feature-card__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <path v-for="path in feature.paths" :key="path" :d="path" />
+              </svg>
+            </span>
+            <h3>{{ feature.title }}</h3>
+            <p>{{ feature.desc }}</p>
+          </article>
         </div>
       </div>
     </section>
 
+    <!-- 实时数据 -->
+    <section ref="liveStatsEl" v-reveal class="section section--stats">
+      <div class="section__inner">
+        <div class="section-head">
+          <div>
+            <span class="eyebrow">LIVE NETWORK</span>
+            <h2 class="section-title">实时数据战报</h2>
+            <p class="section-subtitle">平台运行与社区活跃度的真实切片。</p>
+          </div>
+        </div>
+        <div class="live-stats">
+          <div
+            v-for="(stat, index) in liveStats"
+            :key="stat.key"
+            v-reveal
+            class="live-stat"
+            :style="{ '--reveal-index': index }"
+          >
+            <strong>{{ formatCount(stat.key) }}</strong>
+            <span>{{ stat.label }}</span>
+            <small>{{ stat.note }}</small>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 热门航线 / 活动 Bento -->
+    <section v-reveal class="section section--bento">
+      <div class="section__inner">
+        <div class="section-head">
+          <div>
+            <span class="eyebrow">COMMUNITY PICKS</span>
+            <h2 class="section-title">热门航线与活动</h2>
+            <p class="section-subtitle">从一场活动开始，加入下一次真实的协作飞行。</p>
+          </div>
+          <router-link to="/events" class="section-link section-link--overlay">查看全部活动 <span aria-hidden="true">→</span></router-link>
+        </div>
+
+        <div class="bento-grid">
+          <router-link v-reveal to="/events" class="bento-card bento-card--hero">
+            <div class="bento-card__top">
+              <span class="bento-card__label">{{ bentoHero.label }}</span>
+              <span class="badge badge-info">{{ bentoHero.status }}</span>
+            </div>
+            <div class="bento-card__body">
+              <h3>{{ bentoHero.title }}</h3>
+              <p>{{ bentoHero.meta }}</p>
+            </div>
+            <div class="route-diagram" aria-hidden="true">
+              <span class="route-diagram__point">{{ bentoHero.dep || 'DEP' }}</span>
+              <span class="route-diagram__line"><i></i><svg viewBox="0 0 24 24" fill="currentColor"><path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z"/></svg></span>
+              <span class="route-diagram__point">{{ bentoHero.arr || 'ARR' }}</span>
+            </div>
+          </router-link>
+
+          <router-link
+            v-for="(card, index) in bentoSmall"
+            :key="card.title"
+            v-reveal
+            to="/events"
+            class="bento-card"
+            :style="{ '--reveal-index': index + 1 }"
+          >
+            <div class="bento-card__top">
+              <span class="bento-card__label">{{ card.label }}</span>
+              <span class="bento-card__arrow" aria-hidden="true">↗</span>
+            </div>
+            <div class="bento-card__body">
+              <h3>{{ card.title }}</h3>
+              <p>{{ card.meta }}</p>
+            </div>
+            <span class="bento-card__note">{{ card.note || '点击查看活动详情' }}</span>
+          </router-link>
+        </div>
+      </div>
+    </section>
     <!-- 排行榜 + 关于 -->
-    <section class="section section--soft">
+    <section v-reveal class="section section--soft">
       <div class="section__inner">
         <div class="split-grid">
-          <div class="leaderboard-panel card">
+          <div v-reveal class="leaderboard-panel card">
             <div class="panel-head">
               <div>
                 <h2 class="section-title">积分排行榜</h2>
@@ -117,7 +187,7 @@
             <div v-else class="rank-empty">排行榜正在统计，完成飞行或参与活动后即可上榜。</div>
           </div>
 
-          <div class="about-panel card">
+          <div v-reveal class="about-panel card" :style="{ '--reveal-index': 1 }">
             <span class="eyebrow">ABOUT CWFLY</span>
             <h2 class="about-panel__title">把模拟飞行，飞成一场真实的协作</h2>
             <p class="about-panel__text">
@@ -138,7 +208,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, reactive, ref } from 'vue'
 import api, { eventsApi, flightplanApi } from '@/api'
 import { useUserStore } from '@/store/user'
 import { QQ_GROUP_URL } from '@/utils/links'
@@ -149,7 +219,12 @@ const userStore = useUserStore()
 const events = ref([])
 const leaderboard = ref([])
 const leaderboardNeedsLogin = ref(false)
-const stats = ref({ onlineUsers: '--', eventCount: '--' })
+const stats = ref({
+  totalUsers: '--',
+  controllerCount: '--',
+  eventCount: '--',
+  onlineUsers: '--',
+})
 const fsdPilots = ref([])
 const fsdAtc = ref([])
 const pilotsLoaded = ref(false)
@@ -164,20 +239,138 @@ const statusItems = computed(() => [
 
 let statusTimer = null
 
-function dayOf(d) {
-  return d ? String(new Date(d).getDate()).padStart(2, '0') : '--'
+/* ---------- 首页展示内容 ---------- */
+const features = [
+  {
+    title: '真实航路规划',
+    desc: '基于真实航路、机场与航图数据规划飞行，让每一次飞行都有据可循。',
+    paths: ['M4 18c4-1 7-5 9-11M7 20l2-3M17 6l2-2', 'M4 5h5M4 9h3'],
+  },
+  {
+    title: '专业管制服务',
+    desc: '由认证管制员提供席位服务，从放行、地面到进近与区域管制。',
+    paths: ['M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18', 'M12 7v5l3 2', 'M12 3v2M21 12h-2M12 21v-2M3 12h2'],
+  },
+  {
+    title: '实时气象与航图',
+    desc: '集成气象、航图与航班数据，在飞行前掌握完整运行环境。',
+    paths: ['M6 17a4 4 0 0 1 1-7.9A5 5 0 0 1 17 8a3.5 3.5 0 0 1 .5 7H6', 'M8 20h8'],
+  },
+  {
+    title: '社区连飞活动',
+    desc: '参与主题连飞、节假日活动与跨区域协作，与社区一起起飞。',
+    paths: ['M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2', 'M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8', 'M22 21v-2a4 4 0 0 0-3-3.9'],
+  },
+]
+
+const featuredRoutes = [
+  { title: '京沪空中走廊', meta: 'ZBAA → ZSSS', note: '热门干线 · 京沪运行', dep: 'ZBAA', arr: 'ZSSS', label: '热门航线' },
+  { title: '成渝连线', meta: 'ZUUU → ZUCK', note: '西南区域 · 山地进近', dep: 'ZUUU', arr: 'ZUCK', label: '热门航线' },
+]
+
+const liveStats = [
+  { key: 'totalUsers', label: '注册机组', note: '加入 CWFLY 的飞行与管制成员' },
+  { key: 'controllerCount', label: '认证管制员', note: '提供专业席位服务的管制成员' },
+  { key: 'eventCount', label: '历史活动场次', note: '社区连飞与专题活动累计' },
+  { key: 'onlineUsers', label: '当前在线', note: '平台实时活跃用户' },
+]
+
+const liveStatsEl = ref(null)
+const countValues = reactive({ totalUsers: 0, controllerCount: 0, eventCount: 0, onlineUsers: 0 })
+const countVisible = ref(false)
+const statsLoaded = ref(false)
+let countStarted = false
+let countObserver = null
+let countRaf = 0
+
+const liveCountTargets = computed(() => ({
+  totalUsers: Number(stats.value.totalUsers) || 0,
+  controllerCount: Number(stats.value.controllerCount) || 0,
+  eventCount: Number(stats.value.eventCount) || 0,
+  onlineUsers: Number(stats.value.onlineUsers) || 0,
+}))
+
+function formatCount(key) {
+  return Number(countValues[key] || 0).toLocaleString('zh-CN')
 }
 
-function monthOf(d) {
-  if (!d) return ''
-  return ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'][new Date(d).getMonth()]
+function startCountUp() {
+  if (countStarted || !countVisible.value || !statsLoaded.value) return
+  countStarted = true
+  const targets = liveCountTargets.value
+  const start = performance.now()
+  const duration = 1300
+  const tick = (now) => {
+    const p = Math.min(1, (now - start) / duration)
+    const eased = 1 - Math.pow(1 - p, 3)
+    for (const key of Object.keys(targets)) {
+      countValues[key] = Math.round(targets[key] * eased)
+    }
+    if (p < 1) countRaf = requestAnimationFrame(tick)
+    else for (const key of Object.keys(targets)) countValues[key] = targets[key]
+  }
+  countRaf = requestAnimationFrame(tick)
 }
 
-function eventBadgeClass(status) {
-  if (status === '报名中') return 'badge-success'
-  if (status === '进行中') return 'badge-info'
-  return 'badge-default'
+/* ---------- Scroll Reveal（IntersectionObserver，无 scroll 监听） ---------- */
+let revealObserver = null
+if (typeof IntersectionObserver !== 'undefined') {
+  revealObserver = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (!entry.isIntersecting) return
+        entry.target.classList.add('is-visible')
+        revealObserver.unobserve(entry.target)
+      })
+    },
+    { threshold: 0.12, rootMargin: '0px 0px -8% 0px' },
+  )
 }
+
+const vReveal = {
+  mounted(el) {
+    if (!revealObserver) {
+      el.classList.add('is-visible')
+      return
+    }
+    revealObserver.observe(el)
+  },
+  unmounted(el) {
+    if (revealObserver) revealObserver.unobserve(el)
+  },
+}
+
+const bentoEvents = computed(() => events.value.slice(0, 3))
+const bentoHero = computed(() => {
+  const event = bentoEvents.value[0]
+  if (event) {
+    return {
+      title: event.title,
+      meta: `${event.date} · ${event.dep || 'TBA'} → ${event.arr || 'TBA'}`,
+      dep: event.dep || '',
+      arr: event.arr || '',
+      label: '近期活动',
+      status: event.status || '活动',
+    }
+  }
+  const route = featuredRoutes[0]
+  return { ...route, status: route.label }
+})
+const bentoSmall = computed(() => {
+  const items = bentoEvents.value.slice(1, 3).map((event) => ({
+    title: event.title,
+    meta: `${event.date} · ${event.dep || 'TBA'} → ${event.arr || 'TBA'}`,
+    dep: event.dep || '',
+    arr: event.arr || '',
+    label: '近期活动',
+    status: event.status || '活动',
+  }))
+  for (const route of featuredRoutes) {
+    if (items.length >= 2) break
+    items.push({ ...route, status: route.label })
+  }
+  return items.slice(0, 2)
+})
 
 async function fetchDashboardStats() {
   const res = await fetch('/api/dashboard/stats', {
@@ -198,9 +391,13 @@ async function loadStatus() {
   if (dashboard.status === 'fulfilled') {
     const data = dashboard.value?.data || {}
     stats.value = {
-      onlineUsers: data.onlineUsers ?? '--',
+      totalUsers: data.totalUsers ?? '--',
+      controllerCount: data.controllerCount ?? '--',
       eventCount: data.eventCount ?? '--',
+      onlineUsers: data.onlineUsers ?? '--',
     }
+    statsLoaded.value = true
+    startCountUp()
   }
   if (pilots.status === 'fulfilled') {
     fsdPilots.value = Array.isArray(pilots.value?.data) ? pilots.value.data : []
@@ -236,16 +433,37 @@ async function loadLeaderboard() {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
   document.title = 'CW - 青翼模拟飞行连飞平台'
   loadStatus()
   loadEvents()
   loadLeaderboard()
   statusTimer = setInterval(loadStatus, 30000)
+
+  await nextTick()
+  if (liveStatsEl.value && typeof IntersectionObserver !== 'undefined') {
+    countObserver = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return
+          countVisible.value = true
+          startCountUp()
+          countObserver?.unobserve(entry.target)
+        })
+      },
+      { threshold: 0.2 },
+    )
+    countObserver.observe(liveStatsEl.value)
+  } else {
+    countVisible.value = true
+  }
 })
 
 onUnmounted(() => {
   if (statusTimer) clearInterval(statusTimer)
+  if (revealObserver) revealObserver.disconnect()
+  if (countObserver) countObserver.disconnect()
+  if (countRaf) cancelAnimationFrame(countRaf)
 })
 </script>
 
@@ -808,7 +1026,256 @@ html[data-theme='dark'] .about-panel__text { color: rgba(255, 255, 255, .56); }
 .portal-home .about-panel .about-panel__cta { color: #9cc9ff; }
 .portal-home .about-panel .about-panel__cta { border-top-color: rgba(255, 255, 255, .16); }
 
+
+/* ---------- Scroll Reveal（IntersectionObserver 驱动） ---------- */
+.portal-home [data-reveal] {
+  opacity: 0;
+  transform: translateY(30px);
+  transition:
+    opacity .7s cubic-bezier(.2, .7, .2, 1),
+    transform .7s cubic-bezier(.2, .7, .2, 1);
+  transition-delay: calc(var(--reveal-index, 0) * 100ms);
+  will-change: opacity, transform;
+}
+.portal-home [data-reveal].is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+@media (prefers-reduced-motion: reduce) {
+  .portal-home [data-reveal] {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+
+/* ---------- 核心功能 ---------- */
+.section--features { padding-top: 64px; }
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+.feature-card {
+  display: flex;
+  flex-direction: column;
+  min-height: 196px;
+  padding: 24px;
+  border: 1px solid var(--event-border);
+  border-radius: 18px;
+  background-color: var(--event-bg);
+  background-image: var(--event-tint);
+  backdrop-filter: blur(20px) saturate(120%);
+  -webkit-backdrop-filter: blur(20px) saturate(120%);
+  box-shadow: var(--event-shadow);
+  color: var(--event-title);
+}
+.feature-card__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  margin-bottom: 22px;
+  border: 1px solid rgba(255, 255, 255, .18);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, .10);
+  color: #fff;
+}
+.feature-card__icon svg { width: 21px; height: 21px; }
+.feature-card h3 {
+  margin: 0 0 9px;
+  color: var(--event-title);
+  font-family: var(--ui-font);
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: -.01em;
+}
+.feature-card p {
+  margin: 0;
+  color: var(--event-meta);
+  font-size: 12px;
+  line-height: 1.75;
+}
+html[data-theme='dark'] .feature-card__icon { background: rgba(255, 255, 255, .07); }
+
+/* ---------- 实时数据战报 ---------- */
+.section--stats { padding-top: 16px; }
+.live-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  overflow: hidden;
+  border: 1px solid var(--event-border);
+  border-radius: 20px;
+  background-color: var(--event-bg);
+  background-image: var(--event-tint);
+  backdrop-filter: blur(24px) saturate(120%);
+  -webkit-backdrop-filter: blur(24px) saturate(120%);
+  box-shadow: var(--event-shadow);
+}
+.live-stat {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 28px 24px 26px;
+  border-left: 1px solid var(--hairline);
+}
+.live-stat:first-child { border-left: 0; }
+.live-stat strong {
+  color: var(--event-title);
+  font-family: var(--ui-font);
+  font-size: clamp(34px, 4vw, 52px);
+  font-weight: 750;
+  letter-spacing: -.045em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.live-stat span {
+  margin-top: 12px;
+  color: var(--event-title);
+  font-size: 13px;
+  font-weight: 600;
+}
+.live-stat small {
+  margin-top: 6px;
+  color: var(--event-meta);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+/* ---------- 热门航线 / 活动 Bento ---------- */
+.section--bento { padding-top: 28px; }
+.bento-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(168px, 1fr));
+  gap: 16px;
+}
+.bento-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  padding: 22px;
+  border: 1px solid var(--event-border);
+  border-radius: 18px;
+  background-color: var(--event-bg);
+  background-image: var(--event-tint);
+  backdrop-filter: blur(20px) saturate(120%);
+  -webkit-backdrop-filter: blur(20px) saturate(120%);
+  box-shadow: var(--event-shadow);
+  color: var(--event-title);
+  text-decoration: none;
+  transition: transform .22s ease, background-color .22s ease, box-shadow .22s ease;
+}
+.bento-card:hover {
+  background-color: var(--event-bg-hover);
+  transform: translateY(-2px);
+  text-decoration: none;
+  box-shadow: 0 14px 32px rgba(25, 42, 64, .14);
+}
+.bento-card--hero {
+  grid-column: span 2;
+  grid-row: span 2;
+  padding: 28px;
+}
+.bento-card__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.bento-card__label {
+  color: var(--event-meta);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+.bento-card__arrow { color: var(--event-meta); font-size: 15px; }
+.bento-card__body { margin-top: auto; padding-top: 28px; }
+.bento-card__body h3 {
+  overflow: hidden;
+  margin: 0 0 8px;
+  color: var(--event-title);
+  font-family: var(--ui-font);
+  font-size: 17px;
+  font-weight: 650;
+  letter-spacing: -.015em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bento-card--hero .bento-card__body h3 {
+  font-size: clamp(23px, 3vw, 32px);
+  white-space: normal;
+}
+.bento-card__body p {
+  margin: 0;
+  color: var(--event-meta);
+  font-size: 12px;
+  line-height: 1.7;
+}
+.bento-card__note {
+  display: block;
+  margin-top: 14px;
+  color: var(--event-meta);
+  font-size: 11px;
+}
+.route-diagram {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 30px;
+  color: var(--event-meta);
+  font-family: var(--ui-font);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .06em;
+}
+.route-diagram__point { flex-shrink: 0; }
+.route-diagram__line {
+  position: relative;
+  display: flex;
+  flex: 1;
+  align-items: center;
+  min-width: 40px;
+  height: 18px;
+}
+.route-diagram__line::before {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  left: 0;
+  border-top: 1px dashed rgba(255, 255, 255, .28);
+  content: "";
+}
+.route-diagram__line i {
+  position: absolute;
+  left: 0;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #fff;
+  transform: translateY(-50%);
+}
+.route-diagram__line svg {
+  position: absolute;
+  left: 50%;
+  width: 15px;
+  height: 15px;
+  color: #fff;
+  transform: translate(-50%, -50%);
+}
+
 @media (max-width: 860px) {
+  .feature-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .live-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .live-stat { border-top: 1px solid var(--hairline); }
+  .live-stat:nth-child(odd) { border-left: 0; }
+  .live-stat:nth-child(-n+2) { border-top: 0; }
+  .bento-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: auto; }
+  .bento-card--hero { grid-column: span 2; grid-row: auto; min-height: 300px; }
   .status-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 0; }
   .status-item { padding: 16px 16px; }
   .status-item:nth-child(odd) { border-left: 0; padding-left: 0; }
@@ -817,6 +1284,12 @@ html[data-theme='dark'] .about-panel__text { color: rgba(255, 255, 255, .56); }
   .split-grid { grid-template-columns: 1fr; }
 }
 @media (max-width: 560px) {
+  .feature-grid { grid-template-columns: 1fr; }
+  .live-stats { grid-template-columns: 1fr; }
+  .live-stat { border-top: 1px solid var(--hairline); border-left: 0; }
+  .live-stat:first-child { border-top: 0; }
+  .bento-grid { grid-template-columns: 1fr; }
+  .bento-card--hero { grid-column: auto; min-height: 280px; }
   .hero { padding: 62px 20px 42px; }
   .hero__content h1 { font-size: 34px; }
   .status-section { max-width: 100%; padding: 0 16px; }
