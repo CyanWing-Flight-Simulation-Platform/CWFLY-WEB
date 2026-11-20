@@ -26,14 +26,14 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
-    "@vitejs/plugin-vue": "^5.0.0",
+    "@vitejs/plugin-vue": "^6.0.11",
     "@vue/devtools-api": "^8.1.5",
     "cross-env": "^10.1.0",
     "eslint": "^9.39.5",
     "eslint-plugin-vue": "^9.33.0",
     "globals": "^17.0.0",
     "jsdom": "^25.0.1",
-    "vite": "^5.4.0",
-    "vitest": "^2.1.9"
+    "vite": "^8.3.8",
+    "vitest": "^5.1.1"
   }
 }
