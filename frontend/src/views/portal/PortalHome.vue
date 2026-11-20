@@ -164,7 +164,7 @@
     <section v-reveal class="section section--soft">
       <div class="section__inner">
         <div class="split-grid">
-          <div v-reveal class="leaderboard-panel card">
+          <div v-reveal class="leaderboard-panel">
             <div class="panel-head">
               <div>
                 <h2 class="section-title">积分排行榜</h2>
@@ -187,7 +187,7 @@
             <div v-else class="rank-empty">排行榜正在统计，完成飞行或参与活动后即可上榜。</div>
           </div>
 
-          <div v-reveal class="about-panel card" :style="{ '--reveal-index': 1 }">
+          <div v-reveal class="about-panel" :style="{ '--reveal-index': 1 }">
             <span class="eyebrow">ABOUT CWFLY</span>
             <h2 class="about-panel__title">把模拟飞行，飞成一场真实的协作</h2>
             <p class="about-panel__text">
@@ -476,18 +476,18 @@ onUnmounted(() => {
   --surface-shadow: 0 14px 34px rgba(25, 42, 64, .08);
   --surface-inset: inset 0 1px 2px rgba(15, 23, 42, .07);
   --row-bg: rgba(15, 23, 42, .025);
-  --event-bg: rgba(255, 255, 255, .15);
-  --event-bg-hover: rgba(255, 255, 255, .21);
-  --event-border: rgba(255, 255, 255, .30);
-  --event-title: #ffffff;
-  --event-meta: #ffffff;
-  --event-badge-bg: rgba(255, 255, 255, .18);
-  --event-badge-text: #ffffff;
-  --event-shadow: 0 8px 24px rgba(25, 42, 64, .08);
-  --event-tint: linear-gradient(180deg, rgba(8, 13, 20, .56), rgba(8, 13, 20, .48));
-  --status-bg: rgba(255, 255, 255, .15);
-  --status-border: rgba(255, 255, 255, .30);
-  --status-tint: linear-gradient(180deg, rgba(8, 13, 20, .50), rgba(8, 13, 20, .42));
+  --event-bg: rgba(255, 255, 255, .65);
+  --event-bg-hover: rgba(255, 255, 255, .78);
+  --event-border: rgba(255, 255, 255, .80);
+  --event-title: #111827;
+  --event-meta: #4B5563;
+  --event-badge-bg: rgba(37, 99, 235, .08);
+  --event-badge-text: #1D4ED8;
+  --event-shadow: 0 14px 34px rgba(25, 42, 64, .08);
+  --event-tint: none;
+  --status-bg: rgba(255, 255, 255, .65);
+  --status-border: rgba(255, 255, 255, .80);
+  --status-tint: none;
   position: relative;
   background: linear-gradient(180deg, rgba(6, 14, 26, .26) 0%, rgba(6, 14, 26, .04) 38%, rgba(6, 14, 26, .24) 100%);
   color: var(--c-text);
@@ -642,7 +642,7 @@ html[data-theme='dark'] .hero__content p { color: rgba(255, 255, 255, .68); }
   align-items: center;
   gap: 8px;
   margin-bottom: 16px;
-  color: rgba(255, 255, 255, .62);
+  color: var(--event-meta);
   font-family: var(--ui-font);
   font-size: 12px;
   font-weight: 500;
@@ -650,7 +650,7 @@ html[data-theme='dark'] .hero__content p { color: rgba(255, 255, 255, .68); }
 }
 .status-bar__hint {
   margin-left: auto;
-  color: rgba(255, 255, 255, .40);
+  color: var(--event-meta);
   font-size: 12px;
   font-weight: 500;
   letter-spacing: .05em;
@@ -674,7 +674,7 @@ html[data-theme='dark'] .hero__content p { color: rgba(255, 255, 255, .68); }
 .status-icon,
 .status-standby { display: none; }
 .status-value {
-  color: #fff;
+  color: var(--event-title);
   font-family: var(--ui-font);
   font-size: 42px;
   font-weight: 750;
@@ -684,7 +684,7 @@ html[data-theme='dark'] .hero__content p { color: rgba(255, 255, 255, .68); }
 }
 .status-label {
   margin-top: 8px;
-  color: rgba(255, 255, 255, .60);
+  color: var(--event-meta);
   font-family: var(--ui-font);
   font-size: 11px;
   font-weight: 450;
@@ -693,6 +693,8 @@ html[data-theme='dark'] .hero__content p { color: rgba(255, 255, 255, .68); }
 html[data-theme='dark'] .hero__content p { color: rgba(255, 255, 255, .70); }
 html[data-theme='dark'] .status-value { color: #fff; }
 html[data-theme='dark'] .status-label { color: rgba(255, 255, 255, .60); }
+html[data-theme='dark'] .status-bar__head,
+html[data-theme='dark'] .status-bar__hint { color: rgba(255, 255, 255, .55); }
 
 /* Sections */
 .section { padding: 56px 24px; }
@@ -992,70 +994,23 @@ html[data-theme='dark'] .rank-index--top { color: #d9b36b; }
 html[data-theme='dark'] .about-panel__title { color: #fff; }
 html[data-theme='dark'] .about-panel__text { color: rgba(255, 255, 255, .56); }
 
-/* 深色玻璃面板最终配色（覆盖上面的亮色基础规则） */
-.portal-home .status-item { border-left-color: rgba(255, 255, 255, .14); }
-.portal-home .leaderboard-panel .section-title,
-.portal-home .about-panel__title {
-  color: #fff;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, .28);
-}
-.portal-home .leaderboard-panel .section-subtitle,
-.portal-home .leaderboard-panel .rank-empty,
-.portal-home .about-panel__text {
-  color: rgba(255, 255, 255, .62);
-}
-.portal-home .leaderboard-panel .section-link {
-  border-color: rgba(255, 255, 255, .20);
-  background: rgba(255, 255, 255, .12);
-  color: #fff;
-}
-.portal-home .leaderboard-panel .section-link:hover {
-  background: rgba(255, 255, 255, .20);
-}
-.portal-home .leaderboard-panel .rank-item:nth-child(odd) {
-  background: rgba(255, 255, 255, .06);
-}
-.portal-home .leaderboard-panel .rank-user { color: #fff; }
-.portal-home .leaderboard-panel .rank-points { color: rgba(255, 255, 255, .62); }
-.portal-home .leaderboard-panel .rank-points small,
-.portal-home .leaderboard-panel .rank-index,
-.portal-home .leaderboard-panel .rank-empty { color: rgba(255, 255, 255, .48); }
-.portal-home .leaderboard-panel .rank-index--top { color: #e8c47a; background: rgba(245, 183, 65, .16); }
-.portal-home .leaderboard-panel .rank-login { color: #9cc9ff; }
-.portal-home .about-panel .about-panel__links a,
-.portal-home .about-panel .about-panel__cta { color: #9cc9ff; }
-.portal-home .about-panel .about-panel__cta { border-top-color: rgba(255, 255, 255, .16); }
 
-
-/* ---------- Scroll Reveal（IntersectionObserver 驱动） ---------- */
+/* ---------- Scroll Reveal ---------- */
 .portal-home [data-reveal] {
   opacity: 0;
   transform: translateY(30px);
-  transition:
-    opacity .7s cubic-bezier(.2, .7, .2, 1),
-    transform .7s cubic-bezier(.2, .7, .2, 1);
+  transition: opacity .7s cubic-bezier(.2, .7, .2, 1), transform .7s cubic-bezier(.2, .7, .2, 1);
   transition-delay: calc(var(--reveal-index, 0) * 100ms);
   will-change: opacity, transform;
 }
-.portal-home [data-reveal].is-visible {
-  opacity: 1;
-  transform: translateY(0);
-}
+.portal-home [data-reveal].is-visible { opacity: 1; transform: translateY(0); }
 @media (prefers-reduced-motion: reduce) {
-  .portal-home [data-reveal] {
-    opacity: 1;
-    transform: none;
-    transition: none;
-  }
+  .portal-home [data-reveal] { opacity: 1; transform: none; transition: none; }
 }
 
 /* ---------- 核心功能 ---------- */
 .section--features { padding-top: 64px; }
-.feature-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 16px;
-}
+.feature-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
 .feature-card {
   display: flex;
   flex-direction: column;
@@ -1077,12 +1032,13 @@ html[data-theme='dark'] .about-panel__text { color: rgba(255, 255, 255, .56); }
   width: 42px;
   height: 42px;
   margin-bottom: 22px;
-  border: 1px solid rgba(255, 255, 255, .18);
+  overflow: hidden;
+  border: 1px solid rgba(15, 23, 42, .08);
   border-radius: 12px;
-  background: rgba(255, 255, 255, .10);
-  color: #fff;
+  background: rgba(15, 23, 42, .05);
+  color: var(--event-title);
 }
-.feature-card__icon svg { width: 21px; height: 21px; }
+.feature-card__icon svg { width: 21px; height: 21px; flex: 0 0 21px; }
 .feature-card h3 {
   margin: 0 0 9px;
   color: var(--event-title);
@@ -1097,7 +1053,11 @@ html[data-theme='dark'] .about-panel__text { color: rgba(255, 255, 255, .56); }
   font-size: 12px;
   line-height: 1.75;
 }
-html[data-theme='dark'] .feature-card__icon { background: rgba(255, 255, 255, .07); }
+html[data-theme='dark'] .feature-card__icon {
+  border-color: rgba(255, 255, 255, .18);
+  background: rgba(255, 255, 255, .07);
+  color: #fff;
+}
 
 /* ---------- 实时数据战报 ---------- */
 .section--stats { padding-top: 16px; }
@@ -1130,18 +1090,8 @@ html[data-theme='dark'] .feature-card__icon { background: rgba(255, 255, 255, .0
   line-height: 1;
   font-variant-numeric: tabular-nums;
 }
-.live-stat span {
-  margin-top: 12px;
-  color: var(--event-title);
-  font-size: 13px;
-  font-weight: 600;
-}
-.live-stat small {
-  margin-top: 6px;
-  color: var(--event-meta);
-  font-size: 11px;
-  line-height: 1.6;
-}
+.live-stat span { margin-top: 12px; color: var(--event-title); font-size: 13px; font-weight: 600; }
+.live-stat small { margin-top: 6px; color: var(--event-meta); font-size: 11px; line-height: 1.6; }
 
 /* ---------- 热门航线 / 活动 Bento ---------- */
 .section--bento { padding-top: 28px; }
@@ -1175,17 +1125,8 @@ html[data-theme='dark'] .feature-card__icon { background: rgba(255, 255, 255, .0
   text-decoration: none;
   box-shadow: 0 14px 32px rgba(25, 42, 64, .14);
 }
-.bento-card--hero {
-  grid-column: span 2;
-  grid-row: span 2;
-  padding: 28px;
-}
-.bento-card__top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
+.bento-card--hero { grid-column: span 2; grid-row: span 2; padding: 28px; }
+.bento-card__top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .bento-card__label {
   color: var(--event-meta);
   font-size: 10px;
@@ -1206,21 +1147,18 @@ html[data-theme='dark'] .feature-card__icon { background: rgba(255, 255, 255, .0
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.bento-card--hero .bento-card__body h3 {
-  font-size: clamp(23px, 3vw, 32px);
-  white-space: normal;
+.bento-card--hero .bento-card__body h3 { font-size: clamp(23px, 3vw, 32px); white-space: normal; }
+.bento-card__body p { margin: 0; color: var(--event-meta); font-size: 12px; line-height: 1.7; }
+.bento-card__note { display: block; margin-top: 14px; color: var(--event-meta); font-size: 11px; }
+.bento-card :deep(.badge) {
+  border: 1px solid rgba(37, 99, 235, .14);
+  background: rgba(37, 99, 235, .08);
+  color: #1D4ED8;
 }
-.bento-card__body p {
-  margin: 0;
-  color: var(--event-meta);
-  font-size: 12px;
-  line-height: 1.7;
-}
-.bento-card__note {
-  display: block;
-  margin-top: 14px;
-  color: var(--event-meta);
-  font-size: 11px;
+html[data-theme='dark'] .bento-card :deep(.badge) {
+  border-color: rgba(255, 255, 255, .15);
+  background: rgba(255, 255, 255, .10);
+  color: #fff;
 }
 .route-diagram {
   display: flex;
@@ -1234,20 +1172,13 @@ html[data-theme='dark'] .feature-card__icon { background: rgba(255, 255, 255, .0
   letter-spacing: .06em;
 }
 .route-diagram__point { flex-shrink: 0; }
-.route-diagram__line {
-  position: relative;
-  display: flex;
-  flex: 1;
-  align-items: center;
-  min-width: 40px;
-  height: 18px;
-}
+.route-diagram__line { position: relative; display: flex; flex: 1; align-items: center; min-width: 40px; height: 18px; }
 .route-diagram__line::before {
   position: absolute;
   top: 50%;
   right: 0;
   left: 0;
-  border-top: 1px dashed rgba(255, 255, 255, .28);
+  border-top: 1px dashed rgba(15, 23, 42, .22);
   content: "";
 }
 .route-diagram__line i {
@@ -1256,7 +1187,7 @@ html[data-theme='dark'] .feature-card__icon { background: rgba(255, 255, 255, .0
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: #fff;
+  background: var(--event-title);
   transform: translateY(-50%);
 }
 .route-diagram__line svg {
@@ -1264,9 +1195,12 @@ html[data-theme='dark'] .feature-card__icon { background: rgba(255, 255, 255, .0
   left: 50%;
   width: 15px;
   height: 15px;
-  color: #fff;
+  color: var(--event-title);
   transform: translate(-50%, -50%);
 }
+html[data-theme='dark'] .route-diagram__line::before { border-top-color: rgba(255, 255, 255, .28); }
+html[data-theme='dark'] .route-diagram__line i { background: #fff; }
+html[data-theme='dark'] .route-diagram__line svg { color: #fff; }
 
 @media (max-width: 860px) {
   .feature-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
