@@ -39,7 +39,7 @@
               <td>
                 <span class="fsd-badge" :class="'fsd-' + (u.fsdLevel ?? 1)">{{ fsdLevelName(u.fsdLevel ?? 1) }}</span>
               </td>
-              <td class="text-secondary text-sm" :title="u.createdAt">{{ u.createdAt }}</td>
+              <td class="text-secondary text-sm" :title="u.createdAt">{{ formatDateTime(u.createdAt) }}</td>
               <td>
                 <!-- 编辑/删除: 仅管理员(11)及以上可操作; 非超管不能操作管理员(11)及以上等级的用户 -->
                 <div class="users-actions">
@@ -101,9 +101,9 @@
           <!-- 以下敏感信息仅超级管理员可见 -->
           <template v-if="userStore.rating >= 12">
             <div class="modal-field"><label>注册 IP</label><span>{{ editUser.registerIp || '-' }}</span></div>
-            <div class="modal-field"><label>注册时间</label><span>{{ editUser.createdAt }}</span></div>
+            <div class="modal-field"><label>注册时间</label><span>{{ formatDateTime(editUser.createdAt) }}</span></div>
             <div class="modal-field"><label>最近登录 IP</label><span>{{ editUser.lastLoginIp || '-' }}</span></div>
-            <div class="modal-field"><label>最近登录时间</label><span>{{ editUser.lastLoginAt || '-' }}</span></div>
+            <div class="modal-field"><label>最近登录时间</label><span>{{ editUser.lastLoginAt ? formatDateTime(editUser.lastLoginAt) : '-' }}</span></div>
             <div class="modal-field"><label>最近登录指纹</label><span>{{ editUser.lastLoginFp || '-' }}</span></div>
           </template>
         </div>
@@ -174,6 +174,18 @@ const FSD_LEVEL_NAMES = {
   11: 'SUP', 12: 'ADM'
 }
 function fsdLevelName(level) { return FSD_LEVEL_NAMES[level] || `未知(${level})` }
+
+/** ISO/字符串时间 → 本地时间 YYYY-MM-DD HH:mm:ss（去掉 T/Z/毫秒） */
+function formatDateTime(value) {
+  if (!value) return '-'
+  const raw = String(value)
+  const date = new Date(raw)
+  if (Number.isNaN(date.getTime())) {
+    return raw.replace('T', ' ').replace(/\.\d+(Z)?$/, '').replace(/Z$/, '')
+  }
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
+}
 
 const users = ref([])
 const loading = ref(false)
@@ -433,21 +445,25 @@ async function confirmDelete() {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
-/* ===== 用户表格：磨砂玻璃底板 + 固定列宽 + 防折行 ===== */
+/* ===== 用户表格：高不透明度毛玻璃底板 + 统一透明行 ===== */
 .users-table-card {
-  /* 半透明主题面板：浅色为白玻璃，深色为深灰玻璃，均保留飞机背景轮廓 */
-  background: var(--panel-bg);
-  border: 1px solid var(--panel-border);
-  -webkit-backdrop-filter: blur(20px);
-  backdrop-filter: blur(20px);
-  box-shadow: var(--shadow-lg, 0 10px 30px rgba(0, 0, 0, 0.05));
-  border-radius: 16px;
+  background: rgba(255, 255, 255, .88) !important;
+  border: 1px solid rgba(0, 0, 0, .06) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  backdrop-filter: blur(16px) !important;
+  box-shadow: none !important;
+  border-radius: 12px !important;
   overflow: hidden;
+}
+html[data-theme='dark'] .users-table-card {
+  background: rgba(15, 20, 30, .84) !important;
+  border-color: rgba(255, 255, 255, .1) !important;
 }
 
 .users-table-wrap {
   overflow-x: auto;
-  border-radius: 16px;
+  border-radius: 12px;
+  background: transparent !important;
 }
 
 .users-table {
@@ -456,36 +472,56 @@ async function confirmDelete() {
   table-layout: fixed;
   border-collapse: separate;
   border-spacing: 0;
+  background: transparent !important;
+}
+.users-table thead,
+.users-table tbody,
+.users-table tr {
+  background: transparent !important;
 }
 
-/* 所有列强制不折行，避免 CID / 用户名 / 时间被挤成竖条 */
+/* 所有列强制不折行、透明底，由外层卡片统一托底 */
 .users-table th,
 .users-table td {
-  padding: 16px 12px;
+  padding: 16px 12px !important;
   white-space: nowrap;
   word-break: normal;
   overflow-wrap: normal;
   vertical-align: middle;
-  color: var(--table-text);
-  border-bottom: 1px solid var(--table-border);
+  color: var(--ui-text) !important;
+  background: transparent !important;
+  border-bottom: 1px solid rgba(0, 0, 0, .05) !important;
+}
+
+html[data-theme='dark'] .users-table th,
+html[data-theme='dark'] .users-table td {
+  color: var(--ui-text) !important;
+  border-bottom-color: rgba(255, 255, 255, .06) !important;
 }
 
 .users-table th {
-  color: var(--table-head-color);
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.01em;
+  color: #6B7280 !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  letter-spacing: .01em;
   text-transform: none;
-  background: var(--table-head-bg);
-  border-bottom: 1px solid var(--table-head-border);
+  background: transparent !important;
+  border-bottom: 1px solid rgba(0, 0, 0, .06) !important;
+}
+html[data-theme='dark'] .users-table th {
+  color: rgba(255, 255, 255, .58) !important;
+  border-bottom-color: rgba(255, 255, 255, .08) !important;
 }
 
 .users-table tbody tr:last-child td {
-  border-bottom: 0;
+  border-bottom: 0 !important;
 }
 
 .users-table tbody tr:hover td {
-  background: var(--table-row-hover);
+  background: rgba(0, 0, 0, .025) !important;
+}
+html[data-theme='dark'] .users-table tbody tr:hover td {
+  background: rgba(255, 255, 255, .04) !important;
 }
 
 /* 列宽：ID/CID 固定，用户名与注册时间留足空间，角色/FSD 紧凑 */
@@ -500,23 +536,13 @@ async function confirmDelete() {
 .users-table th:nth-child(5),
 .users-table td:nth-child(5) { width: 128px; }
 .users-table th:nth-child(6),
-.users-table td:nth-child(6) { width: 168px; }
+.users-table td:nth-child(6) { width: 180px; }
 
-/* 操作列固定在右侧，横向滚动时不消失 */
+/* 操作列不再单独铺白底，也不再 sticky 造成分割块 */
 .users-table th:nth-child(7),
-.users-table td:nth-child(7) {
-  width: 132px;
-  position: sticky;
-  right: 0;
-  z-index: 1;
-  background: var(--panel-bg-solid);
-}
+.users-table td:nth-child(7) { width: 132px; background: transparent !important; }
 
-.users-table th:nth-child(7) {
-  z-index: 2;
-}
-
-/* 角色标签缩小为小号药丸 */
+/* 角色标签缩小为柔和药丸 */
 .users-table :deep(.badge) {
   padding: 2px 8px;
   font-size: 12px;
@@ -524,45 +550,54 @@ async function confirmDelete() {
   border-radius: 6px;
   box-shadow: none;
 }
+/* 超管/管理员红标签降饱和 */
+.users-table :deep(.badge-danger) {
+  background: rgba(239, 68, 68, .08) !important;
+  color: #DC2626 !important;
+  border: 1px solid rgba(239, 68, 68, .16) !important;
+}
+html[data-theme='dark'] .users-table :deep(.badge-danger) {
+  background: rgba(239, 68, 68, .12) !important;
+  color: #FCA5A5 !important;
+  border-color: rgba(239, 68, 68, .22) !important;
+}
 
-/* 操作按钮改为轻量幽灵按钮，去掉白色胶囊阴影 */
+/* ADM 药丸：浅灰底 + 深灰字 */
+.users-table :deep(.fsd-12) {
+  background: rgba(0, 0, 0, .05) !important;
+  color: #374151 !important;
+  border: 1px solid rgba(0, 0, 0, .08) !important;
+}
+html[data-theme='dark'] .users-table :deep(.fsd-12) {
+  background: rgba(255, 255, 255, .08) !important;
+  color: rgba(255, 255, 255, .8) !important;
+  border-color: rgba(255, 255, 255, .12) !important;
+}
+
+/* 编辑 / 删除：纯文字幽灵按钮，无白底无粗边框 */
 .users-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   min-width: 108px;
 }
-
 .users-action {
-  padding: 4px 10px;
-  border: 1px solid var(--panel-border);
-  border-radius: 8px;
-  background: transparent;
-  box-shadow: none;
-  font-size: 12px;
+  padding: 4px 6px !important;
+  border: 0 !important;
+  border-radius: 6px !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  font-size: 12px !important;
   line-height: 1.6;
   cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  transition: background .15s ease, color .15s ease;
 }
-
-.users-action--edit {
-  color: var(--action-info-text);
-}
-
-.users-action--edit:hover {
-  border-color: var(--action-info-text);
-  background: var(--action-info-bg);
-}
-
-.users-action--delete {
-  color: var(--action-danger-text);
-}
-
-.users-action--delete:hover {
-  border-color: var(--action-danger-text);
-  background: var(--action-danger-bg);
-}
-
+.users-action--edit { color: #2563EB !important; }
+.users-action--edit:hover { background: rgba(37, 99, 235, .08) !important; }
+.users-action--delete { color: #DC2626 !important; }
+.users-action--delete:hover { background: rgba(220, 38, 38, .08) !important; }
+html[data-theme='dark'] .users-action--edit { color: #93C5FD !important; }
+html[data-theme='dark'] .users-action--delete { color: #FCA5A5 !important; }
 
 .permission-checkboxes {
   display: flex;
