@@ -1,8 +1,9 @@
-"""当前请求上下文 + 全量 API 操作审计。
+"""当前请求上下文 + API 操作审计。
 
 - 业务代码通过 `current_request()` 读取 IP/UA；
 - 显式调用过 `audit_log.write()` 的请求会打上 semantic 标记，避免兜底重复；
-- 其余所有 /api 请求由中间件在响应后统一补记，保证“所有操作都有记录”。
+- 兜底审计只记录写操作（POST/PUT/PATCH/DELETE），不再记录 GET/HEAD 轮询与浏览；
+- 地图 FSD 轮询等公开只读接口永久排除，避免审计表被高频轮询灌满。
 """
 from __future__ import annotations
 
@@ -22,6 +23,10 @@ log = logging.getLogger("cwfly.audit.middleware")
 _current_request: ContextVar[Request | None] = ContextVar("audit_current_request", default=None)
 _semantic_written: ContextVar[bool] = ContextVar("audit_semantic_written", default=False)
 
+# 公开只读轮询：即使未来改成 POST 也不写入兜底审计
+_IGNORED_POLLING_PREFIXES = ("/api/flightplans/fsd/",)
+_READ_METHODS = {"GET", "HEAD", "OPTIONS"}
+
 
 class AuditContextMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next: Any):
@@ -36,10 +41,12 @@ class AuditContextMiddleware(BaseHTTPMiddleware):
         finally:
             duration_ms = int((time.perf_counter() - started) * 1000)
             try:
+                method = request.method.upper()
                 should_log = (
                     settings.AUDIT_LOG_ALL_REQUESTS
                     and request.url.path.startswith("/api/")
-                    and request.method.upper() != "OPTIONS"
+                    and method not in _READ_METHODS
+                    and not request.url.path.startswith(_IGNORED_POLLING_PREFIXES)
                     and not _semantic_written.get()
                 )
                 if should_log:
