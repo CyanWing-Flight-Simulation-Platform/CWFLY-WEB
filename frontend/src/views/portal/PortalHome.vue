@@ -318,12 +318,11 @@ if (typeof IntersectionObserver !== 'undefined') {
   revealObserver = new IntersectionObserver(
     (entries) => {
       entries.forEach((entry) => {
-        if (!entry.isIntersecting) return
-        entry.target.classList.add('is-visible')
-        revealObserver.unobserve(entry.target)
+        // 双向触发：进入视口淡入上浮，离开视口淡出下坠；不取消观察，可无限次触发
+        entry.target.classList.toggle('is-visible', entry.isIntersecting)
       })
     },
-    { threshold: 0.05, rootMargin: '0px 0px -10% 0px' },
+    { threshold: 0.15, rootMargin: '0px 0px -10% 0px' },
   )
 }
 
@@ -337,8 +336,8 @@ const vReveal = {
     }
     revealObserver.observe(el)
   },
-  unmounted(el) {
-    if (revealObserver) revealObserver.unobserve(el)
+  unmounted() {
+    // 元素卸载时无需 unobserve；页面卸载时统一 disconnect 观察器
   },
 }
 
@@ -1013,7 +1012,6 @@ html[data-theme='dark'] .about-panel__text { color: rgba(255, 255, 255, .56); }
 /* ---------- Scroll Reveal ---------- */
 .portal-home [data-reveal] {
   opacity: 0;
-  visibility: hidden;
   transform: translateY(40px);
   transition:
     opacity .8s ease-out,
@@ -1023,13 +1021,11 @@ html[data-theme='dark'] .about-panel__text { color: rgba(255, 255, 255, .56); }
 }
 .portal-home [data-reveal].is-visible {
   opacity: 1;
-  visibility: visible;
   transform: translateY(0);
 }
 @media (prefers-reduced-motion: reduce) {
   .portal-home [data-reveal] {
     opacity: 1;
-    visibility: visible;
     transform: none;
     transition: none;
   }
