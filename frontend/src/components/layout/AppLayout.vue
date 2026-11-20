@@ -116,7 +116,7 @@ const isMapPage = computed(() => route.path === '/map')
 // ---------------------------------------------------------------------------
 // 头像（顶栏与侧栏共用同一份地址；加载失败由各子组件用 FALLBACK_AVATAR 兜底）
 // ---------------------------------------------------------------------------
-const avatarUrl = ref(
+const avatarUrl = computed(() =>
   user.profile?.avatar?.startsWith('http') ? user.profile.avatar : user.profile?.avatar || '',
 )
 
@@ -125,10 +125,7 @@ const avatarUrl = ref(
 profileApi
   .get()
   .then((r) => {
-    if (r.data) {
-      user.setProfile(r.data)
-      if (r.data.avatar) avatarUrl.value = r.data.avatar
-    }
+    if (r.data) user.setProfile(r.data)
   })
   .catch(() => {})
 

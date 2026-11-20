@@ -310,16 +310,26 @@ def _category_for_path(path: str) -> str:
 
 
 def _claims_actor(request: Any) -> tuple[str, str, str]:
-    """从 Bearer token 取操作人；无效/匿名请求记为 anonymous。"""
+    """从 HttpOnly Cookie 会话或 Bearer token 取操作人；无效/匿名请求记为 anonymous。"""
     if request is None:
         return "anonymous", "游客", ""
-    header = request.headers.get("authorization") or ""
-    if not header.startswith("Bearer "):
+    token = ""
+    try:
+        from app.utils.session_cookie import access_token_from_request
+
+        token = access_token_from_request(request)
+    except Exception:  # noqa: BLE001
+        token = ""
+    if not token:
+        header = request.headers.get("authorization") or ""
+        if header.startswith("Bearer "):
+            token = header[len("Bearer ") :]
+    if not token:
         return "anonymous", "游客", ""
     try:
         from app.services.token import verify_token
 
-        claims = verify_token(header[len("Bearer ") :])
+        claims = verify_token(token)
     except Exception:  # noqa: BLE001
         return "anonymous", "游客", ""
     cid = str(claims.get("cid") or "").strip()
