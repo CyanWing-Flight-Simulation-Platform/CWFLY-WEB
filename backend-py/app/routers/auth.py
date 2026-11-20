@@ -867,6 +867,10 @@ async def device2fa_verify(
         valid, remaining = mfa.consume_recovery_code(remaining, recovery_code)
     if not valid:
         await record_login_failure(db, cid, ip)
+        await audit_log.write(
+            db, "device2fa_failed", "站内设备密钥验证失败", cid,
+            target_type="user", target_id=cid,
+        )
         return fail(400, "设备密钥验证失败或恢复码无效")
     if not await consume_login_challenge(db, challenge, cid, ip):
         return fail(400, "验证已失效，请重新登录")
@@ -874,6 +878,10 @@ async def device2fa_verify(
         await device2fa.update_recovery_codes(db, cid, remaining or "[]")
     await clear_login_failures(db, cid)
     await _safe_login_log(db, cid, ip, get_user_agent(request), get_device_fp(request), True, "device2fa")
+    await audit_log.write(
+        db, "device2fa_verified", "站内设备密钥验证通过", cid,
+        target_type="user", target_id=cid,
+    )
     token = sign_token(user)
     response = ok({"token": token, "user": user_payload(user)})
     set_auth_cookies(response, request, token)

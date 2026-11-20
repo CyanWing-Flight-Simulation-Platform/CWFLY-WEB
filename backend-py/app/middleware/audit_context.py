@@ -29,6 +29,9 @@ _IGNORED_NOISE_PREFIXES = (
     "/api/captcha/",
     "/api/security/pixel.gif",
     "/api/auth/refresh",
+    "/api/auth/login",
+    "/api/auth/device2fa/",
+    "/api/auth/mfa/",
 )
 _READ_METHODS = {"GET", "HEAD", "OPTIONS"}
 
