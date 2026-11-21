@@ -47,7 +47,7 @@ _ready = False
 _CATEGORY_RULES: tuple[tuple[re.Pattern[str], str], ...] = (
     # 先匹配明确的风控/封禁事件，避免 login_* 被归入普通认证
     (re.compile(r"^(login_banned_device|new_ip_no_email|ban|unban|risk|ban_device|unban_device|ip_ban)"), "risk"),
-    (re.compile(r"^(login|logout|password|verify|oauth|mfa|device2fa|session)"), "auth"),
+    (re.compile(r"^(login|logout|password|verify|oauth|passkey|session)"), "auth"),
     (re.compile(r"^(role|permission|staff|delete_user|edit_user|user_approval)"), "permission"),
     (re.compile(r"^(announcement|meeting|event|forum|article|content)"), "content"),
     (re.compile(r"^(system|config|scheduler|migration)"), "system"),

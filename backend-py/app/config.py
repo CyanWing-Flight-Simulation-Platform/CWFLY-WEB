@@ -58,6 +58,11 @@ class Settings(BaseSettings):
     SMTP_FROM_NAME: str = "CW 模拟飞行"
     FRONTEND_URL: str = "http://localhost:5173"
 
+    # ---- WebAuthn / Passkey ----
+    WEBAUTHN_RP_ID: Optional[str] = None
+    WEBAUTHN_RP_NAME: str = "CWFLY 青翼模拟飞行"
+    WEBAUTHN_ORIGIN: Optional[str] = None
+
     # ---- 登录安全 / 验证码 ----
     VERIFY_CODE_TTL_SECONDS: int = 600
     VERIFY_CODE_MAX_ATTEMPTS: int = 5
@@ -114,6 +119,30 @@ class Settings(BaseSettings):
         if self.CORS_ORIGIN:
             return self.CORS_ORIGIN
         return "https://www.cwflysim.cn" if self.is_prod else "http://localhost:5173"
+
+    @property
+    def webauthn_rp_id(self) -> str:
+        if self.WEBAUTHN_RP_ID:
+            return self.WEBAUTHN_RP_ID.strip()
+        source = self.WEBAUTHN_ORIGIN or self.CORS_ORIGIN or self.FRONTEND_URL
+        host = (source or "").split("://", 1)[-1].split("/", 1)[0].split(":", 1)[0]
+        if host.startswith("www."):
+            host = host[4:]
+        return host or "localhost"
+
+    @property
+    def webauthn_origin(self) -> str:
+        if self.WEBAUTHN_ORIGIN:
+            return self.WEBAUTHN_ORIGIN.strip().rstrip("/")
+        return (self.CORS_ORIGIN or self.FRONTEND_URL or self.cors_origin).rstrip("/")
+
+    @property
+    def webauthn_origins(self) -> list[str]:
+        """允许的页面 Origin；生产同时兼容主域名和裸域。"""
+        items = [self.webauthn_origin]
+        if self.webauthn_rp_id.endswith("cwflysim.cn"):
+            items.extend(["https://www.cwflysim.cn", "https://cwflysim.cn"])
+        return list(dict.fromkeys(x for x in items if x))
 
     @property
     def jwt_expires_seconds(self) -> int:

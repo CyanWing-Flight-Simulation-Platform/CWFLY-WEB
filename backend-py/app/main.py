@@ -64,18 +64,16 @@ async def lifespan(app: FastAPI):
         from app.services.audit_log import ensure_schema as _ensure_audit_schema
 
         await _ensure_audit_schema()
-        from app.services.mfa import ensure_schema as _ensure_mfa_schema
+        from app.services.webauthn_service import ensure_schema as _ensure_webauthn_schema
 
-        await _ensure_mfa_schema()
-        from app.services.device2fa import ensure_schema as _ensure_device2fa_schema
+        from app.db.session import SessionLocal as _SessionLocal
 
-        await _ensure_device2fa_schema()
+        async with _SessionLocal() as _webauthn_db:
+            await _ensure_webauthn_schema(_webauthn_db)
         from app.services.tickets_service import ensure_schema as _ensure_ticket_schema
 
         await _ensure_ticket_schema()
         from app.services.community_points import ensure_schema as _ensure_points_schema
-
-        from app.db.session import SessionLocal as _SessionLocal
 
         async with _SessionLocal() as _points_db:
             await _ensure_points_schema(_points_db)

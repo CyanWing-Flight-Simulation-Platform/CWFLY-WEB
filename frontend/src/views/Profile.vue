@@ -48,70 +48,28 @@
       </div>
     </div>
 
-    <!-- 站内设备密钥（自研 Passkey 2FA） -->
+    <!-- 标准 WebAuthn / Passkey -->
     <div class="card p-lg mb-lg profile-card">
-      <h3 class="mb-md">站内设备密钥（2FA）</h3>
+      <h3 class="mb-md">Passkey / 生物识别登录</h3>
       <p class="text-sm text-muted mb-md">
-        不依赖手机或第三方 App：密钥由当前浏览器生成并只保存在本机，登录时用本机密钥签名验证；私钥不会上传。
+        使用设备自带的指纹、面容或系统 PIN 登录，无需输入密码。生物特征仅在您的设备本地完成验证，平台不会收集、上传或保存任何生物特征数据。
       </p>
-      <div class="flex items-center gap-md flex-wrap">
-        <span class="mfa-badge" :class="{ 'is-on': deviceStatus.enabled }">
-          {{ deviceStatus.enabled ? '已启用' : '未启用' }}
-        </span>
-        <button v-if="!deviceStatus.enabled" type="button" class="btn btn-primary btn-sm" @click="deviceStart" :disabled="deviceLoading">
-          注册本机密钥
-        </button>
-        <template v-else>
-          <button type="button" class="btn btn-primary btn-sm" @click="deviceStep = 'rebind'; devicePassword=''" :disabled="deviceLoading">
-            重新绑定本机密钥
-          </button>
-          <button type="button" class="btn btn-outline btn-sm" @click="deviceStep = 'disable'; devicePassword=''; deviceRecoveryCode=''" :disabled="deviceLoading">
-            关闭 2FA
-          </button>
-        </template>
-      </div>
-
-      <div v-if="deviceStep === 'password'" class="mfa-box">
-        <p class="text-sm mb-sm">先验证当前密码，再生成只保存在本机的设备密钥：</p>
-        <input v-model="devicePassword" class="input" type="password" autocomplete="current-password" placeholder="当前密码" />
-        <button type="button" class="btn btn-primary btn-sm mt-sm" @click="deviceSetup" :disabled="deviceLoading">
-          {{ deviceLoading ? '正在生成...' : '生成并注册本机密钥' }}
-        </button>
-      </div>
-
-      <div v-if="deviceStep === 'recovery'" class="mfa-box">
-        <p class="text-sm mb-sm"><b>请立即保存恢复码</b>，换浏览器/清除站点数据时每个恢复码只能使用一次：</p>
-        <div class="mfa-recovery">
-          <code v-for="code in deviceRecoveryCodes" :key="code">{{ code }}</code>
+      <div v-for="item in passkeys" :key="item.id" class="passkey-row">
+        <div>
+          <strong>{{ item.name || 'Passkey' }}</strong>
+          <span>绑定于 {{ formatDate(item.createdAt) }}<template v-if="item.lastUsedAt"> · 最近使用 {{ formatDate(item.lastUsedAt) }}</template></span>
         </div>
-        <div class="flex gap-sm flex-wrap">
-          <button type="button" class="btn btn-outline btn-sm" @click="copyDeviceRecoveryCodes">
-            {{ deviceCopied ? '已复制' : '复制全部恢复码' }}
-          </button>
-          <button type="button" class="btn btn-primary btn-sm" @click="deviceStep = ''">我已保存</button>
-        </div>
+        <button type="button" class="btn btn-outline btn-sm" :disabled="passkeyLoading" @click="removePasskey(item)">移除</button>
       </div>
+      <p v-if="!passkeys.length" class="text-sm text-muted">还没有绑定 Passkey。</p>
 
-      <div v-if="deviceStep === 'rebind'" class="mfa-box">
-        <p class="text-sm mb-sm">换浏览器/清除站点数据后，用当前密码把新设备密钥绑定到当前浏览器；旧密钥和旧恢复码会立即失效。</p>
-        <input v-model="devicePassword" class="input" type="password" autocomplete="current-password" placeholder="当前密码" />
-        <button type="button" class="btn btn-primary btn-sm mt-sm" @click="deviceRebind" :disabled="deviceLoading">
-          {{ deviceLoading ? '正在生成...' : '生成并重新绑定' }}
+      <div class="passkey-form">
+        <input v-model="passkeyPassword" class="input" type="password" autocomplete="current-password" placeholder="当前密码（用于确认身份）" />
+        <button type="button" class="btn btn-primary btn-sm" :disabled="passkeyLoading" @click="registerPasskey">
+          {{ passkeyLoading ? '正在唤起设备验证…' : '绑定 Passkey' }}
         </button>
       </div>
-
-      <div v-if="deviceStep === 'disable'" class="mfa-box">
-        <p class="text-sm mb-sm">关闭 2FA 需要当前密码 + 一个恢复码：</p>
-        <input v-model="devicePassword" class="input" type="password" autocomplete="current-password" placeholder="当前密码" />
-        <input v-model="deviceRecoveryCode" class="input mt-sm" placeholder="恢复码" />
-        <button type="button" class="btn btn-danger btn-sm mt-sm" @click="deviceDisable" :disabled="deviceLoading">
-          {{ deviceLoading ? '请稍候...' : '确认关闭' }}
-        </button>
-      </div>
-
-      <p v-if="deviceMsg" class="text-sm mt-sm" :style="{ color: deviceMsgType === 'ok' ? 'var(--c-success)' : 'var(--c-danger)' }">
-        {{ deviceMsg }}
-      </p>
+      <p v-if="passkeyMsg" class="text-sm mt-sm" :style="{ color: passkeyMsgType === 'ok' ? 'var(--c-success)' : 'var(--c-danger)' }">{{ passkeyMsg }}</p>
     </div>
     <!-- 绑定信息 -->
     <div class="card p-lg mb-lg profile-card">
@@ -206,8 +164,7 @@ import { ref, reactive, onMounted, computed } from 'vue'
 import { useUserStore } from '@/store/user'
 import { navLayout, narrowScreen, setNavLayout } from '@/utils/navLayout'
 import api, { authApi, profileApi } from '@/api'
-import { createDeviceKey } from '@/utils/deviceKey'
-import { copyText } from '@/utils/clipboard'
+import { createPasskey } from '@/utils/passkey'
 import Skeleton from '@/components/base/Skeleton.vue'
 import UserAvatar from '@/components/base/UserAvatar.vue'
 import UserTag from '@/components/base/UserTag.vue'
@@ -240,17 +197,12 @@ const bgMsg = ref('')
 const bgMsgType = ref('ok')
 const currentBg = computed(() => profileData.value?.bgImage ? getBgUrl(profileData.value.bgImage) : null)
 
-// 2FA（自研 TOTP）
-// 站内设备密钥（Passkey）
-const deviceStatus = reactive({ enabled: false, required: false })
-const deviceStep = ref('')
-const devicePassword = ref('')
-const deviceRecoveryCode = ref('')
-const deviceRecoveryCodes = ref([])
-const deviceCopied = ref(false)
-const deviceLoading = ref(false)
-const deviceMsg = ref('')
-const deviceMsgType = ref('ok')
+// 标准 WebAuthn / Passkey
+const passkeys = ref([])
+const passkeyPassword = ref('')
+const passkeyLoading = ref(false)
+const passkeyMsg = ref('')
+const passkeyMsgType = ref('ok')
 
 // FSD 等级映射与用户管理页一致（以用户管理页为准）：
 // 0=飞行员 1=观察员 2=地面/放行S1 3=塔台S2 4=终端S3 5=区域C1 6=区域C2 7=区域C3
@@ -293,7 +245,7 @@ onMounted(async () => {
   } catch { /* ignore */ } finally {
     loading.value = false
   }
-  loadDevice2faStatus()
+  loadPasskeys()
 })
 
 // 背景图相关
@@ -393,96 +345,50 @@ async function saveBind() {
   finally { bindLoading.value = false }
 }
 
-async function loadDevice2faStatus() {
+async function loadPasskeys() {
   try {
-    const res = await authApi.device2faStatus()
-    deviceStatus.enabled = !!res.data?.enabled
-    deviceStatus.required = !!res.data?.required
-  } catch { /* 未登录/接口异常 */ }
+    const res = await authApi.passkeyCredentials()
+    passkeys.value = res.data?.credentials || []
+  } catch { /* ignore */ }
 }
 
-function deviceStart() {
-  deviceStep.value = 'password'
-  devicePassword.value = ''
-  deviceRecoveryCode.value = ''
-  deviceMsg.value = ''
-}
-
-async function deviceSetup() {
-  deviceMsg.value = ''
-  if (!devicePassword.value) { deviceMsg.value = '请输入当前密码'; deviceMsgType.value = 'err'; return }
-  deviceLoading.value = true
+async function registerPasskey() {
+  passkeyMsg.value = ''
+  if (!passkeyPassword.value) { passkeyMsg.value = '请输入当前密码'; passkeyMsgType.value = 'err'; return }
+  passkeyLoading.value = true
   try {
-    const setup = await authApi.device2faSetup({ password: devicePassword.value })
-    const challenge = setup.data?.loginChallenge || ''
-    const cid = user.cid || profileData.value?.cid || ''
-    const publicKey = await createDeviceKey(String(cid))
-    const res = await authApi.device2faRegister({
-      cid,
-      loginChallenge: challenge,
-      publicKey,
-    })
-    deviceRecoveryCodes.value = res.data?.recoveryCodes || []
-    deviceStatus.enabled = true
-    deviceStep.value = 'recovery'
-    deviceMsg.value = '站内设备密钥已注册'
-    deviceMsgType.value = 'ok'
+    const optionsRes = await authApi.passkeyRegisterOptions({ password: passkeyPassword.value })
+    const credential = await createPasskey(optionsRes.data?.options || {})
+    const res = await authApi.passkeyRegisterVerify({ credential, name: '我的 Passkey' })
+    passkeys.value = res.data?.credentials || []
+    passkeyPassword.value = ''
+    passkeyMsg.value = 'Passkey 绑定成功'
+    passkeyMsgType.value = 'ok'
   } catch (e) {
-    deviceMsg.value = e?.message === 'DEVICE_KEY_MISSING'
-      ? '当前浏览器不支持设备密钥'
-      : (e.message || '注册设备密钥失败')
-    deviceMsgType.value = 'err'
+    if (e?.name === 'NotAllowedError') passkeyMsg.value = 'Passkey 绑定已取消或验证超时'
+    else passkeyMsg.value = e?.response?.data?.message || e.message || 'Passkey 绑定失败'
+    passkeyMsgType.value = 'err'
   } finally {
-    deviceLoading.value = false
+    passkeyLoading.value = false
   }
 }
 
-async function deviceRebind() {
-  deviceMsg.value = ''
-  if (!devicePassword.value) { deviceMsg.value = '请输入当前密码'; deviceMsgType.value = 'err'; return }
-  deviceLoading.value = true
+async function removePasskey(item) {
+  passkeyMsg.value = ''
+  if (!passkeyPassword.value) { passkeyMsg.value = '请输入当前密码后再移除'; passkeyMsgType.value = 'err'; return }
+  if (!window.confirm(`确认移除「${item.name || 'Passkey'}」？`)) return
+  passkeyLoading.value = true
   try {
-    const cid = String(user.cid || profileData.value?.cid || '')
-    const publicKey = await createDeviceKey(cid)
-    const res = await authApi.device2faRebind({ password: devicePassword.value, publicKey })
-    deviceRecoveryCodes.value = res.data?.recoveryCodes || []
-    deviceStep.value = 'recovery'
-    devicePassword.value = ''
-    deviceMsg.value = '已重新绑定当前浏览器'
-    deviceMsgType.value = 'ok'
+    const res = await authApi.passkeyDeleteCredential(item.id, { password: passkeyPassword.value })
+    passkeys.value = res.data?.credentials || []
+    passkeyPassword.value = ''
+    passkeyMsg.value = 'Passkey 已移除'
+    passkeyMsgType.value = 'ok'
   } catch (e) {
-    deviceMsg.value = e.message || '重新绑定失败'
-    deviceMsgType.value = 'err'
+    passkeyMsg.value = e?.response?.data?.message || e.message || '移除失败'
+    passkeyMsgType.value = 'err'
   } finally {
-    deviceLoading.value = false
-  }
-}
-
-async function copyDeviceRecoveryCodes() {
-  const ok = await copyText(deviceRecoveryCodes.value.join('\n'))
-  deviceCopied.value = ok
-  if (ok) setTimeout(() => { deviceCopied.value = false }, 2000)
-}
-
-async function deviceDisable() {
-  deviceMsg.value = ''
-  if (!devicePassword.value || !deviceRecoveryCode.value) {
-    deviceMsg.value = '请输入密码和恢复码'; deviceMsgType.value = 'err'; return
-  }
-  deviceLoading.value = true
-  try {
-    await authApi.device2faDisable({ password: devicePassword.value, recoveryCode: deviceRecoveryCode.value })
-    deviceStatus.enabled = false
-    deviceStep.value = ''
-    devicePassword.value = ''
-    deviceRecoveryCode.value = ''
-    deviceMsg.value = '已关闭站内 2FA'
-    deviceMsgType.value = 'ok'
-  } catch (e) {
-    deviceMsg.value = e.message || '关闭失败'
-    deviceMsgType.value = 'err'
-  } finally {
-    deviceLoading.value = false
+    passkeyLoading.value = false
   }
 }
 
@@ -721,49 +627,17 @@ html[data-theme='dark'] .layout-option.active { background: rgba(10, 132, 255, .
 }
 
 /* ===== 2FA ===== */
-.mfa-badge {
-  display: inline-flex;
+
+.passkey-row {
+  display: flex;
   align-items: center;
-  padding: 4px 10px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--c-text-muted);
-  background: rgba(15, 23, 42, .06);
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--c-border-light);
 }
-.mfa-badge.is-on {
-  color: #0f7b4f;
-  background: rgba(16, 185, 129, .12);
-}
-.mfa-box {
-  margin-top: 14px;
-  padding: 14px;
-  border: 1px solid rgba(15, 23, 42, .08);
-  border-radius: 10px;
-  background: rgba(248, 250, 252, .75);
-}
-.mfa-secret {
-  display: block;
-  padding: 10px 12px;
-  border-radius: 8px;
-  background: rgba(37, 99, 235, .06);
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: .08em;
-  word-break: break-all;
-}
-.mfa-recovery {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px;
-  margin: 10px 0;
-}
-.mfa-recovery code {
-  padding: 4px 8px;
-  border-radius: 6px;
-  background: rgba(15, 23, 42, .05);
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: .04em;
-}
+.passkey-row strong { display: block; font-size: 13px; color: var(--c-text); }
+.passkey-row span { display: block; margin-top: 2px; font-size: 11px; color: var(--c-text-muted); }
+.passkey-form { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; max-width: 520px; }
+.passkey-form .input { flex: 1; min-width: 180px; }
 </style>

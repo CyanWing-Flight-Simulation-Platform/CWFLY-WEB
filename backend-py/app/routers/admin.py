@@ -657,9 +657,9 @@ async def delete_user(
     return _AdminResponse({"success": True, "message": "deleted", "bannedFps": banned_fps})
 
 
-@router.post("/users/{cid}/reset-2fa")
+@router.post("/users/{cid}/reset-passkey")
 @handle()
-async def reset_user_2fa(
+async def reset_user_passkey(
     cid: str,
     current: CurrentUser = Depends(admin_guard),
     _perm: CurrentUser = Depends(require_permission(PERM_USER)),
@@ -671,20 +671,15 @@ async def reset_user_2fa(
     if row is None:
         return _fail(404, "not found")
     await db.execute(
-        text(
-            "UPDATE `User` SET `device2faEnabled` = 0, `device2faPublicKey` = NULL, "
-            "`device2faRecoveryCodes` = NULL, `mfaEnabled` = 0, `mfaSecret` = NULL, "
-            "`mfaRecoveryCodes` = NULL WHERE `cid` = :cid"
-        ),
-        {"cid": cid},
+        text("DELETE FROM `webauthn_credentials` WHERE cid = :cid"), {"cid": cid}
     )
     await db.commit()
     try:
         token_state.bump_token_epoch(cid)
     except Exception:
         pass
-    await _write_audit(db, "reset_2fa", "User " + cid + " 的 2FA 被超级管理员重置", current.cid)
-    return _AdminResponse({"success": True, "message": "2FA 已重置"})
+    await _write_audit(db, "reset_passkey", "User " + cid + " 的 Passkey 被超级管理员重置", current.cid)
+    return _AdminResponse({"success": True, "message": "Passkey 已重置"})
 
 
 @router.post("/users/{cid}/reset-password")

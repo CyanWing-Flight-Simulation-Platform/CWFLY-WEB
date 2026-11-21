@@ -71,22 +71,6 @@ export const useUserStore = defineStore('user', () => {
         loginChallenge: res.data?.loginChallenge || '',
       }
     }
-    if (res && (res.needMfa || res.needMfaSetup)) {
-      return {
-        needMfa: !!res.needMfa,
-        needMfaSetup: !!res.needMfaSetup,
-        loginChallenge: res.data?.loginChallenge || '',
-        secret: res.data?.secret || '',
-        otpauthUrl: res.data?.otpauthUrl || '',
-      }
-    }
-    if (res && (res.needDevice2fa || res.needDevice2faSetup)) {
-      return {
-        needDevice2fa: !!res.needDevice2fa,
-        needDevice2faSetup: !!res.needDevice2faSetup,
-        loginChallenge: res.data?.loginChallenge || '',
-      }
-    }
     profile.value = res.data.user
     save()
     localStorage.setItem('cw_last_active', String(Date.now()))

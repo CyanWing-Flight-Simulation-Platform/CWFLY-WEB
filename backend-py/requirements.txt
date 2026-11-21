@@ -16,3 +16,4 @@ python-socketio==5.16.2
 shapely==2.0.6
 redis==5.2.1
 pypdf>=5.0.0,<8.0.0
+webauthn==2.8.0

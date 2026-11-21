@@ -1,8 +1,6 @@
 """认证 / 权限 / CSRF / 上传安全冒烟测试。"""
 from __future__ import annotations
 
-import json
-
 from fastapi import Depends, FastAPI
 from fastapi.testclient import TestClient
 import pytest
@@ -11,7 +9,7 @@ from app.deps import AuthFailure, CurrentUser, get_verified_user, require_permis
 from app.db.session import get_db
 from app.middleware.csrf import CSRFMiddleware
 from app.routers import auth
-from app.services import mfa
+from app.services.webauthn_service import b64url_decode, b64url_encode
 from app.services.meetings_uploads import UnsupportedFileType, validate_upload
 from app.services.profile_uploads import _image_dimensions, background_path_for_url
 
@@ -83,13 +81,11 @@ def test_csrf_rejects_cookie_write_without_matching_header() -> None:
     assert response.status_code == 200
 
 
-def test_recovery_code_is_one_time() -> None:
-    codes, stored = mfa.generate_recovery_codes()
-    ok, remaining = mfa.consume_recovery_code(stored, codes[0])
-    assert ok is True
-    ok_again, _ = mfa.consume_recovery_code(remaining, codes[0])
-    assert ok_again is False
-    assert len(json.loads(remaining)) == 7
+def test_webauthn_b64url_roundtrip() -> None:
+    raw = b"\x00\x01passkey-test\xff"
+    encoded = b64url_encode(raw)
+    assert "=" not in encoded
+    assert b64url_decode(encoded) == raw
 
 
 def test_upload_magic_and_extension_validation() -> None:

@@ -30,8 +30,7 @@ _IGNORED_NOISE_PREFIXES = (
     "/api/security/pixel.gif",
     "/api/auth/refresh",
     "/api/auth/login",
-    "/api/auth/device2fa/",
-    "/api/auth/mfa/",
+    "/api/auth/passkey/",
 )
 _READ_METHODS = {"GET", "HEAD", "OPTIONS"}
 

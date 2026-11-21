@@ -3,7 +3,7 @@ import { getDeviceFp } from '@/utils/deviceFp'
 import { applyPowHeader, getPowToken, waitForPowToken } from '@/utils/pow'
 
 // 需 PoW 的敏感接口（相对 baseURL /api）：验证码、注册、找回/重置密码
-const POW_ENFORCED = ['/verify/send', '/auth/login', '/auth/login-verify', '/auth/mfa/verify', '/auth/mfa/enroll', '/auth/register', '/auth/forgot-password', '/auth/reset-password']
+const POW_ENFORCED = ['/verify/send', '/auth/login', '/auth/login-verify', '/auth/register', '/auth/forgot-password', '/auth/reset-password']
 import { isWithinActiveWindow } from '@/utils/jwt'
 import { showBanner, navigateToLoginAfterBanner } from '@/utils/banner'
 import { safeRedirectPath } from '@/utils/redirect'
@@ -159,19 +159,12 @@ export default api
 export const authApi = {
   login: (data) => api.post('/auth/login', data),
   loginVerify: (data) => api.post('/auth/login-verify', data),
-  mfaVerify: (data) => api.post('/auth/mfa/verify', data),
-  mfaEnroll: (data) => api.post('/auth/mfa/enroll', data),
-  mfaStatus: () => api.get('/auth/mfa/status'),
-  mfaSetup: (data) => api.post('/auth/mfa/setup', data),
-  mfaActivate: (data) => api.post('/auth/mfa/activate', data),
-  mfaDisable: (data) => api.post('/auth/mfa/disable', data),
-  mfaRecoveryCodes: (data) => api.post('/auth/mfa/recovery-codes', data),
-  device2faStatus: () => api.get('/auth/device2fa/status'),
-  device2faSetup: (data) => api.post('/auth/device2fa/setup', data),
-  device2faRegister: (data) => api.post('/auth/device2fa/register', data),
-  device2faVerify: (data) => api.post('/auth/device2fa/verify', data),
-  device2faRebind: (data) => api.post('/auth/device2fa/rebind', data),
-  device2faDisable: (data) => api.post('/auth/device2fa/disable', data),
+  passkeyLoginOptions: (data) => api.post('/auth/passkey/login/options', data),
+  passkeyLoginVerify: (data) => api.post('/auth/passkey/login/verify', data),
+  passkeyCredentials: () => api.get('/auth/passkey/credentials'),
+  passkeyRegisterOptions: (data) => api.post('/auth/passkey/register/options', data),
+  passkeyRegisterVerify: (data) => api.post('/auth/passkey/register/verify', data),
+  passkeyDeleteCredential: (id, data) => api.delete(`/auth/passkey/credentials/${id}`, { data }),
   logout: () => api.post('/auth/logout'),
   register: (data) => api.post('/auth/register', data),
   me: () => api.get('/auth/me'),
@@ -251,7 +244,7 @@ export const adminApi = {
   updateUser: (cid, data) => api.put(`/admin/users/${cid}`, data),
   deleteUser: (cid, data) => api.delete(`/admin/users/${cid}`, { data }),
   resetUserPassword: (cid, data) => api.post(`/admin/users/${cid}/reset-password`, data),
-  resetUser2fa: (cid) => api.post(`/admin/users/${cid}/reset-2fa`),
+  resetUserPasskey: (cid) => api.post(`/admin/users/${cid}/reset-passkey`),
   // 积分商城管理
   pointsConfig: () => api.get('/admin/points/config'),
   updatePointsConfig: (data) => api.put('/admin/points/config', data),

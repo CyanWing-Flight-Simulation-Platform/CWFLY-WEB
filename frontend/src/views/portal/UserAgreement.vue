@@ -8,8 +8,8 @@
 
       <div class="card p-lg mb-lg legal__meta">
         <p class="text-secondary" style="line-height:1.8;margin:0;">
-          <strong>最后更新：</strong>2026 年 10 月 31 日
-          <strong>生效日期：</strong>2026 年 10 月 31 日
+          <strong>最后更新：</strong>2026 年 11 月 21 日
+          <strong>生效日期：</strong>2026 年 11 月 21 日
         </p>
         <p class="text-sm text-muted mt-sm" style="margin:0;">
           相关文档：
@@ -45,6 +45,17 @@
           <li>我们可能对注册信息进行核验，并对同一设备 / 网络批量注册、撞库、异常登录等行为采取限制措施；</li>
           <li>如你希望注销账号，请按《隐私政策》第九条的方式申请，注销后账号数据将按政策删除或匿名化。</li>
         </ul>
+      </div>
+
+      <div class="card p-lg mb-lg">
+        <h3 class="mb-md">二（补充）、WebAuthn / Passkey 与生物识别</h3>
+        <p class="text-secondary" style="line-height:1.8;">
+          本平台采用标准的 WebAuthn / Passkey 技术进行身份验证。该技术通过本地设备的生物识别（指纹、面容）或系统 PIN 码进行授权，您的生物特征数据仅保存在您的本地设备中，本平台绝不会收集、上传或保存您的任何人脸、指纹等生物特征信息。
+        </p>
+        <p class="text-secondary mt-sm" style="line-height:1.8;">
+          Passkey 是密码登录的可选增强方式，密码登录始终作为降级方案保留。你应妥善保管自己的设备与系统解锁凭证；
+          因设备遗失、系统凭证泄露或被他人解锁导致的账号风险，由你自行承担，并应及时通过 Passkey 管理页或联系管理员移除凭据。
+        </p>
       </div>
 
       <div class="card p-lg mb-lg">

@@ -8,8 +8,8 @@
 
       <div class="card p-lg mb-lg legal__meta">
         <p class="text-secondary" style="line-height:1.8;margin:0;">
-          <strong>最后更新：</strong>2026 年 10 月 31 日
-          <strong>生效日期：</strong>2026 年 10 月 31 日
+          <strong>最后更新：</strong>2026 年 11 月 21 日
+          <strong>生效日期：</strong>2026 年 11 月 21 日
         </p>
         <p class="text-sm text-muted mt-sm" style="margin:0;">
           相关文档：
@@ -84,6 +84,17 @@
           <strong>我们不收集：</strong>身份证件号码、人脸 / 指纹等生物识别信息、精确 GPS 位置、
           通讯录、短信内容、银行卡与支付信息（如未来涉及付费服务，将单独告知并征得同意）。
           活动报名也不需要填写真实姓名与手机号。
+        </p>
+      </div>
+
+      <div class="card p-lg mb-lg">
+        <h3 class="mb-md">二（补充）、WebAuthn / Passkey 与生物识别</h3>
+        <p class="text-secondary" style="line-height:1.8;">
+          本平台采用标准的 WebAuthn / Passkey 技术进行身份验证。该技术通过本地设备的生物识别（指纹、面容）或系统 PIN 码进行授权，您的生物特征数据仅保存在您的本地设备中，本平台绝不会收集、上传或保存您的任何人脸、指纹等生物特征信息。
+        </p>
+        <p class="text-secondary mt-sm" style="line-height:1.8;">
+          启用 Passkey 时，服务器仅保存由认证器生成的公钥、凭据 ID 与签名计数器，用于校验登录签名；
+          这些数据不包含您的生物特征模板，也无法用于还原您的指纹或面容。密码登录始终作为降级方式保留。
         </p>
       </div>
 

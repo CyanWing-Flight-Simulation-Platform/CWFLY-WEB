@@ -40,101 +40,15 @@
 
         <SubmitButton :status="status" label="登 录" @settle="status = 'idle'" />
 
-        <!-- 站内设备密钥（自研 Passkey） -->
-        <div v-if="showDevice2fa" class="verify-wrap">
-          <div class="verify-box">
-            <template v-if="deviceRecoveryCodes.length">
-              <p class="text-sm text-muted mb-sm">
-                本站设备密钥已注册。请立即保存以下恢复码，换浏览器/清除站点数据时用于登录（每个恢复码只能使用一次）：
-              </p>
-              <div class="mfa-recovery">
-                <code v-for="code in deviceRecoveryCodes" :key="code">{{ code }}</code>
-              </div>
-              <button type="button" class="btn btn-outline btn-block mb-sm" @click="copyDeviceRecoveryCodes">
-                {{ deviceCopied ? '已复制' : '复制全部恢复码' }}
-              </button>
-              <button type="button" class="btn btn-primary btn-block" @click="finishDevice2fa">
-                我已保存，进入平台
-              </button>
-            </template>
-            <template v-else>
-              <p class="text-sm text-muted mb-sm">
-                {{ deviceSetup
-                  ? '首次登录需注册本站设备密钥：密钥只保存在当前浏览器，不上传私钥，无需手机或第三方 App。'
-                  : '请使用当前浏览器中保存的本站设备密钥完成验证。' }}
-              </p>
-              <button
-                v-if="deviceSetup"
-                type="button"
-                class="btn btn-primary btn-block"
-                @click="registerDevice2fa"
-                :disabled="deviceLoading"
-              >
-                {{ deviceLoading ? '正在生成...' : '生成并注册本机密钥' }}
-              </button>
-              <button
-                v-else
-                type="button"
-                class="btn btn-primary btn-block"
-                @click="verifyDevice2fa"
-                :disabled="deviceLoading"
-              >
-                {{ deviceLoading ? '验证中...' : '使用本机密钥验证' }}
-              </button>
-              <div class="mt-sm">
-                <input
-                  v-model="deviceRecoveryCode"
-                  class="input"
-                  placeholder="本机无密钥时输入恢复码"
-                  autocomplete="one-time-code"
-                />
-                <button type="button" class="btn btn-outline btn-block mt-sm" @click="verifyDeviceRecovery" :disabled="deviceLoading">
-                  使用恢复码登录
-                </button>
-              </div>
-              <p v-if="deviceErr" class="text-xs mt-sm" style="color:var(--c-danger);">{{ deviceErr }}</p>
-            </template>
-          </div>
-        </div>
-
-        <!-- 备用：手机 TOTP（历史兼容） -->
-        <div v-if="showMfa" class="verify-wrap">
-          <div class="verify-box">
-            <template v-if="mfaRecoveryCodes.length">
-              <p class="text-sm text-muted mb-sm">
-                TOTP 验证器绑定成功。请立即保存以下恢复码，丢失设备时用于登录（每个恢复码只能使用一次）：
-              </p>
-              <div class="mfa-recovery">
-                <code v-for="code in mfaRecoveryCodes" :key="code">{{ code }}</code>
-              </div>
-              <button type="button" class="btn btn-primary btn-block" @click="finishMfa">
-                我已保存，进入平台
-              </button>
-            </template>
-            <template v-else>
-              <p class="text-sm text-muted mb-sm">
-                {{ mfaSetup ? '首次登录需绑定 TOTP 动态验证码' : '请输入 TOTP 验证器中的 6 位动态验证码' }}
-              </p>
-              <div v-if="mfaSetup" class="mfa-secret">
-                <p class="text-xs text-muted">在 TOTP 验证器中手动添加以下密钥（Google Authenticator、1Password、Bitwarden 等均可）：</p>
-                <code>{{ mfaSecret }}</code>
-              </div>
-              <input
-                v-model="mfaCode"
-                class="input"
-                :inputmode="mfaSetup ? 'numeric' : 'text'"
-                :maxlength="mfaSetup ? 6 : 12"
-                autocomplete="one-time-code"
-                :placeholder="mfaSetup ? '6 位动态验证码' : '动态验证码或恢复码'"
-                @keyup.enter="confirmMfa"
-              />
-              <button type="button" class="btn btn-primary btn-block mt-sm" @click="confirmMfa" :disabled="mfaVerifying">
-                {{ mfaVerifying ? '验证中...' : (mfaSetup ? '绑定并登录' : '验证并登录') }}
-              </button>
-              <p v-if="mfaErr" class="text-xs mt-sm" style="color:var(--c-danger);">{{ mfaErr }}</p>
-            </template>
-          </div>
-        </div>
+        <button
+          type="button"
+          class="btn btn-outline btn-block mt-sm"
+          :disabled="passkeyLoading"
+          @click="loginWithPasskey"
+        >
+          {{ passkeyLoading ? '正在唤起 Passkey…' : '使用 Passkey 登录' }}
+        </button>
+        <p v-if="passkeyErr" class="text-xs mt-sm" style="color:var(--c-danger);text-align:center;">{{ passkeyErr }}</p>
 
         <!-- 新设备/IP 登录二次验证：果冻弹出邮箱验证码框 -->
         <div v-if="showVerify" class="verify-wrap">
@@ -178,8 +92,7 @@ import { getDeviceFp } from '@/utils/deviceFp'
 import { waitForPowToken } from '@/utils/pow'
 import { useFieldFeedback } from '@/utils/fieldFeedback'
 import { resolvePostLoginPath } from '@/utils/redirect'
-import { createDeviceKey, signDeviceChallenge } from '@/utils/deviceKey'
-import { copyText } from '@/utils/clipboard'
+import { getPasskey } from '@/utils/passkey'
 
 const route = useRoute()
 const router = useRouter()
@@ -202,27 +115,8 @@ const verifying = ref(false)
 const verifyErr = ref('')
 let cooldownTimer = null
 
-// ===== 管理员双因素认证 =====
-const showMfa = ref(false)
-const mfaSetup = ref(false)
-const mfaChallenge = ref('')
-const mfaSecret = ref('')
-const mfaCode = ref('')
-const mfaErr = ref('')
-const mfaVerifying = ref(false)
-const mfaRecoveryCodes = ref([])
-const mfaCompleted = ref(null)
-
-// ===== 站内设备密钥（自研 Passkey） =====
-const showDevice2fa = ref(false)
-const deviceSetup = ref(false)
-const deviceChallenge = ref('')
-const deviceRecoveryCode = ref('')
-const deviceRecoveryCodes = ref([])
-const deviceLoading = ref(false)
-const deviceErr = ref('')
-const deviceCompleted = ref(null)
-const deviceCopied = ref(false)
+const passkeyLoading = ref(false)
+const passkeyErr = ref('')
 
 /** 脱敏邮箱用于展示，如 ab***@x.com */
 const maskedEmail = computed(() => {
@@ -255,26 +149,6 @@ async function handleLogin() {
       showVerify.value = true
       verifyErr.value = ''
       sendLoginCode()
-      return
-    }
-    if (res && (res.needDevice2fa || res.needDevice2faSetup)) {
-      status.value = 'idle'
-      showDevice2fa.value = true
-      deviceSetup.value = !!res.needDevice2faSetup
-      deviceChallenge.value = res.loginChallenge || ''
-      deviceErr.value = ''
-      deviceRecoveryCode.value = ''
-      deviceRecoveryCodes.value = []
-      return
-    }
-    if (res && (res.needMfa || res.needMfaSetup)) {
-      status.value = 'idle'
-      showMfa.value = true
-      mfaSetup.value = !!res.needMfaSetup
-      mfaChallenge.value = res.loginChallenge || ''
-      mfaSecret.value = res.secret || ''
-      mfaCode.value = ''
-      mfaErr.value = ''
       return
     }
     status.value = 'success'
@@ -347,113 +221,26 @@ async function confirmLoginVerify() {
   }
 }
 
-async function registerDevice2fa() {
-  deviceErr.value = ''
-  deviceLoading.value = true
-  try {
-    const cid = String(form.value.cid || '').trim()
-    const publicKey = await createDeviceKey(cid)
-    const res = await authApi.device2faRegister({
-      cid,
-      loginChallenge: deviceChallenge.value,
-      publicKey,
-    })
-    deviceRecoveryCodes.value = res.data?.recoveryCodes || []
-    deviceCompleted.value = res.data
-  } catch (e) {
-    deviceErr.value = e?.message === 'DEVICE_KEY_MISSING'
-      ? '当前浏览器不支持或无法保存设备密钥'
-      : (e.message || '设备密钥注册失败')
-  } finally {
-    deviceLoading.value = false
+async function loginWithPasskey() {
+  passkeyErr.value = ''
+  const cid = String(form.value.cid || '').trim()
+  if (!/^\d{4}$/.test(cid)) {
+    fb.fail('cid', '请先输入 4 位数字 CID')
+    return
   }
-}
-
-async function verifyDevice2fa() {
-  deviceErr.value = ''
-  deviceLoading.value = true
+  passkeyLoading.value = true
   try {
-    const cid = String(form.value.cid || '').trim()
-    const signature = await signDeviceChallenge(cid, deviceChallenge.value)
-    const res = await authApi.device2faVerify({ cid, loginChallenge: deviceChallenge.value, signature })
-    userStore.applyLogin(res.data)
+    const optionsRes = await authApi.passkeyLoginOptions({ cid })
+    const credential = await getPasskey(optionsRes.data?.options || {})
+    const verifyRes = await authApi.passkeyLoginVerify({ cid, credential })
+    userStore.applyLogin(verifyRes.data)
     router.replace(postLoginPath())
   } catch (e) {
-    deviceErr.value = e?.message === 'DEVICE_KEY_MISSING'
-      ? '当前浏览器没有本站设备密钥，请使用恢复码（换浏览器/清除站点数据后需重新注册）'
-      : (e.message || '设备密钥验证失败')
+    if (e?.name === 'NotAllowedError') passkeyErr.value = 'Passkey 登录已取消或验证超时'
+    else passkeyErr.value = e?.response?.data?.message || e.message || 'Passkey 登录失败，请使用密码登录'
   } finally {
-    deviceLoading.value = false
+    passkeyLoading.value = false
   }
-}
-
-async function verifyDeviceRecovery() {
-  deviceErr.value = ''
-  if (!deviceRecoveryCode.value) { deviceErr.value = '请输入恢复码'; return }
-  deviceLoading.value = true
-  try {
-    const cid = String(form.value.cid || '').trim()
-    const res = await authApi.device2faVerify({
-      cid,
-      loginChallenge: deviceChallenge.value,
-      recoveryCode: deviceRecoveryCode.value,
-    })
-    userStore.applyLogin(res.data)
-    router.replace(postLoginPath())
-  } catch (e) {
-    deviceErr.value = e.message || '恢复码验证失败'
-  } finally {
-    deviceLoading.value = false
-  }
-}
-
-async function copyDeviceRecoveryCodes() {
-  const ok = await copyText(deviceRecoveryCodes.value.join('\n'))
-  deviceCopied.value = ok
-  if (ok) setTimeout(() => { deviceCopied.value = false }, 2000)
-}
-
-function finishDevice2fa() {
-  if (!deviceCompleted.value) return
-  userStore.applyLogin(deviceCompleted.value)
-  router.replace(postLoginPath())
-}
-
-async function confirmMfa() {
-  mfaErr.value = ''
-  const raw = String(mfaCode.value || '').trim()
-  const code = mfaSetup.value ? raw.replace(/\D/g, '') : raw.toUpperCase()
-  if (mfaSetup.value && code.length !== 6) { mfaErr.value = '请输入 6 位动态验证码'; return }
-  if (!mfaSetup.value && !code) { mfaErr.value = '请输入动态验证码或恢复码'; return }
-  if (!mfaChallenge.value) { mfaErr.value = '登录验证已失效，请重新登录'; return }
-  mfaVerifying.value = true
-  try {
-    const payload = {
-      cid: form.value.cid,
-      loginChallenge: mfaChallenge.value,
-      code,
-    }
-    if (mfaSetup.value) {
-      const res = await authApi.mfaEnroll(payload)
-      mfaCompleted.value = res.data
-      mfaRecoveryCodes.value = res.data?.recoveryCodes || []
-      mfaCode.value = ''
-    } else {
-      const res = await authApi.mfaVerify(payload)
-      userStore.applyLogin(res.data)
-      router.replace(postLoginPath())
-    }
-  } catch (e) {
-    mfaErr.value = e.message || '动态验证码验证失败'
-  } finally {
-    mfaVerifying.value = false
-  }
-}
-
-function finishMfa() {
-  if (!mfaCompleted.value) return
-  userStore.applyLogin(mfaCompleted.value)
-  router.replace(postLoginPath())
 }
 
 onUnmounted(() => {
@@ -517,36 +304,6 @@ onUnmounted(() => {
 .verify-wrap {
   margin-top: 16px;
   animation: loginJellyIn .5s cubic-bezier(.34, 1.56, .64, 1) both;
-}
-.mfa-secret {
-  margin-bottom: 10px;
-  padding: 10px 12px;
-  border-radius: 8px;
-  background: rgba(37, 99, 235, .06);
-}
-.mfa-secret code {
-  display: block;
-  margin-top: 5px;
-  color: var(--c-text);
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: .08em;
-  word-break: break-all;
-}
-.mfa-recovery {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px;
-  margin-bottom: 12px;
-  padding: 10px 12px;
-  border-radius: 8px;
-  background: rgba(15, 23, 42, .04);
-}
-.mfa-recovery code {
-  color: var(--c-text);
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: .04em;
 }
 .verify-box {
   padding: 16px;
