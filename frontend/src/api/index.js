@@ -55,11 +55,14 @@ api.interceptors.request.use(async config => {
 
 // 会话续签状态：避免并发多个 401 时重复刷新
 let refreshingPromise = null
+// 续签已明确失败（Cookie 过期/被吊销）后，本次页面生命周期内不再反复请求 /auth/refresh
+let authExpired = false
 
 /**
  * 自动续签：Cookie 会话下直接调用 /auth/refresh，由服务端轮换 HttpOnly Cookie。
  */
 function tryAutoRenew() {
+  if (authExpired) return Promise.resolve(false)
   if (!isWithinActiveWindow()) return Promise.resolve(false)
   if (!refreshingPromise) {
     refreshingPromise = api.post('/auth/refresh')
@@ -67,9 +70,14 @@ function tryAutoRenew() {
         const user = res.data?.user
         if (user) localStorage.setItem('cw_user', JSON.stringify(user))
         localStorage.setItem('cw_auth', '1')
+        authExpired = false
         return true
       })
-      .catch(() => false)
+      .catch(err => {
+        // 401 表示 Cookie 会话已经过期/被吊销，不要继续重试
+        if (err?.response?.status === 401) authExpired = true
+        return false
+      })
       .finally(() => { refreshingPromise = null })
   }
   return refreshingPromise
@@ -77,22 +85,29 @@ function tryAutoRenew() {
 
 // 响应拦截器 —— 统一错误处理 + 401 自动续签重放
 api.interceptors.response.use(
-  res => res.data,
+  res => {
+    if (res.data?.token) authExpired = false
+    return res.data
+  },
   async err => {
     const msg = err.response?.data?.message || '网络错误'
     // 401 未授权：登录/注册/refresh 接口自身的 401 不应续签（让页面自己处理错误显示）
     if (err.response?.status === 401) {
       const url = err.config?.url || ''
       const isAuthRequest = url.startsWith('/auth/login') || url.startsWith('/auth/register')
+      const isRefreshRequest = url.startsWith('/auth/refresh')
       // 安全(2026-10-25 审计 P2-3): 同一请求最多自动重放一次, 防续签-重放死循环
       if (err.config?._retried) return Promise.reject(err)
       if (!isAuthRequest) {
-        // 尝试自动续签（仅 10 分钟内活跃时）；续签成功则用新 token 重放原请求
-        const renewed = await tryAutoRenew()
-        if (renewed && !url.startsWith('/auth/refresh')) {
-          const newConfig = { ...err.config, _retried: true }
-          newConfig.headers = { ...(newConfig.headers || {}) }
-          return api.request(newConfig)
+        // /auth/refresh 自身返回 401 时不要再递归触发续签
+        if (!isRefreshRequest) {
+          // 尝试自动续签（仅 10 分钟内活跃时）；续签成功则用新 token 重放原请求
+          const renewed = await tryAutoRenew()
+          if (renewed) {
+            const newConfig = { ...err.config, _retried: true }
+            newConfig.headers = { ...(newConfig.headers || {}) }
+            return api.request(newConfig)
+          }
         }
         // 续签失败/超时：清除登录信息，Toast 提示登录过期后跳登录页
         const hadToken = localStorage.getItem('cw_auth') === '1'

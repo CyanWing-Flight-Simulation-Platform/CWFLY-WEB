@@ -192,7 +192,7 @@ function manualChunks(id) {
 | `src/views/portal/AboutUs.vue` | 0 | 纯文本 + card 布局 | 该页无 img，不做改动 |
 | `src/views/airport/AirportDetail.vue` | 0 | 纯数据表格/卡片 | 该页无 img，不做改动 |
 | `src/views/knowledge/KnowledgeBase.vue` | 0 | 纯文本卡片列表 | 该页无 img，不做改动 |
-| `src/views/forum/ForumPostDetail.vue` | 0 | 正文通过 `v-html="renderContent(...)"` 渲染（内容来自后端） | 该页模板无 img；`v-html` 动态内容无法用模板属性加 `loading`，如需覆盖应在 `utils/sanitize.js` 的渲染层统一处理（超出本任务允许改动范围，列入 §9 建议） |
+| `src/views/forum/ForumPostDetail 已删除` | 0 | 正文通过 `v-html="renderContent(...)"` 渲染（内容来自后端） | 该页模板无 img；`v-html` 动态内容无法用模板属性加 `loading`，如需覆盖应在 `utils/sanitize.js` 的渲染层统一处理（超出本任务允许改动范围，列入 §9 建议） |
 
 未做任何「为凑数而改」的改动；`index.html` 中的 `/logo/logo_transparent.png` 是 `favicon`，不属于页面 `<img>`，且天然不阻塞首屏渲染。
 

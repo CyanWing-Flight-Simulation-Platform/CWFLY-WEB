@@ -80,7 +80,7 @@
       </div>
 
       <div v-if="deviceStep === 'recovery'" class="mfa-box">
-        <p class="text-sm mb-sm"><b>请立即保存恢复码</b>，换浏览器/清除站点数据时每个恢复码可使用一次：</p>
+        <p class="text-sm mb-sm"><b>请立即保存恢复码</b>，换浏览器/清除站点数据时每个恢复码只能使用一次：</p>
         <div class="mfa-recovery">
           <code v-for="code in deviceRecoveryCodes" :key="code">{{ code }}</code>
         </div>

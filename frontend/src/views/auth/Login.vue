@@ -45,7 +45,7 @@
           <div class="verify-box">
             <template v-if="deviceRecoveryCodes.length">
               <p class="text-sm text-muted mb-sm">
-                本站设备密钥已注册。请立即保存以下恢复码，换浏览器/清除站点数据时用于登录：
+                本站设备密钥已注册。请立即保存以下恢复码，换浏览器/清除站点数据时用于登录（每个恢复码只能使用一次）：
               </p>
               <div class="mfa-recovery">
                 <code v-for="code in deviceRecoveryCodes" :key="code">{{ code }}</code>
@@ -102,7 +102,7 @@
           <div class="verify-box">
             <template v-if="mfaRecoveryCodes.length">
               <p class="text-sm text-muted mb-sm">
-                TOTP 验证器绑定成功。请立即保存以下恢复码，丢失设备时用于登录：
+                TOTP 验证器绑定成功。请立即保存以下恢复码，丢失设备时用于登录（每个恢复码只能使用一次）：
               </p>
               <div class="mfa-recovery">
                 <code v-for="code in mfaRecoveryCodes" :key="code">{{ code }}</code>

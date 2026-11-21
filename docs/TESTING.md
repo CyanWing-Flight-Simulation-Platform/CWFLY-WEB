@@ -16,7 +16,7 @@
 | 测试范围 | 仅 `src/utils/` 纯逻辑工具；组件、composables、store、路由守卫、页面均无自动化测试 |
 | 代码检查 | ESLint 9 flat config（`frontend/eslint.config.js`），覆盖率见第五节 |
 | 构建验证 | `npm run build`（Vite 5），作为「代码可交付」的事实门槛 |
-| CI | `.github/workflows/frontend-ci.yml`：Node 20/22 矩阵跑 install → test → lint → build（push / PR） |
+| CI | `.github/workflows/frontend-ci.yml`：Node 22/24 矩阵跑 install → test → lint → build（push / PR） |
 | E2E | **未引入**（无 Playwright / Cypress），关键路径靠手工回归清单（第九节） |
 
 ---
@@ -150,7 +150,7 @@ ls dist/assets | head -n 5
 ```yaml
 # 触发：push / pull_request（仅当 frontend/** 或该 workflow 变更）+ 手动 workflow_dispatch
 # 并发：同一 ref 只保留最新一次运行（cancel-in-progress）
-# 矩阵：Node 20 / 22（fail-fast: false）
+# 矩阵：Node 22 / 24（fail-fast: false）
 # 所有 run 步骤默认 working-directory: frontend，缓存 npm（frontend/package-lock.json）
 # 步骤：
 #   npm ci
@@ -274,7 +274,7 @@ ls dist/assets | head -n 5
 | `cd frontend && npm run test` | 已完成 **9 个测试文件 / 153 个用例全部通过**（约 4.5–6.5s） |
 | `cd frontend && npm run lint` | 已完成 **通过（0 error / 0 warning）**；历史文件按 `TODO(lint-freeze)` 定向豁免 |
 | `cd frontend && npx vite build --outDir .tmp-build-docs --emptyOutDir` | 已完成 构建成功（约 7.3s）；产物：`index` ≈ 215 KB（gzip 80 KB）、`OnlineMap` ≈ 90 KB（gzip 29 KB）、`three` ≈ 605 KB（gzip 154 KB）、`pdfjs` ≈ 476 KB（gzip 142 KB）；`three` 超过 `chunkSizeWarningLimit: 600` 属**已知且可接受**（仅地图页懒加载），另见 `frontend/docs/performance.md` |
-| CI 工作流 | `.github/workflows/frontend-ci.yml` 已就位（Node 20/22 矩阵） |
+| CI 工作流 | `.github/workflows/frontend-ci.yml` 已就位（Node 22/24 矩阵） |
 
 > 说明：以上为文档编写时的快照；接手后请把本节替换为最近一次全量验证的实际输出（命令 + 结果 + 日期），保持文档可追溯。
 

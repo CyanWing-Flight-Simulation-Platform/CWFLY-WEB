@@ -156,7 +156,7 @@ npm run build       # 生产构建
 ```
 
 - `npm run dev` 已为大型地图页面设置 4 GB Node 堆；内存不足时可提高 `NODE_OPTIONS`。
-- CI 在 `frontend/` 变更时执行 `npm ci → test → lint → build`，Node 20/22 双版本。
+- CI 在 `frontend/` 变更时执行 `npm ci → test → lint → build`，Node 22/24 双版本。
 - 提交前建议至少跑一遍 `npm run lint` 和 `npm run build`。
 
 ## 环境变量

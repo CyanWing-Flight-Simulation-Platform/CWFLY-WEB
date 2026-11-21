@@ -77,7 +77,7 @@
 |---|---|---|---|
 | 门户（公开） | `/`、`/about`、`/meetings`、`/controller-public`、`/cookie-policy`、`/privacy-policy`、`/user-agreement` | `PortalLayout` | 未登录可访问，共享门户导航与页脚 |
 | 认证 / 错误页 | `/login`、`/register`、`/forgot-password`、`/oauth/authorize`、`/banned`、`/internet-banned` | 无外壳（独立页） | 独立视觉 |
-| 主应用（登录后） | `/dashboard`、`/map`、`/flight-plan`、`/charts`、`/replay`、`/events`、`/training`、`/schedule`、`/knowledge`、`/points` … | `AppLayout` | `/` 重定向 `/portal` 时代的兼容入口：主应用 `''` 重定向 `/dashboard` |
+| 主应用（登录后） | `/dashboard`、`/map`、`/flight-plan`、`/charts`、`/events`、`/training`、`/schedule`、`/knowledge`、`/points` … | `AppLayout` | `/` 重定向 `/portal` 时代的兼容入口：主应用 `''` 重定向 `/dashboard` |
 | 管理后台 | `/admin/*`（users / permissions / rating / logs / events / tickets / config …） | `AppLayout`（同一外壳，侧栏子路由） | 不跳独立后台 UI |
 | 外链路由 | `/forum`、`/forum/board/:id`、`/forum/post/:id`、`/forum/new` | — | `beforeEnter` 直接 `window.open('https://cwforum.org')` 并返回 `/dashboard` |
 
@@ -300,8 +300,7 @@
 | 能力 | 依赖 | 加载路径 | 说明 |
 |---|---|---|---|
 | 在线地图（3D） | `three` + Mapbox GL JS | 路由 `/map` 懒加载 → `views/OnlineMap.vue` → `utils/aircraft3d.js`（静态 import three） | three 由 Vite `manualChunks` 拆为独立 vendor chunk；Mapbox GL 以 `<script>` 运行时注入（`/vendor/mapbox-gl/mapbox-gl.js` 优先，CDN 兜底） |
-| 在线地图（2D） | 高德 JSAPI 2.0 | 同上，运行时注入 `https://webapi.amap.com/maps?v=2.0&key=...` | Key/安全码集中在 `components/map/mapCore.js`（`Replay.vue` 另有独立副本） |
-| 航迹回放 | 高德 JSAPI | 路由 `/replay` 懒加载 → `views/Replay.vue` | 复用地图 SDK |
+| 在线地图（2D） | 高德 JSAPI 2.0 | 同上，运行时注入 `https://webapi.amap.com/maps?v=2.0&key=...` | Key/安全码集中在 `components/map/mapCore.js` |
 | 航图 PDF | `pdfjs-dist` | 路由 `/charts` 懒加载 → `views/Charts.vue`（静态 import） | worker：`/vendor/pdfjs/pdf.worker.min.js` |
 | 富文本过滤 | `dompurify` | `utils/sanitize.js`（被需要的页面按需引入 utils） | 体积小，不单独分包 |
 | 实时通道 | `socket.io-client` | `utils/socket.js`（App.vue 首屏使用） | 独立 vendor chunk，便于长缓存 |
@@ -331,7 +330,7 @@ Vite 构建（`frontend/vite.config.js`）：
 | `frontend/vite.config.js` | 别名、代理、manualChunks 分包 |
 | `frontend/eslint.config.js` | ESLint 9 flat config（含 `TODO(lint-freeze)` 存量豁免） |
 | `frontend/vitest.config.js` | 单测配置（node 环境，`src/utils/__tests__/**/*.test.js`） |
-| `.github/workflows/frontend-ci.yml` | CI：Node 20/22 × install → test → lint → build |
+| `.github/workflows/frontend-ci.yml` | CI：Node 22/24 × install → test → lint → build |
 | `frontend/.env.example` | 构建期环境变量模板（Mapbox / OWM） |
 
 ### 布局与导航
@@ -392,7 +391,6 @@ Vite 构建（`frontend/vite.config.js`）：
 |---|---|
 | `views/OnlineMap.vue`（约 400 行，已从 4000+ 行拆分） + `components/map/{mapCore.js,MapLayerSwitcher.vue,MapStatusBar.vue,AirportEditToolbar.vue}` + `composables/{useOnlineMapData,useOnlineMapInteraction,useAirportEditor,useAirportGroundLayers}.js` | 在线地图页：地图引擎与图层切换、机组/管制渲染、机场地面图层、机场编辑器（持续回归中） |
 | `views/Charts.vue` | 航情查询（气象 / 航图 PDF / 航线） |
-| `views/Replay.vue` | 航迹回放 |
 | `views/FlightPlan.vue` | 飞行计划（提交 / 编辑 / 共享） |
 | `views/Dashboard.vue` · `views/Events.vue` · `views/NetworkFlight.vue` · `views/CheckIn.vue` | 工作台 / 活动 / 连飞 / 签到 |
 | `views/Profile.vue` · `views/Points.vue` · `views/portals/` | 个人中心 / 积分（`views/points/`） |
@@ -443,7 +441,7 @@ Vite 构建（`frontend/vite.config.js`）：
 | 测试覆盖窄 | 仅 `src/utils/__tests__` 工具单测（9 文件 / 153 用例），无组件/页面/路由测试（见 TESTING.md 补测计划） |
 | 纯 JS 无类型 | 接口返回结构靠约定（后端信封 `{success,message,data}`），大型重构建议逐步引入 JSDoc typedef |
 | 开发代理端口 | `vite.config.js` 代理指向 3000，Python 后端默认 3001（见 README FAQ Q2） |
-| SDK Key 硬编码 | 高德 Key/安全码写在源码（`components/map/mapCore.js`、`views/Replay.vue`）；建议后续迁移为环境变量 + 域名白名单 |
+| SDK Key 硬编码 | 高德 Key/安全码写在源码（`components/map/mapCore.js`）；建议后续迁移为环境变量 + 域名白名单 |
 | 实时通道窄 | Socket 仅承载在线人数/列表；地图机组走 5s 轮询，高频场景可考虑迁到 socket |
 | 论坛已外链 | `/forum*` 路由 `beforeEnter` 跳外部论坛站，`views/forum/*` 为历史遗留页面（未挂路由） |
 | 无 SSR / 无 CDN | 纯客户端渲染；首屏依赖服务器 RTT，性能优化以「拆包 + 懒加载 + 长缓存」为主（记录见 `frontend/docs/performance.md`） |

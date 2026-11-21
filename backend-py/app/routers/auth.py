@@ -872,10 +872,10 @@ async def device2fa_verify(
             target_type="user", target_id=cid,
         )
         return fail(400, "设备密钥验证失败或恢复码无效")
-    if not await consume_login_challenge(db, challenge, cid, ip):
-        return fail(400, "验证已失效，请重新登录")
     if remaining != user.get("device2faRecoveryCodes"):
         await device2fa.update_recovery_codes(db, cid, remaining or "[]")
+    if not await consume_login_challenge(db, challenge, cid, ip):
+        return fail(400, "验证已失效，请重新登录")
     await clear_login_failures(db, cid)
     await _safe_login_log(db, cid, ip, get_user_agent(request), get_device_fp(request), True, "device2fa")
     await audit_log.write(

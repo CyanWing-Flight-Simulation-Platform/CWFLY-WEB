@@ -74,7 +74,7 @@ def _hash_recovery(code: str) -> str:
 
 
 def generate_recovery_codes() -> tuple[list[str], str]:
-    """返回（明文恢复码，JSON 哈希数组）。明文只在绑定成功时展示一次。"""
+    """返回（明文恢复码，JSON 哈希数组）。恢复码一次性，明文只在绑定成功时展示一次。"""
     codes: list[str] = []
     hashes: list[str] = []
     for _ in range(RECOVERY_CODE_COUNT):
@@ -86,7 +86,7 @@ def generate_recovery_codes() -> tuple[list[str], str]:
 
 
 def consume_recovery_code(stored_json: str | None, code: str) -> tuple[bool, str | None]:
-    """校验并消耗一个恢复码；返回（是否成功，剩余哈希 JSON）。"""
+    """校验并消耗一个一次性恢复码；返回（是否成功，剩余哈希 JSON）。"""
     try:
         hashes = json.loads(stored_json or "[]")
     except (TypeError, ValueError):

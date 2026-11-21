@@ -3,6 +3,9 @@ name: Frontend CI
 # CWFLY 前端质量门禁：单测 + ESLint（0 警告）+ 生产构建
 # 仓库根为 CWFLY-WEB，前端代码在 frontend/ 子目录，所有 run 步骤默认 working-directory: frontend
 on:
+  push:
+    branches: [main]
+  pull_request:
   workflow_dispatch:
 
 permissions:
@@ -46,3 +49,30 @@ jobs:
 
       - name: Production build (vite build)
         run: npx vite build
+
+
+  backend:
+    name: Backend pytest (Python 3.12)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend-py
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend-py/requirements.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest httpx
+
+      - name: Backend smoke tests
+        run: python -m pytest -q
