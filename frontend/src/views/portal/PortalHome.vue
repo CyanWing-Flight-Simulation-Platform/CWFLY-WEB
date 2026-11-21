@@ -1042,7 +1042,7 @@ html[data-theme='dark'] .about-panel__text { color: rgba(255, 255, 255, .56); }
 }
 
 /* ---------- 核心功能 ---------- */
-.section--features { padding-top: 92px; }
+.section--features { padding-top: 112px; }
 .feature-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
 .feature-card {
   display: flex;
@@ -1092,7 +1092,7 @@ html[data-theme='dark'] .feature-card__icon {
 }
 
 /* ---------- 实时数据战报 ---------- */
-.section--stats { padding-top: 76px; }
+.section--stats { padding-top: 96px; }
 .live-stats {
   display: flex;
   align-items: stretch;
