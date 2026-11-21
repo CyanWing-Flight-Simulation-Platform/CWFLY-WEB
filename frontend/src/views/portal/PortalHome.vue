@@ -639,6 +639,13 @@ html[data-theme='dark'] .hero__content p { color: rgba(255, 255, 255, .68); }
   backdrop-filter: blur(24px) saturate(120%);
   -webkit-backdrop-filter: blur(24px) saturate(120%);
   box-shadow: var(--event-shadow);
+  transition: all .3s cubic-bezier(.25, .8, .25, 1);
+  will-change: transform, box-shadow, border-color;
+}
+.status-bar:hover {
+  transform: translateY(-4px) scale(1.01);
+  border-color: rgba(255, 255, 255, .9);
+  box-shadow: 0 20px 48px rgba(15, 23, 42, .10);
 }
 .status-bar__head {
   display: flex;
@@ -1039,6 +1046,16 @@ html[data-theme='dark'] .about-panel__text { color: rgba(255, 255, 255, .56); }
   -webkit-backdrop-filter: blur(24px) saturate(120%);
   box-shadow: var(--event-shadow);
   color: var(--event-title);
+  cursor: pointer;
+  transition: all .3s cubic-bezier(.25, .8, .25, 1);
+  will-change: transform, box-shadow, border-color;
+}
+.portal-home .feature-card:hover {
+  transform: translateY(-4px) scale(1.01);
+}
+.feature-card:hover {
+  border-color: rgba(255, 255, 255, .9);
+  box-shadow: 0 20px 48px rgba(15, 23, 42, .10);
 }
 .feature-card__icon {
   display: inline-flex;
@@ -1051,6 +1068,15 @@ html[data-theme='dark'] .about-panel__text { color: rgba(255, 255, 255, .56); }
   border-radius: 0;
   background: transparent;
   color: #1E3A8A;
+  transform-origin: center;
+  transition: transform .3s cubic-bezier(.25, .8, .25, 1);
+}
+.feature-card:hover .feature-card__icon {
+  transform: translateY(-1px) scale(1.1);
+}
+/* v-reveal 会给卡片设置自己的 transform transition；这里保持 hover 的弹性曲线 */
+.portal-home .feature-card {
+  transition: all .3s cubic-bezier(.25, .8, .25, 1);
 }
 .feature-card__icon svg { width: 34px; height: 34px; flex: 0 0 34px; }
 .feature-card h3 {
@@ -1233,6 +1259,12 @@ html[data-theme='light'] .portal-home .about-panel {
   backdrop-filter: blur(24px) saturate(120%) !important;
   -webkit-backdrop-filter: blur(24px) saturate(120%) !important;
   box-shadow: 0 8px 32px rgba(0, 0, 0, .06) !important;
+}
+
+html[data-theme='light'] .portal-home .status-bar:hover,
+html[data-theme='light'] .portal-home .feature-card:hover {
+  border-color: rgba(255, 255, 255, .9) !important;
+  box-shadow: 0 20px 48px rgba(0, 0, 0, .10) !important;
 }
 
 html[data-theme='light'] .portal-home .status-value,
