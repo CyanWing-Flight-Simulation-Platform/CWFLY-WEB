@@ -17,9 +17,6 @@
           </p>
         </div>
       </div>
-      <button class="btn btn-outline btn-sm dash-refresh" :disabled="refreshing" @click="refreshAll">
-        {{ refreshing ? '刷新中...' : '刷新数据' }}
-      </button>
     </section>
 
     <!-- 核心 KPI -->
@@ -210,7 +207,6 @@ const platformStats = ref({
   eventCount: '--',
   onlineUsers: '--'
 })
-const refreshing = ref(false)
 const events = ref([])
 const fsdPilots = ref([])
 const fsdAtc = ref([])
@@ -381,16 +377,6 @@ async function loadDashboard() {
   await Promise.allSettled([loadStaff(), loadFsd()])
 }
 
-async function refreshAll() {
-  if (refreshing.value) return
-  refreshing.value = true
-  try {
-    await loadDashboard()
-  } finally {
-    refreshing.value = false
-  }
-}
-
 async function loadStaff() {
   if (!user.hasPermission('online')) return
   try {
@@ -509,15 +495,6 @@ watch(() => user.profile?.avatar, (value) => {
   line-height: 1.5;
 }
 .dash-hero__text .dot { margin: 0 6px; opacity: .4; }
-
-.dash-refresh {
-  flex-shrink: 0;
-  border: none;
-  box-shadow: none;
-  background: var(--ui-ghost-bg);
-  color: var(--dash-text);
-}
-.dash-refresh:hover { background: var(--ui-ghost-hover); color: var(--dash-text); }
 
 .dashboard .badge {
   border: none;
