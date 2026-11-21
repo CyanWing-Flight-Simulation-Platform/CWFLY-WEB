@@ -246,6 +246,7 @@ async def shop_overview(db: AsyncSession, cid: str) -> dict[str, Any]:
     return {
         "balance": balance,
         "totalHours": total_hours,
+        "user_total_hours": total_hours,
         "products": products,
         "rates": {
             "pointsPerHour": _float(config["points_per_hour"]),

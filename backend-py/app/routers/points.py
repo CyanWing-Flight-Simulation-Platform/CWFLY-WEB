@@ -173,7 +173,12 @@ async def my_points(
         if not points:
             points = ps.default_points(current.cid)
         achievements = await ps.list_achievements(db, current.cid)
-        return _ok({"points": points, "achievements": achievements})
+        from app.services import community_points as cp
+
+        total_hours = await cp.get_total_hours(db, current.cid)
+        return _ok(
+            {"points": points, "achievements": achievements, "user_total_hours": total_hours}
+        )
     except Exception as exc:  # noqa: BLE001
         log.error("[points.py] %s", exc)
         return _fail(500, "操作失败")

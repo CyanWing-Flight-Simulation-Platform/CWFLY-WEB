@@ -177,7 +177,7 @@ async function load() {
     const res = await pointsApi.shop()
     const data = res.data?.data || res.data || {}
     balance.value = Number(data.balance) || 0
-    totalHours.value = Number(data.totalHours) || 0
+    totalHours.value = Number(data.totalHours ?? data.user_total_hours) || 0
     products.value = data.products || []
     rates.value = data.rates || {}
   } catch (e) {
