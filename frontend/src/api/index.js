@@ -197,6 +197,16 @@ export const checkinApi = {
   history: () => api.get('/checkin/history')
 }
 
+export const pointsApi = {
+  shop: () => api.get('/points/shop'),
+  redeem: (productId) => api.post('/points/shop/redeem', { productId }),
+  transactions: (params) => api.get('/points/transactions', { params }),
+  assets: () => api.get('/points/assets'),
+  config: () => api.get('/points/config'),
+  submitVideo: (data) => api.post('/points/videos', data),
+  myVideos: () => api.get('/points/videos/mine')
+}
+
 export const profileApi = {
   get: () => api.get('/profile'),
   update: (data) => api.put('/profile', data),
@@ -242,6 +252,16 @@ export const adminApi = {
   deleteUser: (cid, data) => api.delete(`/admin/users/${cid}`, { data }),
   resetUserPassword: (cid, data) => api.post(`/admin/users/${cid}/reset-password`, data),
   resetUser2fa: (cid) => api.post(`/admin/users/${cid}/reset-2fa`),
+  // 积分商城管理
+  pointsConfig: () => api.get('/admin/points/config'),
+  updatePointsConfig: (data) => api.put('/admin/points/config', data),
+  pointsProducts: () => api.get('/admin/points/products'),
+  createPointsProduct: (data) => api.post('/admin/points/products', data),
+  updatePointsProduct: (id, data) => api.put(`/admin/points/products/${id}`, data),
+  pointsVideos: (params) => api.get('/admin/points/videos', { params }),
+  reviewPointsVideo: (id, data) => api.post(`/admin/points/videos/${id}/review`, data),
+  settlePointsEvent: (id) => api.post(`/admin/points/events/${id}/settle`),
+  settlePointsHours: (data) => api.post('/admin/points/hours/settle', data || {}),
   // 设备指纹封禁（删除+加入黑名单时同步拉黑，防换小号绕过）
   deviceBans: () => api.get('/admin/device-bans'),
   addDeviceBan: (data) => api.post('/admin/device-bans', data),

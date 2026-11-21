@@ -50,6 +50,7 @@ const routes = [
       { path: 'notifications', name: 'Notifications', meta: { title: '通知中心' }, component: () => import('@/views/notifications/Notifications.vue') },
       { path: 'flight-archive', name: 'FlightArchive', meta: { title: '飞行档案' }, component: () => import('@/views/flight/FlightArchive.vue') },
       { path: 'points', name: 'Points', meta: { title: '积分成就' }, component: () => import('@/views/points/Points.vue') },
+      { path: 'shop', name: 'Shop', meta: { title: '积分商城' }, component: () => import('@/views/points/Shop.vue') },
       { path: 'leaderboard', name: 'Leaderboard', meta: { title: '排行榜' }, component: () => import('@/views/points/Leaderboard.vue') },
       { path: 'forum', name: 'ForumBoards', beforeEnter() { window.open('https://cwforum.org', '_blank'); return '/dashboard' } },
       { path: 'forum/board/:boardId', beforeEnter() { window.open('https://cwforum.org', '_blank'); return '/dashboard' } },
@@ -92,6 +93,7 @@ const routes = [
       { path: 'tickets', name: 'AdminTickets', meta: { title: '工单管理', requiredPermission: 'ticket' }, component: () => import('@/views/admin/Tickets.vue') },
       { path: 'controllers', name: 'AdminControllers', meta: { title: '管制员管理', requiredPermission: 'controller' }, component: () => import('@/views/admin/Controllers.vue') },
       { path: 'config', name: 'AdminSystemConfig', meta: { title: '系统配置', requiredPermission: 'user', requiredRating: 12 }, component: () => import('@/views/admin/AdminSystemConfig.vue') },
+      { path: 'points', name: 'AdminPoints', meta: { title: '积分商城管理', requiredPermission: 'user' }, component: () => import('@/views/admin/AdminPoints.vue') },
       { path: 'deletion-approvals', name: 'AdminDeletionApprovals', meta: { title: '删除账户审批', requiredPermission: 'user', requiredRating: 12 }, component: () => import('@/views/admin/UserApprovals.vue') }
     ]
   }
