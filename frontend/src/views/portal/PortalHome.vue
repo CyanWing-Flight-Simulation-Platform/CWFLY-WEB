@@ -621,7 +621,11 @@ html[data-theme='dark'] .hero__actions .btn-qq {
   border-color: rgba(255, 255, 255, .10);
   background: rgba(255, 255, 255, .07);
 }
-html[data-theme='dark'] .hero__content p { color: rgba(255, 255, 255, .68); }
+html[data-theme='dark'] .hero__title {
+  color: rgba(255, 255, 255, .98);
+  text-shadow: 0 2px 18px rgba(0, 0, 0, .38);
+}
+html[data-theme='dark'] .hero__content p { color: rgba(255, 255, 255, .82); }
 
 /* 实时状态：单一整块面板 */
 .status-section {
@@ -699,11 +703,11 @@ html[data-theme='dark'] .hero__content p { color: rgba(255, 255, 255, .68); }
   font-weight: 450;
   letter-spacing: .02em;
 }
-html[data-theme='dark'] .hero__content p { color: rgba(255, 255, 255, .70); }
+html[data-theme='dark'] .hero__content p { color: rgba(255, 255, 255, .82); }
 html[data-theme='dark'] .status-value { color: #fff; }
-html[data-theme='dark'] .status-label { color: rgba(255, 255, 255, .60); }
+html[data-theme='dark'] .status-label { color: rgba(255, 255, 255, .76); }
 html[data-theme='dark'] .status-bar__head,
-html[data-theme='dark'] .status-bar__hint { color: rgba(255, 255, 255, .55); }
+html[data-theme='dark'] .status-bar__hint { color: rgba(255, 255, 255, .68); }
 
 /* Sections */
 .section { padding: 56px 24px; }
@@ -786,8 +790,8 @@ html[data-theme='dark'] .section-link.section-link--overlay:hover {
   background: transparent;
   color: #fff;
 }
-html[data-theme='dark'] .section-title { color: #fff; }
-html[data-theme='dark'] .section-subtitle { color: rgba(255, 255, 255, .48); }
+html[data-theme='dark'] .section-title { color: #fff; text-shadow: 0 1px 10px rgba(0, 0, 0, .28); }
+html[data-theme='dark'] .section-subtitle { color: rgba(255, 255, 255, .68); }
 
 /* Event cards: solid, quiet, high contrast */
 .event-grid {
