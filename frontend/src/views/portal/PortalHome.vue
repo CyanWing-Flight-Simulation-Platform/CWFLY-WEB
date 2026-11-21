@@ -3,9 +3,7 @@
     <!-- Hero -->
     <section class="hero">
       <div class="hero__content">
-        <h1 class="hero__title">
-          让每一次<span class="hero__accent">连飞</span><span class="hero__comma">，</span>都更接近<span class="hero__accent">真实</span>
-        </h1>
+        <h1 class="hero__title">让每一次连飞，都更接近真实</h1>
         <p>加入 CWFLY，和飞行员、管制员一起，在真实的航路与空域中飞行。</p>
         <div class="hero__actions">
           <router-link to="/register" class="btn-primary">立即注册</router-link>
@@ -558,32 +556,16 @@ html[data-theme='dark'] .portal-home {
 }
 .hero__title {
   margin: 0 0 24px;
-  color: #1f2937;
+  color: #111827;
   font-family: "Inter", "PingFang SC", "OPPO Sans", "Source Han Sans SC", "Noto Sans SC", "Microsoft YaHei", sans-serif;
   font-size: clamp(36px, 4.8vw, 58px);
-  font-weight: 560;
-  letter-spacing: -.035em;
+  font-weight: 600;
+  letter-spacing: -.025em;
   line-height: 1.12;
   text-shadow: none;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   font-synthesis: none;
-}
-.hero__accent {
-  font-weight: 780;
-  background: linear-gradient(135deg, #1e3a8a 0%, #60a5fa 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  color: transparent;
-}
-.hero__comma {
-  display: inline-block;
-  margin: 0 -.02em;
-  opacity: .32;
-  font-size: .64em;
-  font-weight: 400;
-  vertical-align: .08em;
 }
 .hero__content p {
   max-width: 540px;
@@ -638,14 +620,6 @@ html[data-theme='dark'] .hero__actions .btn-qq {
   color: rgba(255, 255, 255, .92);
   border-color: rgba(255, 255, 255, .10);
   background: rgba(255, 255, 255, .07);
-}
-html[data-theme='dark'] .hero__content h1 { color: #fff; }
-html[data-theme='dark'] .hero__accent {
-  background: linear-gradient(135deg, #93c5fd 0%, #e0f2fe 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  color: transparent;
 }
 html[data-theme='dark'] .hero__content p { color: rgba(255, 255, 255, .68); }
 
