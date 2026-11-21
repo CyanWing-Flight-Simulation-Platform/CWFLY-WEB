@@ -70,7 +70,7 @@ const qqGroupUrl = QQ_GROUP_URL
 
 <style scoped>
 .portal {
-  --portal-header-h: 48px;
+  --portal-header-h: 56px;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -79,7 +79,7 @@ const qqGroupUrl = QQ_GROUP_URL
 
 .portal__main {
   flex: 1;
-  padding-top: calc(var(--portal-header-h) + 14px);
+  padding-top: calc(var(--portal-header-h) + 18px);
   padding-bottom: 40px;
 }
 

@@ -181,7 +181,7 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside))
   top: 0;
   left: 0;
   right: 0;
-  height: var(--portal-header-h, 48px);
+  height: var(--portal-header-h, 56px);
   background: linear-gradient(180deg, rgba(255, 255, 255, .26), rgba(255, 255, 255, 0) 92%);
   backdrop-filter: blur(8px) saturate(130%);
   -webkit-backdrop-filter: blur(8px) saturate(130%);
@@ -214,9 +214,9 @@ html[data-theme='dark'] .portal-nav {
 .portal-nav__brand {
   color: var(--c-text);
   font-family: "Segoe UI Variable Display", "Avenir Next", "SF Pro Display", "PingFang SC", "Microsoft YaHei", sans-serif;
-  font-size: 17px;
-  font-weight: 650;
-  letter-spacing: .02em;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -.035em;
 }
 
 .portal-nav__right {
@@ -270,11 +270,11 @@ html[data-theme='dark'] .portal-nav__link--active {
 }
 .portal-nav__login:hover { color: var(--c-primary); text-decoration: none; }
 .portal-nav__register {
-  padding: 6px 13px;
+  padding: 5px 11px;
   border-radius: 999px;
   background: var(--c-primary);
   color: #fff;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   text-decoration: none;
   transition: opacity .2s, transform .2s;
@@ -289,37 +289,33 @@ html[data-theme='dark'] .portal-nav__link--active {
 .theme-toggle {
   display: flex;
   align-items: center;
-  gap: 2px;
-  padding: 2px;
-  border: 1px solid rgba(255, 255, 255, .46);
+  gap: 1px;
+  padding: 0;
+  border: 0;
   border-radius: 8px;
-  background: rgba(255, 255, 255, .30);
-  backdrop-filter: blur(14px) saturate(150%);
-  -webkit-backdrop-filter: blur(14px) saturate(150%);
-}
-html[data-theme='dark'] .theme-toggle {
-  border-color: rgba(255, 255, 255, .16);
-  background: rgba(255, 255, 255, .08);
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 .theme-btn {
-  padding: 3px 8px;
+  padding: 4px 7px;
   border: none;
   border-radius: 6px;
   background: transparent;
   color: var(--c-text-secondary);
   cursor: pointer;
   font-size: 10px;
-  font-weight: 600;
+  font-weight: 500;
   line-height: 1.4;
   transition: background .15s, color .15s;
 }
-.theme-btn:hover { background: rgba(0, 0, 0, .05); color: var(--c-text); }
-.theme-btn.active { background: var(--c-primary); color: #fff; }
+.theme-btn:hover { background: rgba(15, 23, 42, .05); color: var(--c-text); }
+.theme-btn.active { background: rgba(15, 23, 42, .075); color: #111827; box-shadow: none; }
 html[data-theme='dark'] .theme-btn:hover { background: rgba(255, 255, 255, .08); color: var(--c-text); }
 html[data-theme='dark'] .theme-btn.active {
-  background: rgba(10, 132, 255, .28);
+  background: rgba(255, 255, 255, .12);
   color: rgba(255, 255, 255, .95);
-  box-shadow: inset 0 0 0 1px rgba(10, 132, 255, .35);
+  box-shadow: none;
 }
 
 /* 下拉 */
@@ -393,14 +389,14 @@ html[data-theme='dark'] .theme-btn.active {
   .portal-nav__hamburger { display: flex; }
   .portal-nav__right {
     position: absolute;
-    top: var(--portal-header-h, 48px);
+    top: var(--portal-header-h, 56px);
     right: 0;
     left: 0;
     display: none;
     flex-direction: column;
     align-items: stretch;
     gap: 2px;
-    max-height: calc(100vh - var(--portal-header-h, 48px));
+    max-height: calc(100vh - var(--portal-header-h, 56px));
     overflow-y: auto;
     padding: 12px 16px 18px;
     border-bottom: 1px solid var(--panel-border);
