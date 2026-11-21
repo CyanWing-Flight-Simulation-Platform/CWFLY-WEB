@@ -13,6 +13,7 @@ from app.middleware.csrf import CSRFMiddleware
 from app.routers import auth
 from app.services import mfa
 from app.services.meetings_uploads import UnsupportedFileType, validate_upload
+from app.services.profile_uploads import _image_dimensions, background_path_for_url
 
 
 def _auth_app() -> TestClient:
@@ -97,3 +98,15 @@ def test_upload_magic_and_extension_validation() -> None:
         validate_upload("evil.pdf", b"<html>not a pdf</html>")
     with pytest.raises(UnsupportedFileType):
         validate_upload("evil.exe", b"MZ")
+
+
+def test_background_path_is_bound_to_current_cid() -> None:
+    assert background_path_for_url("/uploads/backgrounds/bg_1234_1700000000000.jpg", "1234") is not None
+    assert background_path_for_url("/uploads/backgrounds/bg_9999_1700000000000.jpg", "1234") is None
+    assert background_path_for_url("/uploads/avatars/victim.jpg", "1234") is None
+    assert background_path_for_url("/uploads/backgrounds/../avatars/victim.jpg", "1234") is None
+
+
+def test_png_dimensions_are_parsed() -> None:
+    png = b"\x89PNG\r\n\x1a\n" + b"\x00" * 8 + (320).to_bytes(4, "big") + (180).to_bytes(4, "big")
+    assert _image_dimensions(png) == (320, 180)

@@ -59,6 +59,8 @@ let autoTransTimer = null
 let fade = 0                    // 当前渐变进度（普通变量, 不走响应式, 避免 60fps 重渲染干扰其它组件过渡）
 let bgTimer = null
 let customCheckTimer = null
+let customBgTimer = null
+let customBgSeq = 0
 
 // 主题固定背景: 手动浅色→eve_3, 手动深色→nt_4; auto 时按北京时间时间表
 const THEME_FIXED_BG = { light: '/bg-home/eve_3.webp', dark: '/bg-home/nt_4.webp' }
@@ -346,6 +348,11 @@ watch(themeMode, () => {
 function applyCustomBg(fullUrl) {
   const el = customBgLayer.value
   const u = (fullUrl || '').trim()
+  const seq = ++customBgSeq
+  if (customBgTimer) {
+    clearTimeout(customBgTimer)
+    customBgTimer = null
+  }
   if (!u) {
     customBgActive.value = false
     hasCustomBg.value = false
@@ -356,12 +363,20 @@ function applyCustomBg(fullUrl) {
   if (el) {
     el.style.backgroundImage = `url('${u}')`
     el.style.opacity = '0'
-    preloadImg(u).then(() => {
-      if (customBgLayer.value !== el) return
+    preloadImg(u).then((loaded) => {
+      if (seq !== customBgSeq || customBgLayer.value !== el) return
+      if (!loaded) {
+        // 图片加载失败：恢复时段背景，避免自定义层透明却把时段层隐藏
+        applyCustomBg('')
+        return
+      }
       el.getBoundingClientRect() // 强制重排, 确保 0→1 的 transition 被触发
       el.style.opacity = '1'
-      // 3s 过渡完成后隐藏时段背景层
-      setTimeout(() => { hasCustomBg.value = true }, 3000)
+      // 3s 过渡完成后隐藏时段背景层；定时器可被新的上传/删除取消
+      customBgTimer = setTimeout(() => {
+        customBgTimer = null
+        if (seq === customBgSeq) hasCustomBg.value = true
+      }, 3000)
     })
   } else {
     hasCustomBg.value = true
@@ -379,10 +394,13 @@ function checkCustomBg() {
 }
 
 /** 加载自定义背景图（登录时） */
+/** 加载自定义背景图（登录/刷新后） */
 function loadBg() {
-  const t = user.token.value
-  if (!t) return
+  const cid = user.profile?.cid
+  if (!cid) return
   profileApi.get().then(res => {
+    // 请求返回时账号已变化（退出/切换账号）→ 丢弃旧账号背景
+    if (user.profile?.cid !== cid) return
     const bg = (res.data?.bgImage || '').trim()
     const full = bg ? bg + '?t=' + Date.now() : ''
     if (full) {
@@ -390,18 +408,21 @@ function loadBg() {
     } else {
       document.documentElement.style.removeProperty('--custom-bg')
     }
+    lastCustomBgValue = full
     applyCustomBg(full)
   }).catch(() => {})
 }
 
-// 监听登录状态变化（登出→重新登录时重新加载背景）
-watch(() => user.token.value, (newToken, oldToken) => {
-  if (newToken && !oldToken) {
-    loadBg()
-  }
-  if (!newToken) {
+// 监听登录账号变化（Cookie 会话没有前端 token，必须用 profile.cid 判断）
+watch(() => user.profile?.cid, (newCid, oldCid) => {
+  if (!newCid) {
+    // 退出时立即清理，不能等 2s 轮询，也不能保留上一个账号的背景
+    lastCustomBgValue = ''
     document.documentElement.style.removeProperty('--custom-bg')
+    applyCustomBg('')
+    return
   }
+  if (newCid !== oldCid) loadBg()
 })
 
 // 监听个人中心上传/删除背景图（即时 3s 渐变, 不必等轮询）
@@ -452,6 +473,7 @@ onMounted(() => {
 onUnmounted(() => {
   if (bgTimer) clearInterval(bgTimer)
   if (customCheckTimer) clearInterval(customCheckTimer)
+  if (customBgTimer) clearTimeout(customBgTimer)
   window.removeEventListener('cw:custom-bg', onCustomBgEvent)
   // App.vue 一般不卸载，保留 socket 连接
 })

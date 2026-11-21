@@ -33,6 +33,9 @@ ALLOWED_EXT: frozenset[str] = frozenset({".png", ".jpg", ".jpeg", ".webp", ".gif
 AVATAR_MAX_BYTES = 5 * 1024 * 1024
 BG_MAX_BYTES = 10 * 1024 * 1024
 BG_DAILY_LIMIT = 5
+# 防止“10MB 图片解压成超大画布”导致浏览器内存耗尽
+BG_MAX_DIMENSION = 12000
+BG_MAX_PIXELS = 40_000_000
 
 UPLOAD_ROOT = Path("uploads")
 AVATAR_DIR = UPLOAD_ROOT / "avatars"
@@ -47,6 +50,68 @@ class UploadRejected(Exception):
 
 class NotAnImage(Exception):
     """落盘后魔数二次校验失败（Node: 400「文件内容不是有效图片」）。"""
+
+
+class ImageTooLarge(NotAnImage):
+    """图片像素/边长超过安全上限。"""
+
+
+def _image_dimensions(head: bytes) -> tuple[int, int] | None:
+    """从文件头解析常见图片格式的宽高；无法解析返回 None（不误杀带大 EXIF 的 JPEG）。"""
+    try:
+        if head.startswith(b"\x89PNG\r\n\x1a\n") and len(head) >= 24:
+            return int.from_bytes(head[16:20], "big"), int.from_bytes(head[20:24], "big")
+        if head.startswith((b"GIF87a", b"GIF89a")) and len(head) >= 10:
+            return int.from_bytes(head[6:8], "little"), int.from_bytes(head[8:10], "little")
+        if head[:4] == b"RIFF" and head[8:12] == b"WEBP" and len(head) >= 30:
+            chunk = head[12:16]
+            if chunk == b"VP8X":
+                return (1 + int.from_bytes(head[24:27], "little"),
+                        1 + int.from_bytes(head[27:30], "little"))
+            if chunk == b"VP8L" and len(head) >= 25:
+                bits = int.from_bytes(head[21:25], "little")
+                return (1 + (bits & 0x3FFF), 1 + ((bits >> 14) & 0x3FFF))
+            if chunk == b"VP8 " and len(head) >= 30:
+                w = int.from_bytes(head[26:28], "little") & 0x3FFF
+                h = int.from_bytes(head[28:30], "little") & 0x3FFF
+                return w, h
+        if head.startswith(b"\xff\xd8"):
+            i = 2
+            while i + 9 < len(head):
+                if head[i] != 0xFF:
+                    i += 1
+                    continue
+                marker = head[i + 1]
+                if marker in (0xD8, 0xD9) or 0xD0 <= marker <= 0xD7:
+                    i += 2
+                    continue
+                seg_len = int.from_bytes(head[i + 2:i + 4], "big")
+                if marker in {0xC0, 0xC1, 0xC2, 0xC3, 0xC5, 0xC6, 0xC7,
+                              0xC9, 0xCA, 0xCB, 0xCD, 0xCE, 0xCF}:
+                    return int.from_bytes(head[i + 7:i + 9], "big"), int.from_bytes(head[i + 5:i + 7], "big")
+                if seg_len < 2:
+                    break
+                i += 2 + seg_len
+    except (IndexError, ValueError):
+        return None
+    return None
+
+
+def _validate_bg_dimensions(path: Path) -> None:
+    """背景图尺寸上限；PNG/GIF/WebP/JPEG 能解析时严格限制。"""
+    try:
+        with path.open("rb") as fh:
+            head = fh.read(1024 * 1024)
+    except OSError:
+        return
+    dims = _image_dimensions(head)
+    if not dims:
+        return
+    width, height = dims
+    if width <= 0 or height <= 0:
+        raise ImageTooLarge("图片尺寸非法")
+    if width > BG_MAX_DIMENSION or height > BG_MAX_DIMENSION or width * height > BG_MAX_PIXELS:
+        raise ImageTooLarge("图片尺寸过大")
 
 
 def ext_of(original_name: str | None) -> str:
@@ -147,6 +212,11 @@ async def save_background(cid: str, file: UploadFile) -> str:
     if not _head_is_image(dest):
         remove_file(dest)
         raise NotAnImage(filename)
+    try:
+        _validate_bg_dimensions(dest)
+    except ImageTooLarge:
+        remove_file(dest)
+        raise
     return filename
 
 
@@ -160,18 +230,36 @@ def _head_is_image(path: Path, size: int = 16) -> bool:
 
 
 def bg_today_prefix(cid: str) -> str:
-    """`bg_{cid}_{YYYYMMDD}`，日期取 UTC（`new Date().toISOString().slice(0,10)`）。"""
-    date_str = dt.datetime.utcnow().strftime("%Y%m%d")
+    """兼容旧调用：`bg_{cid}_{YYYYMMDD}`（北京时间）。"""
+    date_str = _beijing_now().strftime("%Y%m%d")
     return f"bg_{cid}_{date_str}"
 
 
-def count_bg_today(cid: str) -> int:
-    """统计当天已上传的背景图数量（等价 Node 读目录前缀匹配）。"""
-    prefix = bg_today_prefix(cid)
+def _beijing_now() -> dt.datetime:
+    return dt.datetime.now(dt.timezone(dt.timedelta(hours=8)))
+
+
+async def consume_bg_daily_quota(cid: str) -> bool:
+    """按北京时间自然日消耗一次上传配额；返回 ``False`` 表示超过 5 次。
+
+    使用共享 RateLimit 表而不是扫描目录：旧逻辑先保存再统计文件数，
+    且每次上传都会删掉旧图，导致配额永远达不到上限。这里在落盘前计数。
+    """
+    now = _beijing_now()
+    tomorrow = (now + dt.timedelta(days=1)).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
+    window_seconds = max(1, int((tomorrow - now).total_seconds()))
     try:
-        return sum(1 for name in os.listdir(BG_DIR) if name.startswith(prefix))
-    except OSError:
-        return 0
+        from app.services import rate_limit_store
+
+        hits, _left = await rate_limit_store.increment(
+            f"profile-bg:{cid}:{now:%Y%m%d}", window_seconds
+        )
+    except Exception:  # noqa: BLE001 - 限流后端故障时不阻断正常用户
+        return True
+    return hits <= BG_DAILY_LIMIT
+
 
 
 _URL_UPLOAD_RE = re.compile(r"^/uploads/(?P<rest>.+)$")
@@ -186,6 +274,32 @@ def uploads_path_for_url(url: str | None) -> Optional[Path]:
         return None
     candidate = (UPLOAD_ROOT / m.group("rest")).resolve()
     root = UPLOAD_ROOT.resolve()
+    try:
+        candidate.relative_to(root)
+    except ValueError:
+        return None
+    return candidate
+
+
+def background_path_for_url(url: str | None, cid: str) -> Optional[Path]:
+    """把背景图 URL 解析为文件，并严格限制为当前 CID 的背景图目录。
+
+    仅接受 ``/uploads/backgrounds/bg_<cid>_<timestamp>.<ext>``；
+    防止历史/异常 DB 值借上传流程删除头像或其它用户文件。
+    """
+    if not url:
+        return None
+    prefix = "/uploads/backgrounds/"
+    text = str(url)
+    if not text.startswith(prefix):
+        return None
+    rest = text[len(prefix):]
+    if "/" in rest or "\\" in rest or rest.startswith("."):
+        return None
+    if not rest.startswith(f"bg_{cid}_"):
+        return None
+    candidate = (BG_DIR / rest).resolve()
+    root = BG_DIR.resolve()
     try:
         candidate.relative_to(root)
     except ValueError:
@@ -222,13 +336,15 @@ __all__ = [
     "BG_DIR",
     "UploadRejected",
     "NotAnImage",
+    "ImageTooLarge",
     "ext_of",
     "is_image_buffer",
     "now_ms",
     "save_avatar",
     "save_background",
     "bg_today_prefix",
-    "count_bg_today",
+    "consume_bg_daily_quota",
+    "background_path_for_url",
     "uploads_path_for_url",
     "remove_file",
     "discard",

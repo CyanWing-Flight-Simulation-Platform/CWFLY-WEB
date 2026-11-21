@@ -18,6 +18,7 @@ import re
 from typing import Any
 
 from fastapi import APIRouter, Depends, File, Request, UploadFile
+from fastapi.responses import FileResponse
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -37,6 +38,8 @@ log = logging.getLogger("cwfly.profile")
 router = APIRouter(prefix="/profile", tags=["profile"])
 
 MESSAGE_OPERATION_FAILED = "操作失败"
+# 背景图不再暴露可枚举的 /uploads 文件名；统一走鉴权读取接口
+BG_PUBLIC_URL = "/api/profile/bg-image"
 
 # 安全（P2-9）：头像只允许站内上传目录前缀（或服务端生成的 QQ 头像），
 # 防止把任意 URL 写进数据库后被前端当链接/HTML 渲染。
@@ -188,11 +191,35 @@ async def get_profile(
                 "email": user.get("email"),
                 "qq": user.get("qq"),
                 "avatar": _qq_avatar(user.get("qq")),
-                "bgImage": user.get("bgImage") or "",
+                "bgImage": BG_PUBLIC_URL if (user.get("bgImage") or "") else "",
                 "createdAt": user.get("createdAt"),
                 "totalFlightHours": hours["totalFlightHours"],
                 "totalControllerHours": hours["totalControllerHours"],
             }
+        )
+    except Exception as exc:  # noqa: BLE001
+        log.error("[profile.py] %s", exc)
+        return _fail(500, MESSAGE_OPERATION_FAILED)
+
+
+# ==================== GET /bg-image 鉴权读取背景图 ====================
+@router.get("/bg-image")
+async def get_bg_image(
+    db: AsyncSession = Depends(get_db),
+    current: CurrentUser = Depends(get_current_user),
+) -> Any:
+    """只允许当前登录用户读取自己的背景图，避免 /uploads 文件名被公开枚举。"""
+    try:
+        url = await ps.get_bg_image(db, current.cid)
+        path = pu.background_path_for_url(url, current.cid)
+        if path is None or not path.is_file():
+            return _fail(404, "背景图不存在")
+        return FileResponse(
+            path,
+            headers={
+                "Cache-Control": "private, no-store, max-age=0",
+                "X-Content-Type-Options": "nosniff",
+            },
         )
     except Exception as exc:  # noqa: BLE001
         log.error("[profile.py] %s", exc)
@@ -361,35 +388,41 @@ async def upload_bg_image(
     try:
         if bgImage is None or not (bgImage.filename or ""):
             return _fail(400, "请选择图片")
-        try:
-            filename = await pu.save_background(current.cid, bgImage)
-        except pu.UploadRejected:
-            return _upload_failure()
-        except pu.NotAnImage:
-            return _fail(400, "文件内容不是有效图片")
 
-        # 每日限制 5 次（统计当天已上传的文件数；与 Node 一致：刚上传的文件也计入）
-        if pu.count_bg_today(current.cid) >= pu.BG_DAILY_LIMIT:
-            pu.remove_file(pu.BG_DIR / filename)
+        # 每日配额必须在落盘前消耗：旧逻辑先保存再数目录，且旧图会被删除，配额实际永不生效
+        if not await pu.consume_bg_daily_quota(current.cid):
             return JSJSONResponse(
                 {"success": False, "message": "更换背景图过于频繁，请明天再试"},
                 status_code=429,
             )
 
-        bg_path = "/uploads/backgrounds/" + filename
-        # 删除旧背景图文件（仅保留一个最新）
+        try:
+            filename = await pu.save_background(current.cid, bgImage)
+        except pu.UploadRejected:
+            return _upload_failure()
+        except pu.ImageTooLarge:
+            return _fail(400, "图片尺寸过大，请使用不超过 12000px、4000 万像素的图片")
+        except pu.NotAnImage:
+            return _fail(400, "文件内容不是有效图片")
+
+        new_file = (pu.BG_DIR / filename).resolve()
         old_url = await ps.get_bg_image(db, current.cid)
         if old_url is None:
-            # Node: prisma.user.update(...) 在用户不存在时抛错 → 500「操作失败」
+            pu.remove_file(new_file)
             return _fail(500, MESSAGE_OPERATION_FAILED)
-        if old_url:
-            old_file = pu.uploads_path_for_url(old_url)
-            new_file = (pu.BG_DIR / filename).resolve()
-            if old_file is not None and old_file != new_file:
-                pu.remove_file(old_file)
 
-        await ps.set_bg_image(db, current.cid, bg_path)
-        return _ok({"bgImage": bg_path}, message="背景图已更新")
+        try:
+            # 先提交数据库，再删旧文件；数据库失败时删除新文件，避免新旧都丢失或落盘孤儿
+            await ps.set_bg_image(db, current.cid, "/uploads/backgrounds/" + filename)
+        except Exception:
+            pu.remove_file(new_file)
+            raise
+
+        old_file = pu.background_path_for_url(old_url, current.cid)
+        if old_file is not None and old_file != new_file:
+            pu.remove_file(old_file)
+
+        return _ok({"bgImage": BG_PUBLIC_URL}, message="背景图已更新")
     except Exception as exc:  # noqa: BLE001
         log.error("[profile.py] %s", exc)
         return _fail(500, MESSAGE_OPERATION_FAILED)
@@ -402,10 +435,15 @@ async def delete_bg_image(
     current: CurrentUser = Depends(get_current_user),
 ) -> JSJSONResponse:
     try:
-        if await ps.get_bg_image(db, current.cid) is None:
+        old_url = await ps.get_bg_image(db, current.cid)
+        if old_url is None:
             # Node: prisma.user.update(...) 在用户不存在时抛错 → 500「操作失败」
             return _fail(500, MESSAGE_OPERATION_FAILED)
+        # 先清数据库，成功后再删文件；数据库失败时保留文件，避免 DB 指向已删除路径
         await ps.set_bg_image(db, current.cid, "")
+        old_file = pu.background_path_for_url(old_url, current.cid)
+        if old_file is not None:
+            pu.remove_file(old_file)
         return _ok(message="已恢复默认背景")
     except Exception as exc:  # noqa: BLE001
         log.error("[profile.py] %s", exc)

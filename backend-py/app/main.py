@@ -159,7 +159,7 @@ app.add_middleware(CSRFMiddleware)  # Cookie 会话的写请求 CSRF 双提交�
 app.add_middleware(WAFMiddleware)  # 自研轻量 WAF：扫描/注入特征拦截
 
 # ---------- 静态文件（路径与 Node 完全一致） ----------
-for sub in ("avatars", "posters", "backgrounds"):
+for sub in ("avatars", "posters"):
     app.mount(
         f"/uploads/{sub}",
         StaticFiles(directory=f"uploads/{sub}", check_dir=False),
