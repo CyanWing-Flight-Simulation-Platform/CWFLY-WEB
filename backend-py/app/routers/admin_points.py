@@ -111,6 +111,38 @@ async def update_product(
         return _fail(500, "操作失败")
 
 
+@router.delete("/products/{product_id}")
+async def delete_product(
+    product_id: int,
+    db: AsyncSession = Depends(get_db),
+    admin: CurrentUser = _admin,
+) -> JSJSONResponse:
+    try:
+        await cp.admin_delete_product(db, product_id)
+        return _ok(message="商品已删除")
+    except cp.ShopError as exc:
+        return _fail(exc.status_code, exc.message)
+    except Exception as exc:  # noqa: BLE001
+        log.error("[admin_points.py] product delete: %s", exc)
+        return _fail(500, "操作失败")
+
+
+@router.get("/transactions")
+async def list_transactions(
+    userId: str | None = None,
+    kind: str | None = None,
+    limit: int = 100,
+    offset: int = 0,
+    db: AsyncSession = Depends(get_db),
+    admin: CurrentUser = _admin,
+) -> JSJSONResponse:
+    try:
+        return _ok(await cp.admin_list_transactions(db, userId, kind, limit, offset))
+    except Exception as exc:  # noqa: BLE001
+        log.error("[admin_points.py] transactions: %s", exc)
+        return _fail(500, "操作失败")
+
+
 @router.get("/videos")
 async def list_videos(
     status: str | None = None,

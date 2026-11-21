@@ -49,6 +49,7 @@
           <button type="button" class="ap-btn ap-btn--ghost" @click="toggleProduct(item)">
             {{ item.status ? '下架' : '上架' }}
           </button>
+          <button type="button" class="ap-btn ap-btn--danger" @click="deleteProduct(item)">删除</button>
         </div>
         <p v-if="!products.length" class="ap-empty">还没有商品</p>
       </div>
@@ -73,6 +74,34 @@
           <span v-else class="ap-status">{{ video.status === 'approved' ? `已发放 ${video.reward} 积分` : '已驳回' }}</span>
         </div>
         <p v-if="!videos.length" class="ap-empty">暂无待审核作品</p>
+      </div>
+    </section>
+
+    <section class="ap-card">
+      <div class="ap-card__head">
+        <h2>积分流水审计</h2>
+        <button type="button" class="ap-btn ap-btn--ghost" :disabled="busy" @click="loadTransactions">查询</button>
+      </div>
+      <div class="ap-audit-filter">
+        <input v-model.trim="auditUserId" placeholder="按 CID 筛选" />
+        <select v-model="auditKind">
+          <option value="">全部类型</option>
+          <option value="activity">活动结算</option>
+          <option value="flight_hours">飞行时长</option>
+          <option value="video">宣传作品</option>
+          <option value="redeem">商品兑换</option>
+        </select>
+      </div>
+      <div class="ap-list">
+        <div v-for="tx in transactions" :key="tx.id" class="ap-row">
+          <div class="ap-row__main">
+            <strong>{{ tx.username || tx.userId }} <small>{{ tx.userId }}</small></strong>
+            <span>{{ tx.description || tx.kind }} · 余额 {{ tx.balanceAfter }}</span>
+            <span>{{ tx.createdAt }}</span>
+          </div>
+          <b class="ap-amount" :class="{ 'ap-amount--minus': tx.amount < 0 }">{{ tx.amount > 0 ? '+' : '' }}{{ tx.amount }}</b>
+        </div>
+        <p v-if="!transactions.length" class="ap-empty">暂无积分流水</p>
       </div>
     </section>
 
@@ -104,6 +133,9 @@ const configFields = [
 const config = reactive({})
 const products = ref([])
 const videos = ref([])
+const transactions = ref([])
+const auditUserId = ref('')
+const auditKind = ref('')
 const busy = ref(false)
 const configMsg = ref('')
 const settleMsg = ref('')
@@ -128,6 +160,13 @@ async function loadProducts() {
 
 async function loadVideos() {
   videos.value = apiData(await adminApi.pointsVideos({ status: 'pending' })) || []
+}
+
+async function loadTransactions() {
+  const params = {}
+  if (auditUserId.value) params.userId = auditUserId.value
+  if (auditKind.value) params.kind = auditKind.value
+  transactions.value = apiData(await adminApi.pointsTransactions(params)) || []
 }
 
 async function saveConfig() {
@@ -183,6 +222,16 @@ async function toggleProduct(item) {
   }
 }
 
+async function deleteProduct(item) {
+  if (!window.confirm(`确认删除商品「${item.name}」？`)) return
+  try {
+    await adminApi.deletePointsProduct(item.id)
+    await loadProducts()
+  } catch (e) {
+    alert(e.response?.data?.message || '删除失败')
+  }
+}
+
 async function reviewVideo(video, status) {
   busy.value = true
   try {
@@ -217,7 +266,7 @@ async function settleHours() {
 
 onMounted(async () => {
   try {
-    await Promise.all([loadConfig(), loadProducts(), loadVideos()])
+    await Promise.all([loadConfig(), loadProducts(), loadVideos(), loadTransactions()])
   } catch {
     configMsg.value = '数据加载失败'
   }
@@ -244,6 +293,8 @@ html[data-theme='dark'] .admin-points .ap-btn { color: var(--c-text); }
 .ap-btn:disabled { opacity: .5; cursor: not-allowed; }
 .ap-btn--ghost { border-color: var(--c-border); background: transparent; color: var(--c-text-secondary); }
 .ap-btn--ghost:hover { background: var(--panel-hover); }
+.ap-btn--danger { border-color: color-mix(in srgb, var(--c-danger) 35%, transparent); background: transparent; color: var(--c-danger); }
+.ap-btn--danger:hover { background: color-mix(in srgb, var(--c-danger) 10%, transparent); }
 .ap-product-form { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-bottom: 16px; }
 .ap-product-form textarea { grid-column: span 3; resize: vertical; }
 .ap-list { display: flex; flex-direction: column; }
@@ -254,6 +305,11 @@ html[data-theme='dark'] .admin-points .ap-btn { color: var(--c-text); }
 .ap-row__main span { color: var(--c-text-muted); font-size: 11px; }
 .ap-link { color: var(--c-primary); font-size: 11px; text-decoration: none; }
 .ap-status { color: var(--c-text-muted); font-size: 11px; }
+.ap-audit-filter { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+.ap-audit-filter input, .ap-audit-filter select { min-width: 160px; padding: 9px 10px; border: 1px solid var(--field-border); border-radius: 8px; background: var(--field-bg); color: var(--c-text); font-family: inherit; font-size: 12px; }
+.ap-amount { flex-shrink: 0; color: var(--c-success); font-size: 14px; font-variant-numeric: tabular-nums; }
+.ap-amount--minus { color: var(--c-danger); }
+.ap-row__main small { color: var(--c-text-muted); font-size: 10px; font-weight: 400; }
 .ap-msg { margin: 12px 0 0; color: var(--c-text-muted); font-size: 12px; }
 .ap-empty { padding: 18px 0; color: var(--c-text-muted); font-size: 12px; text-align: center; }
 .ap-settle { display: flex; flex-wrap: wrap; gap: 8px; }

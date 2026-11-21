@@ -28,7 +28,13 @@
         <span>积分兑换 · 无任何现实货币参与</span>
       </div>
       <div v-if="loading" class="shop-empty">正在加载商品…</div>
-      <div v-else-if="!products.length" class="shop-empty">商城正在准备中，稍后再来看看。</div>
+      <div v-else-if="!products.length" class="shop-empty shop-empty--products">
+        <svg class="shop-empty__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M4 8.5 12 4l8 4.5v7L12 20l-8-4.5z" />
+          <path d="M4 8.5 12 13l8-4.5M12 13v7" />
+        </svg>
+        <p>暂无商品哦，敬请期待</p>
+      </div>
       <div v-else class="shop-grid">
         <article
           v-for="product in products"
@@ -285,6 +291,22 @@ onMounted(load)
 .shop-btn--ghost { min-height: 30px; padding: 0 10px; border-color: var(--c-border); background: transparent; color: var(--c-text-secondary); font-size: 11px; }
 .shop-btn--ghost:hover:not(:disabled) { background: var(--panel-hover); }
 .shop-empty { padding: 28px; border: 1px dashed var(--c-border); border-radius: var(--radius-md); color: var(--c-text-muted); font-size: 12px; text-align: center; }
+.shop-empty--products {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 260px;
+  gap: 14px;
+  border-style: solid;
+  border-color: var(--c-border);
+  background: var(--c-bg-card);
+  box-shadow: var(--shadow-sm);
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+}
+.shop-empty__icon { width: 52px; height: 52px; color: var(--c-text-muted); opacity: .7; }
+.shop-empty--products p { margin: 0; color: var(--c-text-muted); font-size: 13px; letter-spacing: .02em; }
 .shop-alert { margin: 18px 0 0; padding: 10px 14px; border: 1px solid color-mix(in srgb, var(--c-danger) 35%, transparent); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--c-danger) 10%, transparent); color: var(--c-danger); font-size: 12px; }
 .shop-video__panel { padding: 20px; border: 1px solid var(--c-border); border-radius: var(--radius-md); background: var(--c-bg-card); }
 .shop-video__panel p { margin: 0 0 12px; color: var(--c-text-secondary); font-size: 12px; }

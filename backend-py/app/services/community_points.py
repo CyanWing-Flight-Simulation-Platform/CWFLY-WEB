@@ -121,14 +121,6 @@ DDL = [
     """,
 ]
 
-SEED_PRODUCTS = [
-    ("限定头衔", "在个人资料与社区中展示专属虚拟头衔。", "✦", 300, -1, "title", 10),
-    ("星空头像框", "个人中心头像的虚拟装饰框。", "◎", 500, -1, "avatar_frame", 20),
-    ("云层主页背景", "为个人主页解锁一份虚拟背景主题。", "☁", 800, -1, "background", 30),
-    ("全站广播喇叭", "向全站发送一次虚拟广播。", "◉", 1200, -1, "broadcast", 40),
-]
-
-
 class ShopError(Exception):
     def __init__(self, message: str, status_code: int = 400) -> None:
         self.message = message
@@ -137,7 +129,7 @@ class ShopError(Exception):
 
 
 async def ensure_schema(db: AsyncSession) -> None:
-    """启动时建表并写入默认配置/初始商品（幂等）。"""
+    """启动时建表并写入默认规则；商品库保持为空，由管理员自行创建。"""
     for ddl in DDL:
         await db.execute(text(ddl))
     for key, value in CONFIG_DEFAULTS.items():
@@ -148,27 +140,6 @@ async def ensure_schema(db: AsyncSession) -> None:
             ),
             {"k": key, "v": value},
         )
-    count_row = (
-        await db.execute(text("SELECT COUNT(*) AS c FROM `point_products`"))
-    ).first()
-    if count_row is not None and int(count_row._mapping["c"] or 0) == 0:
-        for item in SEED_PRODUCTS:
-            await db.execute(
-                text(
-                    "INSERT INTO `point_products` "
-                    "(name, description, icon, price, stock, asset_type, sort_order) "
-                    "VALUES (:name, :desc, :icon, :price, :stock, :type, :sort)"
-                ),
-                {
-                    "name": item[0],
-                    "desc": item[1],
-                    "icon": item[2],
-                    "price": item[3],
-                    "stock": item[4],
-                    "type": item[5],
-                    "sort": item[6],
-                },
-            )
     await db.commit()
 
 
@@ -724,6 +695,64 @@ async def admin_save_product(db: AsyncSession, data: dict[str, Any], product_id:
     await db.commit()
     return {"id": product_id}
 
+
+async def admin_delete_product(db: AsyncSession, product_id: int) -> None:
+    exists = (
+        await db.execute(
+            text("SELECT id FROM `point_products` WHERE id = :id LIMIT 1"),
+            {"id": product_id},
+        )
+    ).first()
+    if exists is None:
+        raise ShopError("商品不存在", 404)
+    await db.execute(text("DELETE FROM `point_products` WHERE id = :id"), {"id": product_id})
+    await db.commit()
+
+
+async def admin_list_transactions(
+    db: AsyncSession,
+    user_id: str | None = None,
+    kind: str | None = None,
+    limit: int = 100,
+    offset: int = 0,
+) -> list[dict[str, Any]]:
+    """积分流水审计：可按用户 CID / 类型过滤，返回变动原因与变动后余额。"""
+    clauses: list[str] = []
+    params: dict[str, Any] = {"limit": max(1, min(int(limit), 200)), "offset": max(0, int(offset))}
+    if user_id:
+        clauses.append("t.userId = :uid")
+        params["uid"] = user_id
+    if kind:
+        clauses.append("t.kind = :kind")
+        params["kind"] = kind
+    where = ("WHERE " + " AND ".join(clauses)) if clauses else ""
+    rows = (
+        await db.execute(
+            text(
+                "SELECT t.id, t.userId, u.username, t.amount, t.balanceAfter, t.kind, "
+                "t.reference, t.description, t.createdAt "
+                "FROM `point_transactions` t LEFT JOIN `User` u ON u.cid = t.userId "
+                f"{where} ORDER BY t.id DESC LIMIT :limit OFFSET :offset"
+            ),
+            params,
+        )
+    ).all()
+    return [
+        {
+            "id": _int(r._mapping["id"]),
+            "userId": r._mapping["userId"],
+            "username": r._mapping["username"] or "",
+            "amount": _int(r._mapping["amount"]),
+            "balanceAfter": _int(r._mapping["balanceAfter"]),
+            "kind": r._mapping["kind"],
+            "reference": r._mapping["reference"],
+            "description": r._mapping["description"] or "",
+            "createdAt": r._mapping["createdAt"],
+        }
+        for r in rows
+    ]
+
+
 async def list_videos(db: AsyncSession, status: str | None = None) -> list[dict[str, Any]]:
     where = "WHERE status = :status" if status else ""
     params = {"status": status} if status else {}
@@ -846,6 +875,8 @@ __all__ = [
     "settle_hours",
     "admin_list_products",
     "admin_save_product",
+    "admin_delete_product",
+    "admin_list_transactions",
     "list_videos",
     "review_video",
     "update_config",
