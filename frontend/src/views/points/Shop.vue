@@ -9,6 +9,15 @@
           <span>活动需满 {{ rates.activityMinHours ?? '—' }} 小时</span>
           <span>活动结算 {{ rates.activityPoints ?? '—' }} 积分</span>
         </div>
+        <div class="shop-frequent">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 19V5M5 12l7-7 7 7" />
+          </svg>
+          <div>
+            <span>常旅客飞行时长</span>
+            <strong>当前累计飞行：{{ formatHours(totalHours) }} 小时</strong>
+          </div>
+        </div>
       </div>
       <div class="shop-balance">
         <span class="shop-balance__label">可用积分</span>
@@ -40,7 +49,10 @@
           v-for="product in products"
           :key="product.id"
           class="shop-card"
-          :class="{ 'shop-card--soldout': product.stock === 0 }"
+          :class="{
+            'shop-card--soldout': product.stock === 0,
+            'shop-card--locked': isLocked(product),
+          }"
         >
           <div class="shop-card__top">
             <span class="shop-card__icon" aria-hidden="true">{{ product.icon }}</span>
@@ -55,10 +67,10 @@
           <button
             type="button"
             class="shop-btn"
-            :disabled="redeeming || product.stock === 0 || balance < product.price"
+            :disabled="redeeming || isLocked(product) || product.stock === 0 || balance < product.price"
             @click="redeem(product)"
           >
-            {{ product.stock === 0 ? '已兑完' : (balance < product.price ? '积分不足' : '立即兑换') }}
+            {{ productButtonText(product) }}
           </button>
         </article>
       </div>
@@ -123,6 +135,7 @@ import { onMounted, reactive, ref } from 'vue'
 import { pointsApi } from '@/api'
 
 const balance = ref(0)
+const totalHours = ref(0)
 const products = ref([])
 const rates = ref({})
 const loading = ref(true)
@@ -142,6 +155,21 @@ function formatDate(value) {
   return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString('zh-CN', { hour12: false })
 }
 
+function formatHours(value) {
+  return (Number(value) || 0).toFixed(1)
+}
+
+function isLocked(product) {
+  return Number(totalHours.value) < Number(product.minFlightHours || 0)
+}
+
+function productButtonText(product) {
+  if (isLocked(product)) return `需飞行 ${Number(product.minFlightHours || 0)} 小时解锁`
+  if (product.stock === 0) return '已兑完'
+  if (balance.value < product.price) return '积分不足'
+  return '立即兑换'
+}
+
 async function load() {
   loading.value = true
   error.value = ''
@@ -149,6 +177,7 @@ async function load() {
     const res = await pointsApi.shop()
     const data = res.data?.data || res.data || {}
     balance.value = Number(data.balance) || 0
+    totalHours.value = Number(data.totalHours) || 0
     products.value = data.products || []
     rates.value = data.rates || {}
   } catch (e) {
@@ -160,6 +189,7 @@ async function load() {
 
 async function redeem(product) {
   if (redeeming.value) return
+  if (isLocked(product)) return
   if (!window.confirm(`确认使用 ${product.price} 积分兑换「${product.name}」？`)) return
   redeeming.value = true
   error.value = ''
@@ -240,6 +270,11 @@ onMounted(load)
 .shop-hero__copy h1 { margin: 0 0 8px; font-size: 26px; letter-spacing: -.02em; }
 .shop-hero__copy p { margin: 0; color: var(--c-text-secondary); font-size: 13px; line-height: 1.7; }
 .shop-rates { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 16px; color: var(--c-text-muted); font-size: 11px; }
+.shop-frequent { display: inline-flex; align-items: center; gap: 10px; margin-top: 18px; padding: 10px 14px; border: 1px solid var(--c-border); border-radius: 10px; background: var(--c-primary-light); }
+.shop-frequent svg { width: 22px; height: 22px; flex-shrink: 0; color: var(--c-primary); }
+.shop-frequent div { display: flex; flex-direction: column; gap: 2px; }
+.shop-frequent span { color: var(--c-text-muted); font-size: 10px; }
+.shop-frequent strong { color: var(--c-primary); font-size: 14px; font-variant-numeric: tabular-nums; }
 .shop-balance { flex-shrink: 0; min-width: 190px; padding: 16px 20px; border-radius: var(--radius-md); background: var(--c-primary-light); }
 .shop-balance__label { display: block; color: var(--c-text-muted); font-size: 11px; }
 .shop-balance strong { display: block; margin: 4px 0 10px; color: var(--c-primary); font-size: 32px; font-variant-numeric: tabular-nums; line-height: 1; }
@@ -264,6 +299,8 @@ onMounted(load)
 }
 .shop-card:hover { transform: translateY(-3px); border-color: var(--glass-border-strong); box-shadow: var(--shadow-lg); }
 .shop-card--soldout { opacity: .62; }
+.shop-card--locked { opacity: .72; }
+.shop-card--locked .shop-card__icon { color: var(--c-text-muted); background: var(--c-bg-subtle, var(--c-border-light)); }
 .shop-card__top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .shop-card__icon { display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px; border-radius: 11px; background: var(--c-primary-light); color: var(--c-primary); font-size: 20px; }
 .shop-card__type { color: var(--c-text-muted); font-size: 10px; letter-spacing: .04em; }

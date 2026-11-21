@@ -56,6 +56,7 @@ DDL = [
       `stock` int NOT NULL DEFAULT -1,
       `status` tinyint NOT NULL DEFAULT 1,
       `asset_type` varchar(32) NOT NULL DEFAULT 'virtual',
+      `min_flight_hours` double NOT NULL DEFAULT 0,
       `sort_order` int NOT NULL DEFAULT 0,
       `createdAt` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
       `updatedAt` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
@@ -140,6 +141,22 @@ async def ensure_schema(db: AsyncSession) -> None:
             ),
             {"k": key, "v": value},
         )
+    col = (
+        await db.execute(
+            text(
+                "SELECT COUNT(*) AS c FROM information_schema.columns "
+                "WHERE table_schema = DATABASE() AND table_name = 'point_products' "
+                "AND column_name = 'min_flight_hours'"
+            )
+        )
+    ).first()
+    if col is not None and int(col._mapping["c"] or 0) == 0:
+        await db.execute(
+            text(
+                "ALTER TABLE `point_products` "
+                "ADD COLUMN `min_flight_hours` double NOT NULL DEFAULT 0"
+            )
+        )
     await db.commit()
 
 
@@ -177,13 +194,24 @@ async def get_balance(db: AsyncSession, cid: str) -> int:
     return _int(row._mapping["points"]) if row else 0
 
 
+async def get_total_hours(db: AsyncSession, cid: str) -> float:
+    """常旅客累计飞行时长（小时），来自现有 UserPoint.hours。"""
+    row = (
+        await db.execute(
+            text("SELECT hours FROM `UserPoint` WHERE userId = :uid LIMIT 1"),
+            {"uid": cid},
+        )
+    ).first()
+    return _float(row._mapping["hours"]) if row else 0.0
+
+
 async def list_products(db: AsyncSession, only_active: bool = True) -> list[dict[str, Any]]:
     where = "WHERE status = 1" if only_active else ""
     rows = (
         await db.execute(
             text(
                 "SELECT id, name, description, icon, price, stock, status, "
-                "asset_type, sort_order FROM `point_products` "
+                "asset_type, min_flight_hours, sort_order FROM `point_products` "
                 f"{where} ORDER BY sort_order ASC, id ASC"
             )
         )
@@ -203,6 +231,7 @@ async def list_products(db: AsyncSession, only_active: bool = True) -> list[dict
                 "unlimited": stock < 0,
                 "status": _int(m["status"]),
                 "assetType": m["asset_type"] or "virtual",
+                "minFlightHours": _float(m["min_flight_hours"]),
                 "sortOrder": _int(m["sort_order"]),
             }
         )
@@ -211,10 +240,12 @@ async def list_products(db: AsyncSession, only_active: bool = True) -> list[dict
 
 async def shop_overview(db: AsyncSession, cid: str) -> dict[str, Any]:
     balance = await get_balance(db, cid)
+    total_hours = await get_total_hours(db, cid)
     products = await list_products(db, only_active=True)
     config = await get_config(db)
     return {
         "balance": balance,
+        "totalHours": total_hours,
         "products": products,
         "rates": {
             "pointsPerHour": _float(config["points_per_hour"]),
@@ -340,8 +371,8 @@ async def redeem(db: AsyncSession, cid: str, product_id: int) -> dict[str, Any]:
         product = (
             await db.execute(
                 text(
-                    "SELECT id, name, description, icon, price, stock, status, asset_type "
-                    "FROM `point_products` WHERE id = :id FOR UPDATE"
+                    "SELECT id, name, description, icon, price, stock, status, asset_type, "
+                    "min_flight_hours FROM `point_products` WHERE id = :id FOR UPDATE"
                 ),
                 {"id": pid},
             )
@@ -354,6 +385,18 @@ async def redeem(db: AsyncSession, cid: str, product_id: int) -> dict[str, Any]:
         price = _int(m["price"])
         if price <= 0:
             raise ShopError("商品积分配置错误", 400)
+        required_hours = _float(m["min_flight_hours"])
+        user_hours_row = (
+            await db.execute(
+                text(
+                    "SELECT hours FROM `UserPoint` WHERE userId = :uid LIMIT 1 FOR UPDATE"
+                ),
+                {"uid": cid},
+            )
+        ).first()
+        user_hours = _float(user_hours_row._mapping["hours"]) if user_hours_row else 0.0
+        if user_hours < required_hours:
+            raise ShopError(f"需飞行 {required_hours:g} 小时解锁", 403)
 
         if daily_limit:
             quota = (
@@ -645,13 +688,20 @@ async def admin_save_product(db: AsyncSession, data: dict[str, Any], product_id:
     if stock < -1:
         stock = -1
     status = 1 if _int(data.get("status"), 1) != 0 else 0
+    min_flight_hours = _float(
+        data.get("minFlightHours", data.get("min_flight_hours", 0)), 0.0
+    )
+    if min_flight_hours < 0:
+        raise ShopError("解锁所需飞行时长不能为负数")
     sort_order = _int(data.get("sortOrder") or data.get("sort_order"), 0)
     if product_id is None:
         result = await db.execute(
             text(
                 "INSERT INTO `point_products` "
-                "(name, description, icon, price, stock, status, asset_type, sort_order) "
-                "VALUES (:name, :desc, :icon, :price, :stock, :status, :type, :sort)"
+                "(name, description, icon, price, stock, status, asset_type, "
+                "min_flight_hours, sort_order) "
+                "VALUES (:name, :desc, :icon, :price, :stock, :status, :type, "
+                ":min_hours, :sort)"
             ),
             {
                 "name": name,
@@ -661,6 +711,7 @@ async def admin_save_product(db: AsyncSession, data: dict[str, Any], product_id:
                 "stock": stock,
                 "status": status,
                 "type": asset_type,
+                "min_hours": min_flight_hours,
                 "sort": sort_order,
             },
         )
@@ -678,7 +729,7 @@ async def admin_save_product(db: AsyncSession, data: dict[str, Any], product_id:
         text(
             "UPDATE `point_products` SET name = :name, description = :desc, icon = :icon, "
             "price = :price, stock = :stock, status = :status, asset_type = :type, "
-            "sort_order = :sort, updatedAt = NOW(3) WHERE id = :id"
+            "min_flight_hours = :min_hours, sort_order = :sort, updatedAt = NOW(3) WHERE id = :id"
         ),
         {
             "name": name,
@@ -688,6 +739,7 @@ async def admin_save_product(db: AsyncSession, data: dict[str, Any], product_id:
             "stock": stock,
             "status": status,
             "type": asset_type,
+            "min_hours": min_flight_hours,
             "sort": sort_order,
             "id": product_id,
         },
@@ -864,6 +916,7 @@ __all__ = [
     "ensure_schema",
     "get_config",
     "get_balance",
+    "get_total_hours",
     "shop_overview",
     "list_products",
     "list_transactions",

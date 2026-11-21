@@ -32,6 +32,7 @@
         <input v-model.trim="product.icon" placeholder="图标字符" maxlength="8" />
         <input v-model.number="product.price" type="number" min="1" placeholder="所需积分" />
         <input v-model.number="product.stock" type="number" min="-1" placeholder="库存（-1 不限）" />
+        <input v-model.number="product.minFlightHours" type="number" min="0" step="0.1" placeholder="解锁所需飞行小时" />
         <input v-model.trim="product.assetType" placeholder="资产类型" maxlength="32" />
         <textarea v-model.trim="product.description" rows="2" placeholder="商品说明" maxlength="500"></textarea>
         <button type="button" class="ap-btn" :disabled="busy" @click="saveProduct">
@@ -43,7 +44,7 @@
           <span class="ap-row__icon">{{ item.icon }}</span>
           <div class="ap-row__main">
             <strong>{{ item.name }}</strong>
-            <span>{{ item.price }} 积分 · {{ item.unlimited ? '不限量' : `库存 ${item.stock}` }} · {{ item.assetType }}</span>
+            <span>{{ item.price }} 积分 · {{ item.unlimited ? '不限量' : `库存 ${item.stock}` }} · {{ item.assetType }}<template v-if="item.minFlightHours > 0"> · 需飞行 {{ item.minFlightHours }} 小时解锁</template></span>
           </div>
           <button type="button" class="ap-btn ap-btn--ghost" @click="editProduct(item)">编辑</button>
           <button type="button" class="ap-btn ap-btn--ghost" @click="toggleProduct(item)">
@@ -142,7 +143,7 @@ const settleMsg = ref('')
 const eventId = ref('')
 const product = reactive({
   id: 0, name: '', description: '', icon: '✦', price: 100, stock: -1,
-  assetType: 'virtual', status: 1, sortOrder: 0,
+  minFlightHours: 0, assetType: 'virtual', status: 1, sortOrder: 0,
 })
 
 function apiData(res) {
@@ -184,15 +185,15 @@ async function saveConfig() {
 function resetProduct() {
   Object.assign(product, {
     id: 0, name: '', description: '', icon: '✦', price: 100, stock: -1,
-    assetType: 'virtual', status: 1, sortOrder: 0,
+    minFlightHours: 0, assetType: 'virtual', status: 1, sortOrder: 0,
   })
 }
 
 function editProduct(item) {
   Object.assign(product, {
     id: item.id, name: item.name, description: item.description, icon: item.icon,
-    price: item.price, stock: item.stock, assetType: item.assetType,
-    status: item.status, sortOrder: item.sortOrder,
+    price: item.price, stock: item.stock, minFlightHours: item.minFlightHours || 0,
+    assetType: item.assetType, status: item.status, sortOrder: item.sortOrder,
   })
 }
 
@@ -201,8 +202,8 @@ async function saveProduct() {
   try {
     const payload = {
       name: product.name, description: product.description, icon: product.icon,
-      price: product.price, stock: product.stock, assetType: product.assetType,
-      status: product.status, sortOrder: product.sortOrder,
+      price: product.price, stock: product.stock, minFlightHours: product.minFlightHours || 0,
+      assetType: product.assetType, status: product.status, sortOrder: product.sortOrder,
     }
     if (product.id) await adminApi.updatePointsProduct(product.id, payload)
     else await adminApi.createPointsProduct(payload)
