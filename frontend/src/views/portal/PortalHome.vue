@@ -496,14 +496,14 @@ onUnmounted(() => {
 .portal-home {
   --ui-font: "Inter", "SF Pro Text", -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text", "PingFang SC", "Microsoft YaHei", sans-serif;
   --surface-bg: rgba(255, 255, 255, .65);
-  --surface-border: rgba(255, 255, 255, .70);
+  --surface-border: rgba(255, 255, 255, .50);
   --hairline: rgba(15, 23, 42, .07);
   --surface-shadow: 0 8px 32px rgba(0, 0, 0, .06);
   --surface-inset: inset 0 1px 1px rgba(255, 255, 255, .55);
   --row-bg: rgba(15, 23, 42, .025);
   --event-bg: rgba(255, 255, 255, .65);
   --event-bg-hover: rgba(255, 255, 255, .78);
-  --event-border: rgba(255, 255, 255, .70);
+  --event-border: rgba(255, 255, 255, .50);
   --event-title: #111827;
   --event-meta: #4B5563;
   --event-badge-bg: rgba(37, 99, 235, .08);
@@ -631,7 +631,7 @@ html[data-theme='dark'] .hero__content p { color: rgba(255, 255, 255, .68); }
 }
 .status-bar {
   position: relative;
-  padding: 24px 32px;
+  padding: 16px 28px;
   border: 1px solid var(--event-border);
   border-radius: 20px;
   background-color: var(--event-bg);
@@ -644,7 +644,7 @@ html[data-theme='dark'] .hero__content p { color: rgba(255, 255, 255, .68); }
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 18px;
+  margin-bottom: 12px;
   color: var(--event-meta);
   font-family: var(--ui-font);
   font-size: 12px;
@@ -670,7 +670,7 @@ html[data-theme='dark'] .hero__content p { color: rgba(255, 255, 255, .68); }
   align-items: center;
   justify-content: center;
   min-width: 0;
-  padding: 4px 16px;
+  padding: 2px 16px;
   text-align: center;
 }
 .status-icon,
@@ -678,14 +678,14 @@ html[data-theme='dark'] .hero__content p { color: rgba(255, 255, 255, .68); }
 .status-value {
   color: var(--event-title);
   font-family: var(--ui-font);
-  font-size: 42px;
+  font-size: 38px;
   font-weight: 750;
   letter-spacing: -.05em;
   line-height: 1;
   font-variant-numeric: tabular-nums;
 }
 .status-label {
-  margin-top: 9px;
+  margin-top: 7px;
   color: var(--event-meta);
   font-family: var(--ui-font);
   font-size: 11px;
@@ -1017,13 +1017,21 @@ html[data-theme='dark'] .about-panel__text { color: rgba(255, 255, 255, .56); }
 
 /* ---------- 核心功能 ---------- */
 .section--features { padding-top: 112px; }
-.feature-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-auto-rows: 1fr;
+  align-items: stretch;
+  gap: 16px;
+}
 .feature-card {
   display: flex;
   flex-direction: column;
+  align-self: stretch;
+  height: 100%;
   min-height: 196px;
   padding: 28px 24px;
-  border: 1px solid var(--event-border);
+  border: 1px solid rgba(255, 255, 255, .50);
   border-radius: 18px;
   background-color: var(--event-bg);
   background-image: var(--event-tint);
@@ -1042,7 +1050,7 @@ html[data-theme='dark'] .about-panel__text { color: rgba(255, 255, 255, .56); }
   border: 0;
   border-radius: 0;
   background: transparent;
-  color: #1D4ED8;
+  color: #1E3A8A;
 }
 .feature-card__icon svg { width: 34px; height: 34px; flex: 0 0 34px; }
 .feature-card h3 {
@@ -1219,7 +1227,7 @@ html[data-theme='light'] .portal-home .bento-card,
 html[data-theme='light'] .portal-home .leaderboard-panel,
 html[data-theme='light'] .portal-home .about-panel {
   color: #111827 !important;
-  border: 1px solid rgba(255, 255, 255, .70) !important;
+  border: 1px solid rgba(255, 255, 255, .50) !important;
   background-color: rgba(255, 255, 255, .65) !important;
   background-image: none !important;
   backdrop-filter: blur(24px) saturate(120%) !important;
@@ -1261,7 +1269,7 @@ html[data-theme='light'] .portal-home .rank-index {
 html[data-theme='light'] .portal-home .feature-card__icon {
   border-color: transparent !important;
   background: transparent !important;
-  color: #1D4ED8 !important;
+  color: #1E3A8A !important;
 }
 html[data-theme='light'] .portal-home .live-stat,
 html[data-theme='light'] .portal-home .status-item {
