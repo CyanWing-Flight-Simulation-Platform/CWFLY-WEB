@@ -22,6 +22,14 @@ log = logging.getLogger("cwfly.ipban")
 REFRESH_INTERVAL = 60.0  # 秒，与 Node REFRESH_INTERVAL 一致
 _last_refresh = 0.0
 
+# 只给「服务器到服务器」的 OAuth2 端点开白：这些接口的调用方是第三方服务器，
+# 不对终端访客开放，地区黑名单不适用（鉴权靠 client_secret）。
+_S2S_OAUTH_PREFIXES = ("/api/oauth/token", "/api/oauth/userinfo", "/api/oauth/revoke")
+
+
+def _is_server_to_server_oauth(path: str) -> bool:
+    return any(path.startswith(prefix) for prefix in _S2S_OAUTH_PREFIXES)
+
 
 async def preload_bans() -> None:
     """启动预热（对应 Node ensureBansLoaded）。"""
@@ -61,6 +69,11 @@ class IpBanMiddleware(BaseHTTPMiddleware):
                     media_type="application/json",
                 )
             if ip_ban_store.is_whitelisted(ip):
+                return await call_next(request)
+            # OAuth2 服务端到服务端端点（换令牌 / 读用户信息 / 撤销）：
+            # 调用方是第三方服务器，不能被面向终端访客的地区黑名单挡住，
+            # 鉴权由 client_id + client_secret 负责。
+            if _is_server_to_server_oauth(request.url.path):
                 return await call_next(request)
             if ip_ban_store.is_ip_list_banned(ip):
                 log.info("[IpBan] 拦截网络管理黑名单 IP %s -> %s %s", ip, request.method, request.url.path)
