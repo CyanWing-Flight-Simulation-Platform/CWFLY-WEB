@@ -2,17 +2,17 @@
 /**
  * 第三方 OAuth 授权确认弹窗
  *
- * 视觉：单栏纵向流式排版，靠留白与字重分层；毛玻璃卡片 + 极细描边 + 弥散阴影。
- * 不使用图标 / Emoji / 装饰边框；全部颜色取自主题 token（--ui-* / --c-* / --glass-*）。
+ * 视觉：单栏纵向流式，留白与字重分层；毛玻璃 + 极细描边 + 弥散阴影。
+ * 无图标 / Emoji / 装饰线框；颜色全部来自主题 token（--ui-* / --c-* / --glass-*）。
  *
  * 用法：
  *   <OAuthConsentModal
  *     v-model:open="visible"
- *     app-name="ATC 管制员中心"
- *     app-origin="atc.cwflysim.cn"
- *     user-name="CW-1234"
- *     cid="1234"
- *     :scopes="['用户名', 'CID', '权限等级']"
+ *     app-name="Dubhe Nexus"
+ *     app-origin="merak.dubhenexus.io"
+ *     user-name="CW-2048"
+ *     cid="2048"
+ *     :scopes="['用户名', 'CID', '邮箱', '飞行时长']"
  *     @approve="onApprove"
  *     @deny="onDeny"
  *     @close="onClose"
@@ -127,7 +127,6 @@ watch(
   (open) => {
     if (open) {
       lockScroll()
-      // 焦点落在对话框本身：屏幕阅读器直接朗读标题，按钮也不会一出现就带高亮框
       nextTick(() => cardRef.value?.focus({ preventScroll: true }))
     } else {
       unlockScroll()
@@ -161,9 +160,9 @@ onBeforeUnmount(unlockScroll)
 
           <section class="oc-scopes" aria-labelledby="oc-scopes-cap">
             <p id="oc-scopes-cap" class="oc-cap">将读取以下字段</p>
-            <ul class="oc-fields">
-              <li v-for="label in scopeLabels" :key="label" class="oc-field">{{ label }}</li>
-              <li v-if="!scopeLabels.length" class="oc-field">基本账户信息</li>
+            <ul class="oc-tags">
+              <li v-for="label in scopeLabels" :key="label" class="oc-tag">{{ label }}</li>
+              <li v-if="!scopeLabels.length" class="oc-tag">基本账户信息</li>
             </ul>
           </section>
 
@@ -176,16 +175,16 @@ onBeforeUnmount(unlockScroll)
             <div class="oc-actions">
               <button
                 type="button"
-                class="oc-btn oc-btn--primary"
-                :disabled="loading"
-                @click="approve"
-              >{{ loading ? '处理中' : '同意授权' }}</button>
-              <button
-                type="button"
                 class="oc-btn oc-btn--ghost"
                 :disabled="loading"
                 @click="deny"
               >拒绝</button>
+              <button
+                type="button"
+                class="oc-btn oc-btn--primary"
+                :disabled="loading"
+                @click="approve"
+              >{{ loading ? '处理中' : '同意授权' }}</button>
             </div>
           </footer>
         </section>
@@ -195,10 +194,6 @@ onBeforeUnmount(unlockScroll)
 </template>
 
 <style scoped>
-.oc-card {
-  --oc-hairline: var(--ui-divider, rgba(15, 23, 42, .06));
-}
-
 .oc-overlay {
   position: fixed;
   inset: 0;
@@ -207,23 +202,22 @@ onBeforeUnmount(unlockScroll)
   place-items: center;
   padding: 24px;
   background: var(--ui-overlay, rgba(15, 23, 42, .35));
-  backdrop-filter: blur(14px) saturate(130%);
-  -webkit-backdrop-filter: blur(14px) saturate(130%);
+  backdrop-filter: blur(16px) saturate(120%);
+  -webkit-backdrop-filter: blur(16px) saturate(120%);
 }
 
+/* ---------- 卡片：毛玻璃 + 极细描边 + 弥散阴影 ---------- */
 .oc-card {
-  width: min(508px, 100%);
+  width: min(452px, 100%);
   max-height: min(88vh, 760px);
   overflow: auto;
-  padding: 34px 34px 26px;
+  padding: 30px 28px 22px;
   border: 1px solid var(--ui-dialog-border, rgba(15, 23, 42, .1));
-  border-radius: 26px;
+  border-radius: 18px;
   background: var(--ui-dialog-bg, rgba(255, 255, 255, .88));
-  box-shadow:
-    var(--glass-shadow-lg, 0 18px 56px rgba(0, 0, 0, .16)),
-    inset 0 1px 0 color-mix(in srgb, #fff 55%, transparent);
-  backdrop-filter: blur(30px) saturate(180%);
-  -webkit-backdrop-filter: blur(30px) saturate(180%);
+  box-shadow: var(--glass-shadow-lg, 0 18px 56px rgba(0, 0, 0, .16));
+  backdrop-filter: blur(28px) saturate(170%);
+  -webkit-backdrop-filter: blur(28px) saturate(170%);
   color: var(--ui-text, #111827);
   outline: none;
 }
@@ -232,14 +226,14 @@ onBeforeUnmount(unlockScroll)
 .oc-head {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
 }
 .oc-app {
   margin: 0;
-  font-size: 25px;
-  font-weight: 700;
-  line-height: 1.22;
-  letter-spacing: -.022em;
+  font-size: 26px;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -.02em;
   color: var(--ui-text, #111827);
   word-break: break-word;
 }
@@ -247,49 +241,54 @@ onBeforeUnmount(unlockScroll)
   margin: 0;
   font-size: 12.5px;
   font-weight: 400;
-  line-height: 1.6;
+  line-height: 1.55;
   color: var(--ui-text-muted, #9ca3af);
 }
 
-/* ---------- 权限字段：无边框网格 ---------- */
+/* ---------- 权限：无边框胶囊 ---------- */
 .oc-scopes {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  margin-top: 30px;
+  gap: 10px;
+  margin-top: 26px;
 }
 .oc-cap {
   margin: 0;
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 500;
-  letter-spacing: .16em;
+  line-height: 1.4;
   color: var(--ui-text-muted, #9ca3af);
 }
-.oc-fields {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px 22px;
+.oc-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
-.oc-field {
-  font-size: 13.5px;
+.oc-tag {
+  padding: 4px 9px;
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--ui-text, #111827) 5%, transparent);
+  font-size: 12.5px;
   font-weight: 500;
-  line-height: 1.45;
+  line-height: 1.5;
   letter-spacing: .005em;
-  color: var(--ui-text, #111827);
+  color: var(--ui-text-secondary, #6b7280);
   word-break: break-word;
 }
 
-/* ---------- 风险提示：纯文本 + 极细柔和竖线 ---------- */
+/* ---------- 风险提示：一根柔和竖线 + 极浅底 ---------- */
 .oc-warn {
-  margin: 28px 0 0;
-  padding: 1px 0 1px 13px;
-  border-left: 2px solid color-mix(in srgb, var(--c-warning) 62%, transparent);
+  margin: 24px 0 0;
+  padding: 9px 12px;
+  border-left: 2px solid color-mix(in srgb, var(--c-warning) 58%, transparent);
+  border-radius: 0 6px 6px 0;
+  background: color-mix(in srgb, var(--ui-text, #111827) 4%, transparent);
   font-size: 12px;
   font-weight: 400;
-  line-height: 1.8;
+  line-height: 1.7;
   color: var(--ui-text-secondary, #6b7280);
 }
 
@@ -297,111 +296,96 @@ onBeforeUnmount(unlockScroll)
 .oc-foot {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  margin-top: 30px;
-  padding-top: 18px;
-  border-top: 1px solid var(--oc-hairline);
+  gap: 16px;
+  margin-top: 26px;
 }
 .oc-account {
   margin: 0;
-  font-size: 10.5px;
-  letter-spacing: .02em;
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: .01em;
   color: var(--ui-text-muted, #9ca3af);
 }
 .oc-actions {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 8px;
+  gap: 6px;
 }
 
 .oc-btn {
-  height: 36px;
-  padding: 0 18px;
-  border-radius: 10px;
+  height: 34px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 8px;
   font-family: inherit;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 500;
   letter-spacing: .01em;
   cursor: pointer;
-  transition: background .18s ease, color .18s ease, box-shadow .18s ease, filter .18s ease;
+  transition: background .16s ease, color .16s ease, opacity .16s ease, transform .16s ease;
 }
 .oc-btn:disabled {
-  opacity: .55;
+  opacity: .5;
   cursor: default;
 }
 
-/* 主按钮：带细腻光影过渡的品牌渐变 */
+/* 主按钮：主题反色纯色（浅色→近黑底白字；暗黑→白底近黑字） */
 .oc-btn--primary {
-  border: 1px solid color-mix(in srgb, var(--c-primary-dark) 55%, transparent);
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--c-primary) 86%, #fff 14%) 0%,
-    var(--c-primary) 52%,
-    var(--c-primary-dark) 100%
-  );
-  color: #fff;
-  box-shadow:
-    0 1px 2px color-mix(in srgb, var(--c-primary-dark) 32%, transparent),
-    inset 0 1px 0 color-mix(in srgb, #fff 34%, transparent);
+  background: var(--ui-text, #111827);
+  color: var(--ui-dialog-bg, #ffffff);
+  font-weight: 600;
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--ui-text, #111827) 14%, transparent);
 }
 .oc-btn--primary:hover:not(:disabled) {
-  filter: brightness(1.05);
-  box-shadow:
-    0 3px 12px color-mix(in srgb, var(--c-primary) 30%, transparent),
-    inset 0 1px 0 color-mix(in srgb, #fff 34%, transparent);
+  opacity: .88;
 }
 .oc-btn--primary:active:not(:disabled) {
-  filter: brightness(.97);
-  box-shadow: inset 0 1px 3px color-mix(in srgb, var(--c-primary-dark) 45%, transparent);
+  transform: translateY(.5px);
+  opacity: .82;
 }
 .oc-btn--primary:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--c-primary) 55%, transparent);
-  outline-offset: 3px;
+  outline: 2px solid color-mix(in srgb, var(--ui-text, #111827) 40%, transparent);
+  outline-offset: 2px;
 }
 
-/* 次按钮：纯文字幽灵按钮，层级明显更低 */
+/* 次按钮：纯灰字幽灵 */
 .oc-btn--ghost {
-  border: 1px solid transparent;
   background: transparent;
   color: var(--ui-text-muted, #9ca3af);
-  font-weight: 500;
 }
 .oc-btn--ghost:hover:not(:disabled) {
-  background: var(--ui-ghost-bg, rgba(15, 23, 42, .05));
+  background: color-mix(in srgb, var(--ui-text, #111827) 5%, transparent);
   color: var(--ui-text-secondary, #6b7280);
 }
 .oc-btn--ghost:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--ui-text-muted, #9ca3af) 55%, transparent);
-  outline-offset: 3px;
+  outline: 2px solid color-mix(in srgb, var(--ui-text-muted, #9ca3af) 45%, transparent);
+  outline-offset: 2px;
 }
 
-/* ---------- 入场动效 ---------- */
+/* ---------- 动效 ---------- */
 .oc-enter-active,
-.oc-leave-active { transition: opacity .2s ease; }
+.oc-leave-active { transition: opacity .18s ease; }
 .oc-enter-active .oc-card,
 .oc-leave-active .oc-card {
-  transition: transform .26s cubic-bezier(.22, 1, .36, 1), opacity .26s ease;
+  transition: transform .24s cubic-bezier(.22, 1, .36, 1), opacity .24s ease;
 }
 .oc-enter-from,
 .oc-leave-to { opacity: 0; }
 .oc-enter-from .oc-card,
-.oc-leave-to .oc-card { opacity: 0; transform: translateY(9px) scale(.99); }
+.oc-leave-to .oc-card { opacity: 0; transform: translateY(8px) scale(.99); }
 
 /* ---------- 窄屏 ---------- */
 @media (max-width: 560px) {
   .oc-overlay { padding: 14px; }
   .oc-card {
-    padding: 26px 22px 20px;
-    border-radius: 20px;
+    padding: 24px 20px 18px;
+    border-radius: 16px;
   }
-  .oc-app { font-size: 21px; }
-  .oc-fields { grid-template-columns: minmax(0, 1fr); gap: 8px; }
-  .oc-scopes { margin-top: 24px; }
-  .oc-warn { margin-top: 22px; }
-  .oc-foot { margin-top: 24px; }
-  .oc-actions { justify-content: stretch; }
-  .oc-btn { flex: 1 1 auto; }
+  .oc-app { font-size: 22px; }
+  .oc-scopes { margin-top: 22px; }
+  .oc-warn { margin-top: 20px; }
+  .oc-foot { margin-top: 22px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
