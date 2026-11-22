@@ -7,10 +7,9 @@
       <!-- 已有登录状态：需用户显式确认才授权(2026-10-25 审计 P0-2: 此前打开页面即自动携 token 跳转) -->
       <div v-if="checking" class="text-sm text-muted">验证登录状态...</div>
       <div v-else-if="token && !granted" class="mt-lg">
-        <p class="mb-md text-sm">即将向 <b>{{ getRedirectUri() }}</b> 授权您的 CWFLY 登录凭证。</p>
-        <p class="mb-lg text-sm text-muted">请确认这是您本人发起的操作。</p>
-        <button class="btn btn-primary btn-block" @click="grant">确认授权</button>
-        <button class="btn btn-block mt-sm" @click="cancel">取消</button>
+        <p class="mb-md text-sm">即将向 <b>{{ appOrigin }}</b> 授权您的 CWFLY 登录凭证。</p>
+        <p class="mb-lg text-sm text-muted">请在弹出的授权确认窗口中核对信息后确认。</p>
+        <button class="btn btn-block" @click="requestConsent">重新打开授权确认</button>
       </div>
 
       <!-- 未登录：显示登录表单 -->
@@ -32,13 +31,27 @@
       <!-- 跳转中 -->
       <div v-else class="text-sm text-success">授权成功，正在跳转...</div>
     </div>
+
+    <!-- 第三方授权确认弹窗（自研 Modal，无图标无表情） -->
+    <OAuthConsentModal
+      v-model:open="consentOpen"
+      app-name="ATC 管制员中心"
+      :app-origin="appOrigin"
+      :user-name="accountName"
+      :cid="accountCid"
+      :scopes="CONSENT_SCOPES"
+      @approve="grant"
+      @deny="cancel"
+      @close="cancel"
+    />
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { authApi } from '@/api/index.js'
+import OAuthConsentModal from '@/components/oauth/OAuthConsentModal.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -48,12 +61,26 @@ const loading = ref(false)
 const err = ref('')
 const granted = ref(false)
 
+// 授权确认弹窗状态
+const consentOpen = ref(false)
+const accountName = ref('')
+const accountCid = ref('')
+// 本次授权将交给第三方读取的字段（纯文本展示）
+const CONSENT_SCOPES = ['用户名', 'CID', '权限等级', '登录凭证']
+
+function requestConsent() {
+  consentOpen.value = true
+}
+
 function grant() {
   granted.value = true
   const redirect = getRedirectUri()
   window.location.href = `${redirect}?token=${encodeURIComponent(token.value)}`
 }
-function cancel() { router.push('/') }
+function cancel() {
+  consentOpen.value = false
+  router.push('/')
+}
 const form = ref({ cid: '', password: '' })
 
 // 受信任的重定向地址白名单
@@ -72,7 +99,30 @@ function getRedirectUri() {
   return 'http://localhost:5176/oauth/callback'
 }
 
+/** 展示给用户核对的第三方域（不含完整回调地址，避免误导） */
+const appOrigin = computed(() => {
+  try {
+    return new URL(getRedirectUri()).host || getRedirectUri()
+  } catch {
+    return getRedirectUri()
+  }
+})
+
+/** 从本地缓存的登录用户里取展示名与 CID */
+function readAccount() {
+  try {
+    const raw = localStorage.getItem('cw_user')
+    const user = raw ? JSON.parse(raw) : null
+    if (!user) return
+    accountName.value = user.username || `CID ${user.cid ?? ''}`.trim()
+    accountCid.value = user.cid ?? ''
+  } catch {
+    /* 本地缓存损坏时留空，弹窗会退化为只显示 CID */
+  }
+}
+
 onMounted(async () => {
+  readAccount()
   // Cookie 会话无法被 JS 读取；已登录时向服务端换取一枚仅用于本次 OAuth 跳转的 token
   if (localStorage.getItem('cw_auth') === '1') {
     try {
@@ -81,6 +131,8 @@ onMounted(async () => {
     } catch { /* 未登录或过期，展示登录表单 */ }
   }
   checking.value = false
+  // 已登录：直接弹出确认框，用户核对后再放行
+  if (token.value) consentOpen.value = true
 })
 
 async function handleLogin() {
@@ -91,9 +143,9 @@ async function handleLogin() {
     token.value = res.data.token
     localStorage.setItem('cw_user', JSON.stringify(res.data.user))
     localStorage.setItem('cw_auth', '1')
-    granted.value = true
-    const redirect = getRedirectUri()
-    window.location.href = `${redirect}?token=${encodeURIComponent(res.data.token)}`
+    // 登录成功后不再自动跳转，统一走授权确认弹窗
+    readAccount()
+    consentOpen.value = true
   } catch (e) { err.value = e.message || '登录失败' }
   finally { loading.value = false }
 }
