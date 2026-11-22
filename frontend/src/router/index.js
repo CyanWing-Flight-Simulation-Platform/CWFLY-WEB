@@ -23,6 +23,7 @@ const routes = [
   { path: '/register', name: 'Register', meta: { title: '注册' }, component: () => import('@/views/auth/Register.vue') },
   { path: '/forgot-password', name: 'ForgotPassword', meta: { title: '找回密码' }, component: () => import('@/views/auth/ForgotPassword.vue') },
   { path: '/oauth/authorize', name: 'OAuthAuthorize', meta: { title: '授权登录' }, component: () => import('@/views/auth/OAuthAuthorize.vue') },
+  { path: '/oauth/consent', name: 'OAuthConsent', meta: { title: '授权确认' }, component: () => import('@/views/auth/OAuthConsent.vue') },
   { path: '/banned', name: 'Banned', meta: { title: '账号已封禁' }, component: () => import('@/views/err/Banned.vue') },
   { path: '/internet-banned', name: 'InternetBanned', meta: { title: '访问受限' }, component: () => import('@/views/err/Internet_Banned.vue') },
 

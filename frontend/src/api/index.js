@@ -212,6 +212,12 @@ export const userOauthApi = {
   revokeApp: (appId) => api.delete(`/user/oauth/apps/${encodeURIComponent(appId)}`)
 }
 
+// 第三方 OAuth 授权确认弹窗（服务端签发的 approval 令牌）
+export const oauthConsentApi = {
+  info: (approval) => api.get('/oauth/consent', { params: { approval } }),
+  decide: (approval, decision) => api.post('/oauth/consent', { approval, decision })
+}
+
 export const weatherApi = {
   query: (icao) => api.get('/weather', { params: { icao, _t: Date.now() } })
 }

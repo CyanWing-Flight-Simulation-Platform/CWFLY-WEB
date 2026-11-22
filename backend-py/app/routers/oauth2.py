@@ -31,6 +31,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.db.session import get_db
 from app.services import oauth2 as oauth
+from app.services import users as users_service
 from app.services.token import TokenError, TokenExpiredError, verify_token
 from app.utils.session_cookie import access_token_from_request
 
@@ -138,16 +139,6 @@ def _login_url(request: Request) -> str:
     return f"{settings.oauth2_issuer}/login?redirect={quote(target, safe='')}"
 
 
-def _scopes_html(scopes: list[str]) -> str:
-    if not scopes:
-        return "<li>基本账号信息</li>"
-    items = []
-    for scope in scopes:
-        label = oauth.SCOPE_LABELS.get(scope) or scope
-        items.append(f"<li>{html.escape(label)}</li>")
-    return "".join(items)
-
-
 # --------------------------------------------------------------------------- #
 # 授权页
 # --------------------------------------------------------------------------- #
@@ -211,14 +202,9 @@ async def authorize(request: Request) -> Response:
         }
     )
 
-    body = _CONSENT_TEMPLATE.substitute(
-        client_name=html.escape(settings.OAUTH2_CLIENT_NAME or "第三方应用"),
-        username=html.escape(user["username"] or user["cid"]),
-        cid=html.escape(user["cid"]),
-        scopes=_scopes_html(scopes),
-        approval=html.escape(approval),
-    )
-    return HTMLResponse(_PAGE_TEMPLATE.substitute(title="授权确认", body=body), headers=_NO_STORE)
+    # 交给前端 Vue 弹窗（OAuthConsentModal）完成确认，视觉与全站一致
+    target = f"{settings.oauth2_issuer}/oauth/consent?approval={quote(approval, safe='')}"
+    return RedirectResponse(target, status_code=302, headers=_NO_STORE)
 
 
 @router.post("/authorize")
@@ -266,6 +252,101 @@ async def authorize_decision(request: Request, db: AsyncSession = Depends(get_db
     return RedirectResponse(
         oauth.build_redirect(redirect_uri, {"code": code, "state": state}),
         status_code=302,
+        headers=_NO_STORE,
+    )
+
+
+# --------------------------------------------------------------------------- #
+# 授权确认（前端 Vue 弹窗用的 JSON 接口）
+# --------------------------------------------------------------------------- #
+async def _consent_context(data: dict[str, Any], db: AsyncSession) -> dict[str, Any]:
+    """把签名载荷翻译成弹窗需要的展示数据。"""
+    cid = str(data.get("cid") or "")
+    client_id = str(data.get("client_id") or "")
+    meta = oauth._app_meta(client_id)
+    user = await users_service.find_user_public(db, cid) or {}
+    scopes = [s for s in str(data.get("scope") or "").split() if s]
+    return {
+        "appName": meta["name"],
+        "appOrigin": (meta.get("homepage") or "").split("://")[-1].strip("/"),
+        "userName": str(user.get("username") or cid),
+        "cid": cid,
+        "scopes": [{"label": oauth.SCOPE_LABELS.get(s, s)} for s in scopes],
+    }
+
+
+@router.get("/consent")
+async def consent_info(request: Request, db: AsyncSession = Depends(get_db)) -> Response:
+    """弹窗打开时读取授权上下文（approval 由服务端签发，不可伪造）。"""
+    if not oauth.is_configured():
+        return _json_error(503, "temporarily_unavailable", "OAuth2 未配置")
+    data = oauth.verify_approval(request.query_params.get("approval") or "")
+    if data is None:
+        return _json_error(400, "invalid_request", "授权请求已过期，请回到应用重新发起")
+    user = _session_user(request)
+    if user is None or user["cid"] != str(data.get("cid") or ""):
+        return _json_error(401, "login_required", "登录状态已变化，请重新登录后授权")
+    context = await _consent_context(data, db)
+    return JSONResponse({"success": True, "data": context}, headers=_NO_STORE)
+
+
+@router.post("/consent")
+async def consent_decision(request: Request, db: AsyncSession = Depends(get_db)) -> Response:
+    """同意 / 拒绝。同意返回第三方回跳地址，前端整页跳转即可。"""
+    if not oauth.is_configured():
+        return _json_error(503, "temporarily_unavailable", "OAuth2 未配置")
+
+    payload = await _read_params(request)
+    data = oauth.verify_approval(payload.get("approval") or "")
+    if data is None:
+        return _json_error(400, "invalid_request", "授权请求已过期，请回到应用重新发起")
+
+    redirect_uri = str(data.get("redirect_uri") or "")
+    state = str(data.get("state") or "")
+    if not oauth.redirect_uri_allowed(redirect_uri):
+        return _json_error(400, "invalid_request", "redirect_uri 不在白名单内")
+
+    user = _session_user(request)
+    if user is None or user["cid"] != str(data.get("cid") or ""):
+        return _json_error(401, "login_required", "登录状态已变化，请重新登录后授权")
+
+    if (payload.get("decision") or "deny") != "approve":
+        return JSONResponse(
+            {
+                "success": True,
+                "data": {
+                    "redirect": oauth.build_redirect(
+                        redirect_uri, {"error": "access_denied", "state": state}
+                    )
+                },
+            },
+            headers=_NO_STORE,
+        )
+
+    code = await oauth.issue_code(
+        db,
+        cid=user["cid"],
+        client_id=str(data.get("client_id") or ""),
+        redirect_uri=redirect_uri,
+        scope=str(data.get("scope") or ""),
+        code_challenge=str(data.get("code_challenge") or ""),
+        code_challenge_method=str(data.get("code_challenge_method") or ""),
+    )
+    log.info(
+        "[oauth2] 授权成功 cid=%s client=%s scope=%s",
+        user["cid"],
+        data.get("client_id"),
+        data.get("scope"),
+    )
+    return JSONResponse(
+        {
+            "success": True,
+            "data": {
+                "redirect": oauth.build_redirect(
+                    redirect_uri, {"code": code, "state": state}
+                )
+            },
+        },
         headers=_NO_STORE,
     )
 
@@ -440,27 +521,5 @@ _PAGE_TEMPLATE = Template(
 </html>
 """
 )
-
-_CONSENT_TEMPLATE = Template(
-    """<h1>授权 $client_name 访问你的 CWFLY 账号</h1>
-<p class="sub">$client_name 正在请求获取以下信息。确认后将跳回该应用完成账号绑定。</p>
-<div class="user">
-  <div class="badge">CW</div>
-  <div><b>$username</b><br><span>CID $cid</span></div>
-</div>
-<ul>$scopes</ul>
-<p class="note">
-  CWFLY 不会向第三方提供你的密码、Passkey 私钥或生物特征数据。你可以随时在本平台解除授权。
-</p>
-<form method="post" action="/api/oauth/authorize">
-  <input type="hidden" name="approval" value="$approval">
-  <div class="row">
-    <button class="deny" type="submit" name="decision" value="deny">拒绝</button>
-    <button class="approve" type="submit" name="decision" value="approve">同意授权</button>
-  </div>
-</form>
-"""
-)
-
 
 __all__ = ["router"]
