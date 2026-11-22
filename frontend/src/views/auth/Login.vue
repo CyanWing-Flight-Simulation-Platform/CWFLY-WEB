@@ -46,7 +46,7 @@
           :disabled="passkeyLoading"
           @click="loginWithPasskey"
         >
-          {{ passkeyLoading ? '正在唤起 Passkey…' : '使用 Passkey 登录（无需 CID）' }}
+          {{ passkeyLoading ? '正在唤起 Passkey…' : '使用 Passkey 登录' }}
         </button>
         <p v-if="passkeyErr" class="text-xs mt-sm" style="color:var(--c-danger);text-align:center;">{{ passkeyErr }}</p>
 
@@ -319,4 +319,5 @@ onUnmounted(() => {
   100% { opacity: 1; transform: translateY(0) scaleY(1); }
 }
 </style>
+
 
