@@ -193,11 +193,13 @@ onBeforeUnmount(unlockScroll)
   display: grid;
   place-items: center;
   padding: 24px;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 
 .oc-card {
-  width: min(460px, 100%);
+  width: min(512px, 100%);
   max-height: min(88vh, 760px);
   overflow: auto;
   background: rgba(20, 20, 25, 0.85);
@@ -239,7 +241,8 @@ onBeforeUnmount(unlockScroll)
 }
 .oc-perm {
   display: grid;
-  grid-template-columns: 92px minmax(0, 1fr);
+  grid-template-columns: max-content minmax(0, 1fr);
+  column-gap: 24px;
   align-items: baseline;
   line-height: 2;
 }
@@ -338,7 +341,7 @@ onBeforeUnmount(unlockScroll)
   .oc-card { padding: 28px 22px; }
   .oc-title { font-size: 21px; }
   .oc-subtitle { margin-bottom: 24px; }
-  .oc-perm { grid-template-columns: 78px minmax(0, 1fr); }
+  .oc-perm { column-gap: 16px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
