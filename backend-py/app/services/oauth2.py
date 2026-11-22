@@ -244,7 +244,8 @@ async def cleanup(db: AsyncSession) -> None:
     await db.execute(text("DELETE FROM `oauth2_codes` WHERE expiresAt < NOW(3)"))
     await db.execute(
         text(
-            "DELETE FROM `oauth2_tokens` WHERE accessExpiresAt < DATE_SUB(NOW(3), INTERVAL 1 DAY)"
+            "DELETE FROM `oauth2_tokens` "
+            "WHERE COALESCE(refreshExpiresAt, accessExpiresAt) < DATE_SUB(NOW(3), INTERVAL 1 DAY)"
         )
     )
 
@@ -478,7 +479,8 @@ async def list_authorized_apps(db: AsyncSession, cid: str) -> list[dict[str, Any
         await db.execute(
             text(
                 "SELECT client_id, scope, createdAt FROM `oauth2_tokens` "
-                "WHERE cid = :cid AND revoked = 0 AND accessExpiresAt > NOW(3) "
+                "WHERE cid = :cid AND revoked = 0 "
+                "  AND (refreshExpiresAt IS NULL OR refreshExpiresAt > NOW(3)) "
                 "ORDER BY createdAt DESC"
             ),
             {"cid": cid},
