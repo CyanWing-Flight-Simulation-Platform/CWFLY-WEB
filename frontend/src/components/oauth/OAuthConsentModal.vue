@@ -186,6 +186,58 @@ onBeforeUnmount(unlockScroll)
 </template>
 
 <style scoped>
+/* ============================================================
+   双主题：浅色为默认（白玻璃），html[data-theme='dark'] 覆盖为深色。
+   所有颜色集中在本文件顶部变量里，规则只引用变量。
+   ============================================================ */
+.oc-overlay,
+.oc-card {
+  /* ---- 浅色（默认）---- */
+  --oc-overlay: rgba(15, 23, 42, 0.28);
+  --oc-card-bg: rgba(255, 255, 255, 0.72);
+  --oc-card-border: rgba(15, 23, 42, 0.08);
+  --oc-card-shadow: 0 24px 48px rgba(15, 23, 42, 0.16);
+  --oc-card-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  --oc-title: #111113;
+  --oc-subtitle: #52525b;
+  --oc-label: #71717a;
+  --oc-value: #18181b;
+  --oc-warn-text: #3f3f46;
+  --oc-account: #71717a;
+  --oc-rule: rgba(245, 158, 11, 0.55);
+  --oc-primary-bg: #18181b;
+  --oc-primary-text: #ffffff;
+  --oc-primary-shadow: 0 1px 2px rgba(15, 23, 42, 0.18);
+  --oc-ghost: #71717a;
+  --oc-ghost-hover: #27272a;
+  --oc-focus: rgba(24, 24, 27, 0.35);
+  --oc-focus-ghost: rgba(113, 113, 122, 0.4);
+}
+
+html[data-theme='dark'] .oc-overlay,
+html[data-theme='dark'] .oc-card {
+  /* ---- 暗黑 ---- */
+  --oc-overlay: rgba(0, 0, 0, 0.35);
+  --oc-card-bg: rgba(20, 20, 25, 0.85);
+  --oc-card-border: rgba(255, 255, 255, 0.08);
+  --oc-card-shadow: 0 24px 48px rgba(0, 0, 0, 0.4);
+  --oc-card-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  --oc-title: #ffffff;
+  --oc-subtitle: #a1a1aa;
+  --oc-label: #71717a;
+  --oc-value: #ffffff;
+  --oc-warn-text: #a1a1aa;
+  --oc-account: #71717a;
+  --oc-rule: rgba(245, 158, 11, 0.5);
+  --oc-primary-bg: #ffffff;
+  --oc-primary-text: #000000;
+  --oc-primary-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --oc-ghost: #a1a1aa;
+  --oc-ghost-hover: #d4d4d8;
+  --oc-focus: rgba(255, 255, 255, 0.45);
+  --oc-focus-ghost: rgba(161, 161, 170, 0.45);
+}
+
 .oc-overlay {
   position: fixed;
   inset: 0;
@@ -193,7 +245,7 @@ onBeforeUnmount(unlockScroll)
   display: grid;
   place-items: center;
   padding: 24px;
-  background: rgba(0, 0, 0, 0.35);
+  background: var(--oc-overlay);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
 }
@@ -202,13 +254,13 @@ onBeforeUnmount(unlockScroll)
   width: min(512px, 100%);
   max-height: min(88vh, 760px);
   overflow: auto;
-  background: rgba(20, 20, 25, 0.85);
-  backdrop-filter: blur(32px);
-  -webkit-backdrop-filter: blur(32px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--oc-card-bg);
+  backdrop-filter: blur(32px) saturate(180%);
+  -webkit-backdrop-filter: blur(32px) saturate(180%);
+  border: 1px solid var(--oc-card-border);
   border-radius: 20px;
   padding: 40px;
-  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--oc-card-shadow), var(--oc-card-highlight);
   outline: none;
 }
 
@@ -219,7 +271,7 @@ onBeforeUnmount(unlockScroll)
   font-weight: 700;
   line-height: 1.3;
   letter-spacing: -.01em;
-  color: #ffffff;
+  color: var(--oc-title);
   word-break: break-word;
 }
 
@@ -229,7 +281,7 @@ onBeforeUnmount(unlockScroll)
   font-size: 14px;
   font-weight: 400;
   line-height: 1.6;
-  color: #a1a1aa;
+  color: var(--oc-subtitle);
   word-break: break-word;
 }
 
@@ -248,11 +300,11 @@ onBeforeUnmount(unlockScroll)
 }
 .oc-perm__label {
   font-size: 12px;
-  color: #71717a;
+  color: var(--oc-label);
 }
 .oc-perm__value {
   font-size: 14px;
-  color: #ffffff;
+  color: var(--oc-value);
   word-break: break-word;
 }
 
@@ -260,10 +312,10 @@ onBeforeUnmount(unlockScroll)
 .oc-warn {
   margin: 24px 0 0;
   padding-left: 12px;
-  border-left: 2px solid rgba(245, 158, 11, 0.5);
+  border-left: 2px solid var(--oc-rule);
   font-size: 12px;
   line-height: 1.8;
-  color: #71717a;
+  color: var(--oc-warn-text);
 }
 
 /* 当前账户 */
@@ -271,7 +323,7 @@ onBeforeUnmount(unlockScroll)
   margin: 20px 0 0;
   font-size: 12px;
   line-height: 1.6;
-  color: #71717a;
+  color: var(--oc-account);
 }
 
 /* 按钮区 */
@@ -291,36 +343,39 @@ onBeforeUnmount(unlockScroll)
   border-radius: 8px;
   border: none;
   cursor: pointer;
-  transition: opacity .15s ease;
+  transition: opacity .15s ease, background .15s ease, color .15s ease;
 }
 .oc-btn:disabled {
   opacity: .5;
   cursor: default;
 }
 
+/* 主按钮：主题反色（浅色黑底白字 / 暗黑白底黑字） */
 .oc-btn--primary {
-  background: #ffffff;
-  color: #000000;
+  background: var(--oc-primary-bg);
+  color: var(--oc-primary-text);
   font-weight: 600;
+  box-shadow: var(--oc-primary-shadow);
 }
 .oc-btn--primary:hover:not(:disabled) {
   opacity: .9;
 }
 .oc-btn--primary:focus-visible {
-  outline: 2px solid rgba(255, 255, 255, 0.45);
+  outline: 2px solid var(--oc-focus);
   outline-offset: 2px;
 }
 
+/* 次按钮：纯文字幽灵按钮 */
 .oc-btn--ghost {
   background: transparent;
-  color: #a1a1aa;
+  color: var(--oc-ghost);
   font-weight: 500;
 }
 .oc-btn--ghost:hover:not(:disabled) {
-  color: #d4d4d8;
+  color: var(--oc-ghost-hover);
 }
 .oc-btn--ghost:focus-visible {
-  outline: 2px solid rgba(161, 161, 170, 0.45);
+  outline: 2px solid var(--oc-focus-ghost);
   outline-offset: 2px;
 }
 
