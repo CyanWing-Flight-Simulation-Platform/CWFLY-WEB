@@ -206,6 +206,12 @@ export const profileApi = {
   updateInfo: (data) => api.put('/profile/info', data)
 }
 
+// 个人中心「已授权应用」（第三方授权管理）
+export const userOauthApi = {
+  apps: () => api.get('/user/oauth/apps'),
+  revokeApp: (appId) => api.delete(`/user/oauth/apps/${encodeURIComponent(appId)}`)
+}
+
 export const weatherApi = {
   query: (icao) => api.get('/weather', { params: { icao, _t: Date.now() } })
 }

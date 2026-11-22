@@ -95,6 +95,44 @@
       </div>
     </div>
 
+    <!-- 已授权应用 -->
+    <div class="card p-lg mb-lg profile-card">
+      <h3 class="mb-md">已授权应用</h3>
+      <p class="text-sm text-muted mb-md">
+        以下第三方应用已获准读取您的 CWFLY 账号信息。取消授权后，该应用将无法再通过第三方快捷登录您的账号。
+      </p>
+      <p v-if="oauthAppsLoading" class="oauth-apps__empty">正在加载…</p>
+      <p v-else-if="!oauthApps.length" class="oauth-apps__empty">暂无已授权应用</p>
+      <ul v-else class="oauth-apps">
+        <li v-for="app in oauthApps" :key="app.id" class="oauth-app">
+          <span class="oauth-app__icon" aria-hidden="true">
+            <img
+              v-if="app.icon && !brokenIcons[app.id]"
+              :src="app.icon"
+              alt=""
+              loading="lazy"
+              referrerpolicy="no-referrer"
+              @error="markIconBroken(app.id)"
+            />
+            <span v-else class="oauth-app__icon-fallback">{{ (app.name || '?').slice(0, 1).toUpperCase() }}</span>
+          </span>
+          <div class="oauth-app__body">
+            <strong class="oauth-app__name">{{ app.name }}</strong>
+            <span class="oauth-app__meta">
+              授权时间 {{ formatDate(app.authorizedAt) }}
+              <template v-if="app.scopeLabels && app.scopeLabels.length"> · {{ app.scopeLabels.join('、') }}</template>
+            </span>
+          </div>
+          <button
+            type="button"
+            class="oauth-app__revoke"
+            :disabled="revokingAppId === app.id"
+            @click="revokeOauthApp(app)"
+          >{{ revokingAppId === app.id ? '取消中…' : '取消授权' }}</button>
+        </li>
+      </ul>
+    </div>
+
     <!-- 自定义背景图 -->
     <div class="card p-lg mb-lg">
       <h3 class="mb-md">自定义背景图</h3>
@@ -163,8 +201,10 @@
 import { ref, reactive, onMounted, computed } from 'vue'
 import { useUserStore } from '@/store/user'
 import { navLayout, narrowScreen, setNavLayout } from '@/utils/navLayout'
-import api, { authApi, profileApi } from '@/api'
+import api, { authApi, profileApi, userOauthApi } from '@/api'
 import { createPasskey, isPlatformPasskeyAvailable } from '@/utils/passkey'
+import { confirmDialog } from '@/utils/confirm'
+import { showToast } from '@/utils/banner'
 import Skeleton from '@/components/base/Skeleton.vue'
 import UserAvatar from '@/components/base/UserAvatar.vue'
 import UserTag from '@/components/base/UserTag.vue'
@@ -203,6 +243,16 @@ const passkeyPassword = ref('')
 const passkeyLoading = ref(false)
 const passkeyMsg = ref('')
 const passkeyMsgType = ref('ok')
+
+// 已授权应用（第三方 OAuth2 授权）
+const oauthApps = ref([])
+const oauthAppsLoading = ref(false)
+const revokingAppId = ref('')
+const brokenIcons = reactive({})
+
+function markIconBroken(appId) {
+  brokenIcons[appId] = true
+}
 
 // FSD 等级映射与用户管理页一致（以用户管理页为准）：
 // 0=飞行员 1=观察员 2=地面/放行S1 3=塔台S2 4=终端S3 5=区域C1 6=区域C2 7=区域C3
@@ -246,7 +296,42 @@ onMounted(async () => {
     loading.value = false
   }
   loadPasskeys()
+  loadOauthApps()
 })
+
+// ==================== 已授权应用 ====================
+async function loadOauthApps() {
+  oauthAppsLoading.value = true
+  try {
+    const res = await userOauthApi.apps()
+    oauthApps.value = Array.isArray(res.data?.data) ? res.data.data : []
+  } catch {
+    // 静默失败：不打扰用户，列表保持上次结果
+    oauthApps.value = oauthApps.value || []
+  } finally {
+    oauthAppsLoading.value = false
+  }
+}
+
+async function revokeOauthApp(app) {
+  const ok = await confirmDialog({
+    title: '取消授权',
+    message: '确定要取消该应用的授权吗？取消后该应用将无法通过第三方快捷登录您的账号。',
+    confirmText: '取消授权',
+    cancelText: '保留授权'
+  })
+  if (!ok) return
+  revokingAppId.value = app.id
+  try {
+    await userOauthApi.revokeApp(app.id)
+    showToast('已取消授权', { type: 'success' })
+    await loadOauthApps()
+  } catch (e) {
+    showToast(e?.response?.data?.message || '取消授权失败，请稍后重试', { type: 'error' })
+  } finally {
+    revokingAppId.value = ''
+  }
+}
 
 // 背景图相关
 function getBgUrl(url) {
@@ -645,4 +730,125 @@ html[data-theme='dark'] .layout-option.active { background: rgba(10, 132, 255, .
 .passkey-row span { display: block; margin-top: 2px; font-size: 11px; color: var(--c-text-muted); }
 .passkey-form { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; max-width: 520px; }
 .passkey-form .input { flex: 1; min-width: 180px; }
+
+/* ===== 已授权应用 ===== */
+.oauth-apps {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.oauth-app {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--glass-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--glass-bg-strong);
+  backdrop-filter: blur(calc(var(--glass-blur) * .6)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur) * .6)) saturate(var(--glass-saturate));
+  box-shadow: var(--glass-highlight);
+  transition: border-color var(--transition), background var(--transition);
+}
+.oauth-app:hover {
+  border-color: var(--c-primary);
+  background: var(--glass-bg-strong);
+}
+
+.oauth-app__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 38px;
+  height: 38px;
+  overflow: hidden;
+  border: 1px solid var(--glass-border);
+  border-radius: 11px;
+  background: var(--panel-bg);
+  color: var(--c-text-secondary);
+  font-size: 15px;
+  font-weight: 700;
+}
+.oauth-app__icon img { width: 22px; height: 22px; object-fit: contain; }
+.oauth-app__icon-fallback { line-height: 1; }
+
+.oauth-app__body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+}
+.oauth-app__name {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--c-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.oauth-app__meta {
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--c-text-muted);
+}
+
+/* 幽灵按钮：常态灰，Hover 转红 */
+.oauth-app__revoke {
+  flex: 0 0 auto;
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--c-text-muted);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color .18s ease, border-color .18s ease, background .18s ease;
+}
+.oauth-app__revoke:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--c-danger) 34%, transparent);
+  background: color-mix(in srgb, var(--c-danger) 9%, transparent);
+  color: var(--c-danger);
+}
+.oauth-app__revoke:focus-visible {
+  outline: 2px solid var(--c-primary);
+  outline-offset: 2px;
+}
+.oauth-app__revoke:disabled { opacity: .55; cursor: default; }
+
+.oauth-apps__empty {
+  margin: 2px 0 0;
+  padding: 22px 0;
+  text-align: center;
+  font-size: 12.5px;
+  color: var(--c-text-muted);
+}
+
+html[data-theme='dark'] .oauth-app {
+  border-color: rgba(255, 255, 255, .10);
+  background: rgba(255, 255, 255, .045);
+}
+html[data-theme='dark'] .oauth-app:hover {
+  border-color: rgba(10, 132, 255, .45);
+  background: rgba(255, 255, 255, .07);
+}
+html[data-theme='dark'] .oauth-app__icon {
+  border-color: rgba(255, 255, 255, .12);
+  background: rgba(255, 255, 255, .06);
+}
+html[data-theme='dark'] .oauth-apps__empty { color: #8b94a3; }
+
+@media (max-width: 560px) {
+  .oauth-app { gap: 10px; padding: 11px 12px; }
+  .oauth-app__icon { width: 34px; height: 34px; border-radius: 10px; }
+  .oauth-app__revoke { padding: 0 8px; font-size: 11.5px; }
+}
 </style>

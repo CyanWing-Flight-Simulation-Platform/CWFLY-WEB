@@ -119,12 +119,22 @@ https://www.cwflysim.cn/api/oauth/authorize?client_id=cwfly_380a8ff4b2908206&red
 
 ## 6. 授权记录与解绑
 
-授权记录存 `oauth2_tokens`（`cid` + `scope` 可查）。需要后台「已授权应用」列表时，
-新增只读接口即可：
+授权记录存 `oauth2_tokens`（`cid` + `scope` 可查）；刷新令牌轮换是**原行就地更新**，
+因此 `createdAt` 始终是首次授权时间。
 
-```sql
-SELECT cid, scope, createdAt, accessExpiresAt
-FROM `oauth2_tokens` WHERE revoked = 0 AND accessExpiresAt > NOW(3);
-```
+用户自助管理（个人中心 →「已授权应用」）：
 
-解绑 = `POST /api/oauth/revoke` 或把对应行 `revoked = 1`。
+| 接口 | 说明 |
+| --- | --- |
+| `GET /api/user/oauth/apps` | 当前用户仍有效的授权应用列表（含名称、图标、授权时间、已授予 scope） |
+| `DELETE /api/user/oauth/apps/{client_id}` | 取消授权：吊销该应用在本账号下的全部令牌，并清理未使用的授权码 |
+
+两个接口的用户身份一律取自会话 Cookie / Bearer，不接受前端传入 `cid`，
+因此只能查看/取消自己的授权。
+
+服务端侧解绑也可以走 `POST /api/oauth/revoke`，或把对应行置 `revoked = 1`。
+
+> 表字符集：`oauth2_*` 必须与 `User` 表一致使用 `utf8mb4_unicode_ci`，
+> 否则与 `User.cid` 做列间比较时会报
+> `Illegal mix of collations`。DDL 与迁移脚本已显式指定该排序规则。
+

@@ -36,6 +36,12 @@ log = logging.getLogger("cwfly.oauth2")
 # 同意页签名载荷有效期（秒）
 APPROVAL_TTL_SECONDS = 600
 
+# 已登记客户端的展示信息（图标/主页）。新增第三方应用时在此追加即可。
+CLIENT_ICON_URLS: dict[str, str] = {
+    "merak": "https://www.dubhenexus.io/images/Dubhe-Nexus.svg",
+}
+MERAK_ICON_URL = CLIENT_ICON_URLS["merak"]
+
 # scope -> 中文说明（同意页展示用）
 SCOPE_LABELS: dict[str, str] = {
     "profile": "基本资料（用户名、头像、CID、飞行等级）",
@@ -61,7 +67,7 @@ _DDL = (
       PRIMARY KEY (`id`),
       UNIQUE KEY `uk_oauth2_code_hash` (`code_hash`),
       KEY `idx_oauth2_codes_exp` (`expiresAt`)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     """,
     """
     CREATE TABLE IF NOT EXISTS `oauth2_tokens` (
@@ -80,7 +86,7 @@ _DDL = (
       KEY `idx_oauth2_refresh_hash` (`refresh_hash`),
       KEY `idx_oauth2_tokens_cid` (`cid`),
       KEY `idx_oauth2_tokens_exp` (`accessExpiresAt`)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     """,
 )
 
@@ -110,6 +116,36 @@ def _approval_key() -> bytes:
 
 def is_configured() -> bool:
     return settings.oauth2_ready
+
+
+def registered_apps() -> list[dict[str, Any]]:
+    """已登记客户端（用于「已授权应用」列表的图标/名称/主页）。"""
+    client_id = (settings.OAUTH2_CLIENT_ID or "").strip()
+    if not client_id:
+        return []
+    return [
+        {
+            "id": client_id,
+            "name": settings.OAUTH2_CLIENT_NAME or "第三方应用",
+            "icon": MERAK_ICON_URL,
+            "homepage": "https://merak.dubhenexus.io",
+            "scopes": settings.oauth2_scopes,
+        }
+    ]
+
+
+def _app_meta(client_id: str) -> dict[str, Any]:
+    for app in registered_apps():
+        if app["id"] == client_id:
+            return app
+    return {
+        "id": client_id,
+        "name": client_id or "未知应用",
+        "icon": "",
+        "homepage": "",
+        "scopes": [],
+    }
+
 
 
 def redirect_uri_allowed(uri: str) -> bool:
@@ -380,7 +416,11 @@ async def load_access_token(db: AsyncSession, access_token: str) -> Optional[dic
 async def refresh_token(
     db: AsyncSession, *, refresh_value: str, client_id: str
 ) -> Optional[dict[str, Any]]:
-    """刷新令牌轮换：旧记录作废，签发新的 access + refresh。"""
+    """刷新令牌轮换：**原记录就地更新**（保留 createdAt 作为「授权时间」）。
+
+    不新建行，避免同一授权在「已授权应用」里被重复计数，也让用户看到的
+    授权时间稳定为首次授权时刻，而不是每次刷新刷新的时间。
+    """
     if not refresh_value:
         return None
     row = (
@@ -396,17 +436,119 @@ async def refresh_token(
     if row is None:
         return None
     data = dict(row._mapping)
-    revoked = await db.execute(
-        text("UPDATE `oauth2_tokens` SET revoked = 1 WHERE id = :id AND revoked = 0"),
-        {"id": int(data["id"])},
+    access_token = secrets.token_urlsafe(32)
+    new_refresh = secrets.token_urlsafe(32)
+    access_ttl = int(settings.OAUTH2_TOKEN_TTL_SECONDS)
+    refresh_ttl = int(settings.OAUTH2_REFRESH_TTL_SECONDS)
+    rotated = await db.execute(
+        text(
+            "UPDATE `oauth2_tokens` SET "
+            "  access_hash = :access_hash, refresh_hash = :refresh_hash, "
+            "  accessExpiresAt = DATE_ADD(NOW(3), INTERVAL :access_ttl SECOND), "
+            "  refreshExpiresAt = DATE_ADD(NOW(3), INTERVAL :refresh_ttl SECOND) "
+            "WHERE id = :id AND revoked = 0"
+        ),
+        {
+            "access_hash": _hash(access_token),
+            "refresh_hash": _hash(new_refresh),
+            "access_ttl": access_ttl,
+            "refresh_ttl": refresh_ttl,
+            "id": int(data["id"]),
+        },
     )
-    if revoked.rowcount != 1:
+    if rotated.rowcount != 1:
         await db.rollback()
         return None
-    issued = await issue_token(
-        db, cid=str(data["cid"]), client_id=client_id, scope=data.get("scope") or ""
+    await db.commit()
+    return {
+        "access_token": access_token,
+        "token_type": "Bearer",
+        "expires_in": access_ttl,
+        "refresh_token": new_refresh,
+        "scope": data.get("scope") or "",
+    }
+
+
+# --------------------------------------------------------------------------- #
+# 「已授权应用」（个人中心）
+# --------------------------------------------------------------------------- #
+async def list_authorized_apps(db: AsyncSession, cid: str) -> list[dict[str, Any]]:
+    """当前用户仍在有效期内的授权应用（按 client 聚合成一条）。"""
+    rows = (
+        await db.execute(
+            text(
+                "SELECT client_id, scope, createdAt FROM `oauth2_tokens` "
+                "WHERE cid = :cid AND revoked = 0 AND accessExpiresAt > NOW(3) "
+                "ORDER BY createdAt DESC"
+            ),
+            {"cid": cid},
+        )
+    ).all()
+
+    grouped: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        item = dict(row._mapping)
+        client_id = str(item.get("client_id") or "")
+        if not client_id:
+            continue
+        bucket = grouped.get(client_id)
+        scopes = {s for s in str(item.get("scope") or "").split() if s}
+        if bucket is None:
+            grouped[client_id] = {
+                "client_id": client_id,
+                "scopes": scopes,
+                "authorized_at": item.get("createdAt"),
+            }
+        else:
+            bucket["scopes"] |= scopes
+            # 保留最早的授权时间（多条记录时）
+            created = item.get("createdAt")
+            if created and created < bucket["authorized_at"]:
+                bucket["authorized_at"] = created
+
+    result: list[dict[str, Any]] = []
+    for client_id, bucket in grouped.items():
+        meta = _app_meta(client_id)
+        scopes = [s for s in settings.oauth2_scopes if s in bucket["scopes"]]
+        result.append(
+            {
+                "id": client_id,
+                "name": meta["name"],
+                "icon": meta["icon"],
+                "homepage": meta["homepage"],
+                "scope": scope_string(scopes),
+                "scopeLabels": [SCOPE_LABELS.get(s, s) for s in scopes],
+                "authorizedAt": _iso(bucket["authorized_at"]),
+            }
+        )
+    result.sort(key=lambda item: item.get("authorizedAt") or "", reverse=True)
+    return result
+
+
+async def revoke_app(db: AsyncSession, cid: str, client_id: str) -> int:
+    """解除某个应用对该用户的授权（同时清理未使用的授权码）。
+
+    只操作 `cid` 名下的记录，天然保证「只能取消自己的授权」。
+    """
+    if not cid or not client_id:
+        return 0
+    tokens = await db.execute(
+        text(
+            "UPDATE `oauth2_tokens` SET revoked = 1 "
+            "WHERE cid = :cid AND client_id = :client_id AND revoked = 0"
+        ),
+        {"cid": cid, "client_id": client_id},
     )
-    return issued
+    await db.execute(
+        text(
+            "DELETE FROM `oauth2_codes` "
+            "WHERE cid = :cid AND client_id = :client_id AND used = 0"
+        ),
+        {"cid": cid, "client_id": client_id},
+    )
+    await db.commit()
+    return int(tokens.rowcount or 0)
+
 
 
 async def revoke(db: AsyncSession, token_value: str) -> bool:
@@ -494,11 +636,14 @@ __all__ = [
     "is_configured",
     "issue_code",
     "issue_token",
+    "list_authorized_apps",
     "load_access_token",
     "parse_scope",
     "redirect_uri_allowed",
     "refresh_token",
+    "registered_apps",
     "revoke",
+    "revoke_app",
     "scope_string",
     "sign_approval",
     "user_profile",
