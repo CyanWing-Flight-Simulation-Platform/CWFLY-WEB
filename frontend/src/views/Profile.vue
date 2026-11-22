@@ -304,7 +304,8 @@ async function loadOauthApps() {
   oauthAppsLoading.value = true
   try {
     const res = await userOauthApi.apps()
-    oauthApps.value = Array.isArray(res.data?.data) ? res.data.data : []
+    // 响应拦截器返回 body，授权列表在 body.data
+    oauthApps.value = Array.isArray(res.data) ? res.data : []
   } catch {
     // 静默失败：不打扰用户，列表保持上次结果
     oauthApps.value = oauthApps.value || []

@@ -67,7 +67,8 @@ async function decide(decision) {
   submitting.value = true
   try {
     const res = await oauthConsentApi.decide(approval, decision)
-    const target = res?.data?.data?.redirect
+    // 响应拦截器已返回 response.data（即 { success, data }）
+    const target = res?.data?.redirect
     if (!target) throw new Error('授权结果异常')
     window.location.replace(target)
   } catch (e) {
@@ -85,7 +86,7 @@ onMounted(async () => {
   }
   try {
     const res = await oauthConsentApi.info(approval)
-    const data = res?.data?.data || {}
+    const data = res?.data || {}
     context.appName = data.appName || context.appName
     context.appOrigin = data.appOrigin || ''
     context.userName = data.userName || ''
