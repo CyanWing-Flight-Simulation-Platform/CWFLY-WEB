@@ -36,6 +36,8 @@ BLOCKED_AGENTS = (
 PUBLIC_PREFIXES = (
     "/auth/login", "/auth/register", "/auth/check-cid", "/events", "/dashboard",
     "/flightplans/fsd", "/profile", "/security/pixel", "/security/network-info",
+    # 服务端到服务端调用（Dubhe Nexus / Merak 换令牌、读用户信息），没有浏览器 UA
+    "/oauth",
 )
 _REJECT = json.dumps({"success": False, "message": "请求被拒绝"}, ensure_ascii=False)
 

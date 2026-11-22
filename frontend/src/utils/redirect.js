@@ -35,3 +35,18 @@ export function loginLocation(fullPath = '') {
 export function resolvePostLoginPath(raw) {
   return safeRedirectPath(raw) || '/dashboard'
 }
+
+/**
+ * 登录成功后的跳转。
+ *
+ * 普通站内路径走 Vue Router；`/api/...` 是后端直出页面（如 OAuth2 授权页
+ * `/api/oauth/authorize`），必须整页跳转，否则会被前端路由当成 404。
+ */
+export function applyPostLoginPath(router, raw) {
+  const path = resolvePostLoginPath(raw)
+  if (path.startsWith('/api/')) {
+    window.location.assign(path)
+    return
+  }
+  router.replace(path)
+}

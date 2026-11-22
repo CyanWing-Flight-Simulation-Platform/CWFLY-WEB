@@ -25,6 +25,7 @@ BLOCKED_AGENTS = (
 PUBLIC_PREFIXES = (
     "/auth/login", "/auth/register", "/auth/check-cid", "/events", "/dashboard",
     "/flightplans/fsd", "/profile", "/security/pixel", "/security/network-info",
+    "/oauth",
 )
 
 _REJECT = json.dumps({"success": False, "message": "请求被拒绝"}, ensure_ascii=False)

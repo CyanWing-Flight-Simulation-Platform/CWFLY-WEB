@@ -63,6 +63,21 @@ class Settings(BaseSettings):
     WEBAUTHN_RP_NAME: str = "CWFLY 青翼模拟飞行"
     WEBAUTHN_ORIGIN: Optional[str] = None
 
+    # ---- OAuth2 授权服务器（供 Dubhe Nexus / Merak 等第三方绑定 CWFLY 账号）----
+    # 留空 CLIENT_ID / CLIENT_SECRET 时 /api/oauth/* 返回 503（不影响其它功能）。
+    OAUTH2_ENABLED: bool = True
+    OAUTH2_CLIENT_ID: str = ""
+    OAUTH2_CLIENT_SECRET: str = ""
+    OAUTH2_CLIENT_NAME: str = "Dubhe Nexus"
+    # 允许的回调地址（逗号分隔，精确匹配；生产填 Merak 的 callback）
+    OAUTH2_REDIRECT_URIS: str = ""
+    OAUTH2_SCOPES: str = "profile email qq openid"
+    OAUTH2_CODE_TTL_SECONDS: int = 300
+    OAUTH2_TOKEN_TTL_SECONDS: int = 3600
+    OAUTH2_REFRESH_TTL_SECONDS: int = 2592000
+    # 对外站点根地址（拼 avatar / 回跳地址）；留空回退 CORS_ORIGIN
+    OAUTH2_ISSUER: Optional[str] = None
+
     # ---- 登录安全 / 验证码 ----
     VERIFY_CODE_TTL_SECONDS: int = 600
     VERIFY_CODE_MAX_ATTEMPTS: int = 5
@@ -143,6 +158,32 @@ class Settings(BaseSettings):
         if self.webauthn_rp_id.endswith("cwflysim.cn"):
             items.extend(["https://www.cwflysim.cn", "https://cwflysim.cn"])
         return list(dict.fromkeys(x for x in items if x))
+
+    @property
+    def oauth2_issuer(self) -> str:
+        """对外站点根地址（无尾斜杠），用于拼接头像地址与登录回跳。"""
+        if self.OAUTH2_ISSUER:
+            return self.OAUTH2_ISSUER.strip().rstrip("/")
+        return (self.CORS_ORIGIN or self.cors_origin).rstrip("/")
+
+    @property
+    def oauth2_redirect_uris(self) -> list[str]:
+        raw = (self.OAUTH2_REDIRECT_URIS or "").strip()
+        return [x.strip() for x in raw.split(",") if x.strip()]
+
+    @property
+    def oauth2_scopes(self) -> list[str]:
+        items = (self.OAUTH2_SCOPES or "").replace(",", " ").split()
+        return list(dict.fromkeys(x.strip() for x in items if x.strip()))
+
+    @property
+    def oauth2_ready(self) -> bool:
+        return bool(
+            self.OAUTH2_ENABLED
+            and self.OAUTH2_CLIENT_ID.strip()
+            and self.OAUTH2_CLIENT_SECRET.strip()
+            and self.oauth2_redirect_uris
+        )
 
     @property
     def jwt_expires_seconds(self) -> int:

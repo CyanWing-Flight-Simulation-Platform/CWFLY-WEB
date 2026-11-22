@@ -77,6 +77,10 @@ async def lifespan(app: FastAPI):
 
         async with _SessionLocal() as _points_db:
             await _ensure_points_schema(_points_db)
+        from app.services.oauth2 import ensure_schema as _ensure_oauth2_schema
+
+        async with _SessionLocal() as _oauth2_db:
+            await _ensure_oauth2_schema(_oauth2_db)
     except Exception as exc:  # noqa: BLE001
         log.warning("[CWFLY] 预热失败: %s", exc)
     # 预热：DB 连接池 + FIR 边界（消除每个 worker 的首请求冷启动）

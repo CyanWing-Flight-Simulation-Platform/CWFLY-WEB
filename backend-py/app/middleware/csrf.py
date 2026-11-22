@@ -29,6 +29,9 @@ CSRF_EXEMPT_PREFIXES = (
     "/api/security/pixel",
     "/api/security/device-init",
     "/api/security/pow-challenge",
+    # OAuth2：/token 由第三方服务器调用（无 Cookie）；/authorize 的表单提交由
+    # HMAC 签名隐藏域保护，不依赖双提交 Cookie。
+    "/api/oauth/",
 )
 
 

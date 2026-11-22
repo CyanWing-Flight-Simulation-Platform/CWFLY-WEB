@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="auth-page">
     <div class="auth-card card p-lg">
       <div class="text-center mb-lg">
@@ -91,13 +91,13 @@ import { authApi } from '@/api'
 import { getDeviceFp } from '@/utils/deviceFp'
 import { waitForPowToken } from '@/utils/pow'
 import { useFieldFeedback } from '@/utils/fieldFeedback'
-import { resolvePostLoginPath } from '@/utils/redirect'
+import { applyPostLoginPath } from '@/utils/redirect'
 import { getPasskey } from '@/utils/passkey'
 
 const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
-const postLoginPath = () => resolvePostLoginPath(route.query.redirect)
+const postLoginPath = () => applyPostLoginPath(router, route.query.redirect)
 const form = ref({ cid: '', password: '' })
 const err = ref('')
 const status = ref('idle')
@@ -152,7 +152,7 @@ async function handleLogin() {
       return
     }
     status.value = 'success'
-    successTimer = setTimeout(() => router.replace(postLoginPath()), 1300)
+    successTimer = setTimeout(() => postLoginPath(), 1300)
   } catch (e) {
     status.value = 'error'
     err.value = e.message || '登录失败，请检查 CID 和密码'
@@ -213,7 +213,7 @@ async function confirmLoginVerify() {
       loginChallenge: loginChallenge.value,
     })
     userStore.applyLogin(res.data)
-    router.replace(postLoginPath())
+    postLoginPath()
   } catch (e) {
     verifyErr.value = e.message || '验证失败'
   } finally {
@@ -235,7 +235,7 @@ async function loginWithPasskey() {
       credential,
     })
     userStore.applyLogin(verifyRes.data)
-    router.replace(postLoginPath())
+    postLoginPath()
   } catch (e) {
     if (e?.name === 'NotAllowedError') passkeyErr.value = 'Passkey 登录已取消或验证超时'
     else passkeyErr.value = e?.response?.data?.message || e.message || 'Passkey 登录失败，请使用密码登录'
