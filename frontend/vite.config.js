@@ -63,6 +63,11 @@ export default defineConfig({
   build: {
     chunkSizeWarningLimit: 600,
     rollupOptions: {
+      // 多入口：主站 + 组件预览页（preview-consent.html，纯静态、不接业务接口）
+      input: {
+        main: fileURLToPath(new URL('./index.html', import.meta.url)),
+        'preview-consent': fileURLToPath(new URL('./preview-consent.html', import.meta.url))
+      },
       output: {
         manualChunks
       }
