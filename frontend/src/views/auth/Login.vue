@@ -15,7 +15,7 @@
           <input
             id="login-cid" v-model="form.cid" class="input"
             inputmode="numeric" maxlength="4" placeholder="4 位数字 CID"
-            autocomplete="username" aria-required="true"
+            autocomplete="username webauthn" aria-required="true"
             :aria-invalid="!!fb.errors.cid" @input="fb.input('cid')"
           />
         </FormField>

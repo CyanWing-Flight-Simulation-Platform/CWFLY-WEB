@@ -21,7 +21,12 @@ from webauthn import (
     verify_authentication_response,
     verify_registration_response,
 )
-from webauthn.helpers.structs import PublicKeyCredentialDescriptor
+from webauthn.helpers.structs import (
+    AuthenticatorSelectionCriteria,
+    PublicKeyCredentialDescriptor,
+    ResidentKeyRequirement,
+    UserVerificationRequirement,
+)
 
 from app.config import settings
 
@@ -180,10 +185,17 @@ async def registration_options(db: AsyncSession, cid: str, username: str) -> dic
         user_id=str(cid).encode("utf-8"),
         user_name=str(cid),
         user_display_name=str(username or cid),
+        authenticator_selection=AuthenticatorSelectionCriteria(
+            resident_key=ResidentKeyRequirement.REQUIRED,
+            user_verification=UserVerificationRequirement.PREFERRED,
+        ),
         exclude_credentials=exclude,
     )
     await store_challenge(db, cid, "register", options.challenge)
-    return json.loads(options_to_json(options))
+    data = json.loads(options_to_json(options))
+    # passkeys.dev 推荐：让认证器回报 credProps，便于判断是否可发现凭据
+    data["extensions"] = {"credProps": True}
+    return data
 
 
 async def verification_response(
@@ -244,6 +256,7 @@ async def authentication_options(db: AsyncSession, cid: str) -> dict[str, Any]:
         rp_id=settings.webauthn_rp_id,
         allow_credentials=allow,
         timeout=60000,
+        user_verification=UserVerificationRequirement.PREFERRED,
     )
     await store_challenge(db, cid, "login", options.challenge)
     return json.loads(options_to_json(options))

@@ -73,6 +73,15 @@ function serializeAuthenticationCredential(credential) {
   }
 }
 
+export async function isPlatformPasskeyAvailable() {
+  if (!window.PublicKeyCredential?.isUserVerifyingPlatformAuthenticatorAvailable) return false
+  try {
+    return await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()
+  } catch {
+    return false
+  }
+}
+
 export async function createPasskey(options) {
   if (!window.PublicKeyCredential || !navigator.credentials?.create) {
     throw new Error('当前浏览器或环境不支持 Passkey')

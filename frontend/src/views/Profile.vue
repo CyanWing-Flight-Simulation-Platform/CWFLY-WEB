@@ -164,7 +164,7 @@ import { ref, reactive, onMounted, computed } from 'vue'
 import { useUserStore } from '@/store/user'
 import { navLayout, narrowScreen, setNavLayout } from '@/utils/navLayout'
 import api, { authApi, profileApi } from '@/api'
-import { createPasskey } from '@/utils/passkey'
+import { createPasskey, isPlatformPasskeyAvailable } from '@/utils/passkey'
 import Skeleton from '@/components/base/Skeleton.vue'
 import UserAvatar from '@/components/base/UserAvatar.vue'
 import UserTag from '@/components/base/UserTag.vue'
@@ -357,6 +357,11 @@ async function registerPasskey() {
   if (!passkeyPassword.value) { passkeyMsg.value = '请输入当前密码'; passkeyMsgType.value = 'err'; return }
   passkeyLoading.value = true
   try {
+    if (!(await isPlatformPasskeyAvailable())) {
+      passkeyMsg.value = '当前设备没有可用的平台 Passkey 认证器（指纹/面容/PIN）'
+      passkeyMsgType.value = 'err'
+      return
+    }
     const optionsRes = await authApi.passkeyRegisterOptions({ password: passkeyPassword.value })
     const credential = await createPasskey(optionsRes.data?.options || {})
     const res = await authApi.passkeyRegisterVerify({ credential, name: '我的 Passkey' })
