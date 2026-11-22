@@ -250,40 +250,74 @@ async def verification_response(
     return {"credentialId": credential_id, "name": str(name or "Passkey")}
 
 
-async def authentication_options(db: AsyncSession, cid: str) -> dict[str, Any]:
-    allow = await _raw_credentials(db, cid)
+async def authentication_options(db: AsyncSession, cid: str | None = None) -> dict[str, Any]:
+    allow = await _raw_credentials(db, cid) if cid else None
     options = generate_authentication_options(
         rp_id=settings.webauthn_rp_id,
         allow_credentials=allow,
         timeout=60000,
         user_verification=UserVerificationRequirement.PREFERRED,
     )
-    await store_challenge(db, cid, "login", options.challenge)
+    await store_challenge(db, cid or "", "login", options.challenge)
     return json.loads(options_to_json(options))
 
 
 async def verify_login(
     db: AsyncSession,
-    cid: str,
+    cid: str | None,
     credential: dict[str, Any],
+    challenge_token: str | None = None,
 ) -> str:
-    challenge = await load_challenge(db, cid, "login")
-    if not challenge:
-        raise ValueError("Passkey 登录已过期，请重试")
-    raw = dict(credential or {})
-    credential_id = str(raw.get("id") or raw.get("rawId") or "").strip() or b64url_encode(
-        b64url_decode(raw.get("rawId") or "")
-    )
-    row = (
-        await db.execute(
-            text(
-                "SELECT id, public_key, sign_count FROM `webauthn_credentials` "
-                "WHERE cid = :cid AND credential_id = :cred LIMIT 1"
-            ),
-            {"cid": cid, "cred": credential_id},
-        )
-    ).first()
+    if challenge_token:
+        row = (
+            await db.execute(
+                text(
+                    "SELECT challenge FROM `webauthn_challenges` "
+                    "WHERE kind = 'login' AND used = 0 AND challenge = :challenge "
+                    "AND expiresAt > NOW(3) ORDER BY id DESC LIMIT 1"
+                ),
+                {"challenge": challenge_token},
+            )
+        ).first()
+    else:
+        row = (
+            await db.execute(
+                text(
+                    "SELECT challenge FROM `webauthn_challenges` "
+                    "WHERE cid = :cid AND kind = 'login' AND used = 0 "
+                    "AND expiresAt > NOW(3) ORDER BY id DESC LIMIT 1"
+                ),
+                {"cid": cid or ""},
+            )
+        ).first()
     if row is None:
+        raise ValueError("Passkey 登录已过期，请重试")
+    challenge = b64url_decode(row._mapping["challenge"])
+    raw = dict(credential or {})
+    credential_id = str(raw.get("id") or raw.get("rawId") or "").strip()
+    if not credential_id:
+        raise ValueError("Passkey 凭据缺少 ID")
+    if cid:
+        cred_row = (
+            await db.execute(
+                text(
+                    "SELECT id, cid, public_key, sign_count FROM `webauthn_credentials` "
+                    "WHERE cid = :cid AND credential_id = :cred LIMIT 1"
+                ),
+                {"cid": cid, "cred": credential_id},
+            )
+        ).first()
+    else:
+        cred_row = (
+            await db.execute(
+                text(
+                    "SELECT id, cid, public_key, sign_count FROM `webauthn_credentials` "
+                    "WHERE credential_id = :cred LIMIT 1"
+                ),
+                {"cred": credential_id},
+            )
+        ).first()
+    if cred_row is None:
         raise ValueError("未找到该 Passkey")
     try:
         verified = verify_authentication_response(
@@ -291,23 +325,33 @@ async def verify_login(
             expected_challenge=challenge,
             expected_rp_id=settings.webauthn_rp_id,
             expected_origin=settings.webauthn_origins,
-            credential_public_key=b64url_decode(row._mapping["public_key"]),
-            credential_current_sign_count=int(row._mapping["sign_count"] or 0),
+            credential_public_key=b64url_decode(cred_row._mapping["public_key"]),
+            credential_current_sign_count=int(cred_row._mapping["sign_count"] or 0),
             require_user_verification=False,
         )
     except Exception as exc:  # noqa: BLE001
         raise ValueError(f"Passkey 验证失败：{exc}") from exc
-    await consume_challenge(db, cid, "login", challenge)
-    new_count = max(int(verified.new_sign_count or 0), int(row._mapping["sign_count"] or 0))
+    consumed = await db.execute(
+        text(
+            "UPDATE `webauthn_challenges` SET used = 1 "
+            "WHERE kind = 'login' AND used = 0 AND expiresAt > NOW(3) "
+            "AND challenge = :challenge"
+        ),
+        {"challenge": b64url_encode(challenge)},
+    )
+    await db.commit()
+    if int(consumed.rowcount or 0) == 0:
+        raise ValueError("Passkey 登录已失效，请重试")
+    new_count = max(int(verified.new_sign_count or 0), int(cred_row._mapping["sign_count"] or 0))
     await db.execute(
         text(
             "UPDATE `webauthn_credentials` SET sign_count = :sign, lastUsedAt = NOW(3) "
             "WHERE id = :id"
         ),
-        {"sign": new_count, "id": int(row._mapping["id"])},
+        {"sign": new_count, "id": int(cred_row._mapping["id"])},
     )
     await db.commit()
-    return credential_id
+    return str(cred_row._mapping["cid"])
 
 
 async def delete_credential(db: AsyncSession, cid: str, credential_row_id: int) -> bool:

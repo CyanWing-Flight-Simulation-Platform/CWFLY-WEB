@@ -603,11 +603,9 @@ async def passkey_login_options(
         body = await request.json()
     except Exception:  # noqa: BLE001
         body = {}
-    cid = str((body or {}).get("cid") or "").strip()
-    if not cid:
-        return fail(400, "请输入 CID")
+    cid = str((body or {}).get("cid") or "").strip() or None
     options = await wa.authentication_options(db, cid)
-    return ok({"options": options})
+    return ok({"options": options, "challenge": options.get("challenge")})
 
 
 @router.post("/passkey/login/verify", dependencies=[Depends(login_limiter)])
@@ -620,35 +618,35 @@ async def passkey_login_verify(
     except Exception:  # noqa: BLE001
         body = {}
     body = body or {}
-    cid = str(body.get("cid") or "").strip()
+    cid = str(body.get("cid") or "").strip() or None
+    challenge_token = str(body.get("challenge") or "").strip() or None
     credential = body.get("credential")
-    if not cid or not isinstance(credential, dict):
+    if not isinstance(credential, dict) or not challenge_token:
         return fail(400, "Passkey 登录参数不完整")
     ip = get_client_ip(request)
     device_fp = get_device_fp(request)
     if device_fp and await is_device_banned(device_fp):
         return fail(403, "该设备已被封禁，请联系管理员", code="DEVICE_BANNED")
-    user = await users.find_user_with_credentials(db, cid)
-    if not user:
-        await record_login_failure(db, cid, ip)
-        return fail(401, "Passkey 登录失败")
-    lock_msg = await check_login_lock(db, cid, ip, int(user.get("rating") or 0))
-    if lock_msg:
-        return fail(429, lock_msg)
     try:
-        await wa.verify_login(db, cid, credential)
+        actual_cid = await wa.verify_login(db, cid, credential, challenge_token)
     except ValueError as exc:
-        await record_login_failure(db, cid, ip)
+        await record_login_failure(db, cid or "unknown", ip)
         await audit_log.write(
-            db, "passkey_login_failed", "Passkey 登录失败", cid,
-            target_type="user", target_id=cid,
+            db, "passkey_login_failed", "Passkey 登录失败", cid or "unknown",
+            target_type="user", target_id=cid or "",
         )
         return fail(401, str(exc))
-    await clear_login_failures(db, cid)
-    await _safe_login_log(db, cid, ip, get_user_agent(request), device_fp, True, "passkey")
+    user = await users.find_user_with_credentials(db, actual_cid)
+    if not user:
+        return fail(401, "Passkey 登录失败")
+    lock_msg = await check_login_lock(db, actual_cid, ip, int(user.get("rating") or 0))
+    if lock_msg:
+        return fail(429, lock_msg)
+    await clear_login_failures(db, actual_cid)
+    await _safe_login_log(db, actual_cid, ip, get_user_agent(request), device_fp, True, "passkey")
     await audit_log.write(
-        db, "passkey_login", "Passkey 登录成功", cid,
-        target_type="user", target_id=cid,
+        db, "passkey_login", "Passkey 登录成功", actual_cid,
+        target_type="user", target_id=actual_cid,
     )
     token = sign_token(user)
     return auth_ok(request, token, {"token": token, "user": user_payload(user)})

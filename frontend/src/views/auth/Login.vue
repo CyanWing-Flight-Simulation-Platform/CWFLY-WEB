@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="auth-page">
     <div class="auth-card card p-lg">
       <div class="text-center mb-lg">
@@ -46,7 +46,7 @@
           :disabled="passkeyLoading"
           @click="loginWithPasskey"
         >
-          {{ passkeyLoading ? '正在唤起 Passkey…' : '使用 Passkey 登录' }}
+          {{ passkeyLoading ? '正在唤起 Passkey…' : '使用 Passkey 登录（无需 CID）' }}
         </button>
         <p v-if="passkeyErr" class="text-xs mt-sm" style="color:var(--c-danger);text-align:center;">{{ passkeyErr }}</p>
 
@@ -224,15 +224,16 @@ async function confirmLoginVerify() {
 async function loginWithPasskey() {
   passkeyErr.value = ''
   const cid = String(form.value.cid || '').trim()
-  if (!/^\d{4}$/.test(cid)) {
-    fb.fail('cid', '请先输入 4 位数字 CID')
-    return
-  }
   passkeyLoading.value = true
   try {
-    const optionsRes = await authApi.passkeyLoginOptions({ cid })
-    const credential = await getPasskey(optionsRes.data?.options || {})
-    const verifyRes = await authApi.passkeyLoginVerify({ cid, credential })
+    const optionsRes = await authApi.passkeyLoginOptions(cid ? { cid } : {})
+    const options = optionsRes.data?.options || {}
+    const credential = await getPasskey(options)
+    const verifyRes = await authApi.passkeyLoginVerify({
+      ...(cid ? { cid } : {}),
+      challenge: optionsRes.data?.challenge || options.challenge,
+      credential,
+    })
     userStore.applyLogin(verifyRes.data)
     router.replace(postLoginPath())
   } catch (e) {
@@ -318,3 +319,4 @@ onUnmounted(() => {
   100% { opacity: 1; transform: translateY(0) scaleY(1); }
 }
 </style>
+
