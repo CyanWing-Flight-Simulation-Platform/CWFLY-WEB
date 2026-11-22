@@ -1,8 +1,9 @@
 # CWFLY × Dubhe Nexus（Merak Identity）账号绑定对接说明
 
 CWFLY 作为 **OAuth2 授权服务器（Provider）**，Dubhe Nexus 作为 **客户端（Client）**。
-用户在 `https://merak.dubhenexus.io/apps` 点「绑定 CWFLY 账号」→ 跳转 CWFLY 授权页 →
-同意后带 `code` 回跳 → Merak 用 `code` 换 `access_token` → 调 `userinfo` 读取资料完成绑定。
+用户在 `https://merak.dubhenexus.io/apps`（授权应用管理）点「绑定 CWFLY 账号」→ 跳转 CWFLY 授权页 →
+同意后带 `code` 回跳 `https://merak.dubhenexus.io/api/auth/callback` →
+Merak 用 `code` 换 `access_token` → 调 `userinfo` 读取资料完成绑定。
 
 实现文件：
 
@@ -22,7 +23,7 @@ OAUTH2_ENABLED=true
 OAUTH2_CLIENT_ID=cwfly_380a8ff4b2908206
 OAUTH2_CLIENT_SECRET=l3NRuGyagGFjlqJrtE8zp2w4ubKuLH7zwEru0r6MHnu8ZHOy
 OAUTH2_CLIENT_NAME=Dubhe Nexus
-OAUTH2_REDIRECT_URIS=https://merak.dubhenexus.io/apps
+OAUTH2_REDIRECT_URIS=https://merak.dubhenexus.io/api/auth/callback
 OAUTH2_SCOPES=profile email qq openid
 OAUTH2_CODE_TTL_SECONDS=300
 OAUTH2_TOKEN_TTL_SECONDS=3600
@@ -30,7 +31,7 @@ OAUTH2_REFRESH_TTL_SECONDS=2592000
 ```
 
 > `OAUTH2_REDIRECT_URIS` 必须与 Merak 侧登记的 `redirect_uri` **完全一致**（精确匹配，
-> 不支持通配/前缀）。若 Merak 侧实际回调地址不是 `https://merak.dubhenexus.io/apps`，
+> 不支持通配/前缀）。若 Merak 侧实际回调地址不是 `https://merak.dubhenexus.io/api/auth/callback`，
 > 改这一行后 `pm2 reload cwfly-api-py --update-env` 即可。
 
 ## 2. Merak 侧需要登记的 Provider 配置
@@ -44,7 +45,7 @@ OAUTH2_REFRESH_TTL_SECONDS=2592000
 | userinfo / profile 地址 | `https://www.cwflysim.cn/api/oauth/userinfo` |
 | client_id | `cwfly_380a8ff4b2908206` |
 | client_secret | `l3NRuGyagGFjlqJrtE8zp2w4ubKuLH7zwEru0r6MHnu8ZHOy` |
-| redirect_uri | `https://merak.dubhenexus.io/apps` |
+| redirect_uri | `https://merak.dubhenexus.io/api/auth/callback` |
 | scope | `profile email qq openid` |
 
 协议细节（按 RFC 6749 标准即可，无需特殊适配）：
@@ -105,7 +106,7 @@ curl -s https://www.cwflysim.cn/api/oauth/health | jq
 ```bash
 curl -s -X POST https://www.cwflysim.cn/api/oauth/token \
   -d 'grant_type=authorization_code&code=fake' \
-  -d 'redirect_uri=https://merak.dubhenexus.io/apps' \
+  -d 'redirect_uri=https://merak.dubhenexus.io/api/auth/callback' \
   -d 'client_id=cwfly_380a8ff4b2908206' \
   -d 'client_secret=l3NRuGyagGFjlqJrtE8zp2w4ubKuLH7zwEru0r6MHnu8ZHOy'
 ```
