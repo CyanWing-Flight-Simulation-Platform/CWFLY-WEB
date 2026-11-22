@@ -1,22 +1,10 @@
 <script setup>
 /**
- * 第三方 OAuth 授权确认弹窗
+ * 第三方 OAuth 授权确认弹窗（按产品给定的最终视觉规范实现，参数不做改动）
  *
- * 视觉：单栏纵向流式，留白与字重分层；毛玻璃 + 极细描边 + 弥散阴影。
- * 无图标 / Emoji / 装饰线框；颜色全部来自主题 token（--ui-* / --c-* / --glass-*）。
- *
- * 用法：
- *   <OAuthConsentModal
- *     v-model:open="visible"
- *     app-name="Dubhe Nexus"
- *     app-origin="merak.dubhenexus.io"
- *     user-name="CW-2048"
- *     cid="2048"
- *     :scopes="['用户名', 'CID', '邮箱', '飞行时长']"
- *     @approve="onApprove"
- *     @deny="onDeny"
- *     @close="onClose"
- *   />
+ * scopes 支持两种写法：
+ *   ['用户名', 'CID']                    → 右侧数据列显示「可读取」
+ *   [{ label: '用户名', value: 'CW-1' }] → 右侧数据列显示具体值
  */
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 
@@ -25,13 +13,13 @@ const props = defineProps({
   open: { type: Boolean, default: false },
   /** 请求方应用名（头部大字） */
   appName: { type: String, required: true },
-  /** 请求方域（头部小字副标题，可空） */
+  /** 请求方域（副标题里附带展示，可空） */
   appOrigin: { type: String, default: '' },
   /** 当前登录用户名 */
   userName: { type: String, default: '' },
   /** 当前登录 CID */
   cid: { type: [String, Number], default: '' },
-  /** 请求读取的字段（纯文本标签数组，也接受 { label } 对象） */
+  /** 请求读取的字段 */
   scopes: { type: Array, default: () => [] },
   /** 被访问的产品名 */
   productName: { type: String, default: 'CWFLY' },
@@ -47,9 +35,13 @@ const cardRef = ref(null)
 let lastActive = null
 let lockedScroll = false
 
-const scopeLabels = computed(() =>
+const permRows = computed(() =>
   (props.scopes || [])
-    .map((item) => (typeof item === 'string' ? item : item?.label || ''))
+    .map((item) => {
+      if (typeof item === 'string') return { label: item, value: '可读取' }
+      if (!item || !item.label) return null
+      return { label: item.label, value: item.value || '可读取' }
+    })
     .filter(Boolean),
 )
 
@@ -151,42 +143,42 @@ onBeforeUnmount(unlockScroll)
           aria-describedby="oc-desc"
           tabindex="-1"
         >
-          <header class="oc-head">
-            <h2 id="oc-title" class="oc-app">{{ appName }}</h2>
-            <p id="oc-desc" class="oc-sub">
-              正在请求访问您的 {{ productName }} 账户<template v-if="appOrigin"> · {{ appOrigin }}</template>
-            </p>
-          </header>
+          <h2 id="oc-title" class="oc-title">{{ appName }}</h2>
+          <p id="oc-desc" class="oc-subtitle">
+            正在请求访问您的 {{ productName }} 账户<template v-if="appOrigin"> · {{ appOrigin }}</template>
+          </p>
 
-          <section class="oc-scopes" aria-labelledby="oc-scopes-cap">
-            <p id="oc-scopes-cap" class="oc-cap">将读取以下字段</p>
-            <ul class="oc-tags">
-              <li v-for="label in scopeLabels" :key="label" class="oc-tag">{{ label }}</li>
-              <li v-if="!scopeLabels.length" class="oc-tag">基本账户信息</li>
-            </ul>
-          </section>
+          <ul class="oc-perms">
+            <li v-for="row in permRows" :key="row.label" class="oc-perm">
+              <span class="oc-perm__label">{{ row.label }}</span>
+              <span class="oc-perm__value">{{ row.value }}</span>
+            </li>
+            <li v-if="!permRows.length" class="oc-perm">
+              <span class="oc-perm__label">账户信息</span>
+              <span class="oc-perm__value">可读取</span>
+            </li>
+          </ul>
 
           <p class="oc-warn">
             授权后，该应用可在有效期内持续读取上述字段。请仅对您信任的应用授权；若非本人操作，请选择拒绝。
           </p>
 
-          <footer class="oc-foot">
-            <p class="oc-account">当前授权账户：{{ accountLine }}</p>
-            <div class="oc-actions">
-              <button
-                type="button"
-                class="oc-btn oc-btn--ghost"
-                :disabled="loading"
-                @click="deny"
-              >拒绝</button>
-              <button
-                type="button"
-                class="oc-btn oc-btn--primary"
-                :disabled="loading"
-                @click="approve"
-              >{{ loading ? '处理中' : '同意授权' }}</button>
-            </div>
-          </footer>
+          <p class="oc-account">当前授权账户：{{ accountLine }}</p>
+
+          <div class="oc-actions">
+            <button
+              type="button"
+              class="oc-btn oc-btn--ghost"
+              :disabled="loading"
+              @click="deny"
+            >拒绝</button>
+            <button
+              type="button"
+              class="oc-btn oc-btn--primary"
+              :disabled="loading"
+              @click="approve"
+            >{{ loading ? '处理中' : '同意授权' }}</button>
+          </div>
         </section>
       </div>
     </Transition>
@@ -201,191 +193,152 @@ onBeforeUnmount(unlockScroll)
   display: grid;
   place-items: center;
   padding: 24px;
-  background: var(--ui-overlay, rgba(15, 23, 42, .35));
-  backdrop-filter: blur(16px) saturate(120%);
-  -webkit-backdrop-filter: blur(16px) saturate(120%);
+  background: rgba(0, 0, 0, 0.5);
 }
 
-/* ---------- 卡片：毛玻璃 + 极细描边 + 弥散阴影 ---------- */
 .oc-card {
-  width: min(452px, 100%);
+  width: min(460px, 100%);
   max-height: min(88vh, 760px);
   overflow: auto;
-  padding: 30px 28px 22px;
-  border: 1px solid var(--ui-dialog-border, rgba(15, 23, 42, .1));
-  border-radius: 18px;
-  background: var(--ui-dialog-bg, rgba(255, 255, 255, .88));
-  box-shadow: var(--glass-shadow-lg, 0 18px 56px rgba(0, 0, 0, .16));
-  backdrop-filter: blur(28px) saturate(170%);
-  -webkit-backdrop-filter: blur(28px) saturate(170%);
-  color: var(--ui-text, #111827);
+  background: rgba(20, 20, 25, 0.85);
+  backdrop-filter: blur(32px);
+  -webkit-backdrop-filter: blur(32px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  padding: 40px;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.4);
   outline: none;
 }
 
-/* ---------- 头部 ---------- */
-.oc-head {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-.oc-app {
-  margin: 0;
-  font-size: 26px;
-  font-weight: 600;
-  line-height: 1.2;
-  letter-spacing: -.02em;
-  color: var(--ui-text, #111827);
+/* 大标题 */
+.oc-title {
+  margin: 0 0 8px;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: -.01em;
+  color: #ffffff;
   word-break: break-word;
 }
-.oc-sub {
-  margin: 0;
-  font-size: 12.5px;
+
+/* 副标题 */
+.oc-subtitle {
+  margin: 0 0 32px;
+  font-size: 14px;
   font-weight: 400;
-  line-height: 1.55;
-  color: var(--ui-text-muted, #9ca3af);
+  line-height: 1.6;
+  color: #a1a1aa;
+  word-break: break-word;
 }
 
-/* ---------- 权限：无边框胶囊 ---------- */
-.oc-scopes {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-top: 26px;
-}
-.oc-cap {
-  margin: 0;
-  font-size: 11px;
-  font-weight: 500;
-  line-height: 1.4;
-  color: var(--ui-text-muted, #9ca3af);
-}
-.oc-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+/* 权限列表：两列纯文字 */
+.oc-perms {
   margin: 0;
   padding: 0;
   list-style: none;
 }
-.oc-tag {
-  padding: 4px 9px;
-  border-radius: 7px;
-  background: color-mix(in srgb, var(--ui-text, #111827) 5%, transparent);
-  font-size: 12.5px;
-  font-weight: 500;
-  line-height: 1.5;
-  letter-spacing: .005em;
-  color: var(--ui-text-secondary, #6b7280);
+.oc-perm {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  align-items: baseline;
+  line-height: 2;
+}
+.oc-perm__label {
+  font-size: 12px;
+  color: #71717a;
+}
+.oc-perm__value {
+  font-size: 14px;
+  color: #ffffff;
   word-break: break-word;
 }
 
-/* ---------- 风险提示：一根柔和竖线 + 极浅底 ---------- */
+/* 风险提示：仅一根柔和竖线 */
 .oc-warn {
   margin: 24px 0 0;
-  padding: 9px 12px;
-  border-left: 2px solid color-mix(in srgb, var(--c-warning) 58%, transparent);
-  border-radius: 0 6px 6px 0;
-  background: color-mix(in srgb, var(--ui-text, #111827) 4%, transparent);
+  padding-left: 12px;
+  border-left: 2px solid rgba(245, 158, 11, 0.5);
   font-size: 12px;
-  font-weight: 400;
-  line-height: 1.7;
-  color: var(--ui-text-secondary, #6b7280);
+  line-height: 1.8;
+  color: #71717a;
 }
 
-/* ---------- 底部 ---------- */
-.oc-foot {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  margin-top: 26px;
-}
+/* 当前账户 */
 .oc-account {
-  margin: 0;
-  font-size: 11px;
-  font-weight: 400;
-  letter-spacing: .01em;
-  color: var(--ui-text-muted, #9ca3af);
+  margin: 20px 0 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: #71717a;
 }
+
+/* 按钮区 */
 .oc-actions {
   display: flex;
-  align-items: center;
   justify-content: flex-end;
-  gap: 6px;
+  align-items: center;
+  gap: 12px;
+  margin-top: 24px;
 }
 
 .oc-btn {
-  height: 34px;
-  padding: 0 14px;
-  border: 0;
-  border-radius: 8px;
   font-family: inherit;
-  font-size: 13px;
-  font-weight: 500;
-  letter-spacing: .01em;
+  font-size: 14px;
+  line-height: 1.2;
+  padding: 10px 24px;
+  border-radius: 8px;
+  border: none;
   cursor: pointer;
-  transition: background .16s ease, color .16s ease, opacity .16s ease, transform .16s ease;
+  transition: opacity .15s ease;
 }
 .oc-btn:disabled {
   opacity: .5;
   cursor: default;
 }
 
-/* 主按钮：主题反色纯色（浅色→近黑底白字；暗黑→白底近黑字） */
 .oc-btn--primary {
-  background: var(--ui-text, #111827);
-  color: var(--ui-dialog-bg, #ffffff);
+  background: #ffffff;
+  color: #000000;
   font-weight: 600;
-  box-shadow: 0 1px 2px color-mix(in srgb, var(--ui-text, #111827) 14%, transparent);
 }
 .oc-btn--primary:hover:not(:disabled) {
-  opacity: .88;
-}
-.oc-btn--primary:active:not(:disabled) {
-  transform: translateY(.5px);
-  opacity: .82;
+  opacity: .9;
 }
 .oc-btn--primary:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--ui-text, #111827) 40%, transparent);
+  outline: 2px solid rgba(255, 255, 255, 0.45);
   outline-offset: 2px;
 }
 
-/* 次按钮：纯灰字幽灵 */
 .oc-btn--ghost {
   background: transparent;
-  color: var(--ui-text-muted, #9ca3af);
+  color: #a1a1aa;
+  font-weight: 500;
 }
 .oc-btn--ghost:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--ui-text, #111827) 5%, transparent);
-  color: var(--ui-text-secondary, #6b7280);
+  color: #d4d4d8;
 }
 .oc-btn--ghost:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--ui-text-muted, #9ca3af) 45%, transparent);
+  outline: 2px solid rgba(161, 161, 170, 0.45);
   outline-offset: 2px;
 }
 
-/* ---------- 动效 ---------- */
+/* 动效 */
 .oc-enter-active,
 .oc-leave-active { transition: opacity .18s ease; }
 .oc-enter-active .oc-card,
 .oc-leave-active .oc-card {
-  transition: transform .24s cubic-bezier(.22, 1, .36, 1), opacity .24s ease;
+  transition: transform .22s cubic-bezier(.22, 1, .36, 1), opacity .22s ease;
 }
 .oc-enter-from,
 .oc-leave-to { opacity: 0; }
 .oc-enter-from .oc-card,
 .oc-leave-to .oc-card { opacity: 0; transform: translateY(8px) scale(.99); }
 
-/* ---------- 窄屏 ---------- */
 @media (max-width: 560px) {
   .oc-overlay { padding: 14px; }
-  .oc-card {
-    padding: 24px 20px 18px;
-    border-radius: 16px;
-  }
-  .oc-app { font-size: 22px; }
-  .oc-scopes { margin-top: 22px; }
-  .oc-warn { margin-top: 20px; }
-  .oc-foot { margin-top: 22px; }
+  .oc-card { padding: 28px 22px; }
+  .oc-title { font-size: 21px; }
+  .oc-subtitle { margin-bottom: 24px; }
+  .oc-perm { grid-template-columns: 78px minmax(0, 1fr); }
 }
 
 @media (prefers-reduced-motion: reduce) {

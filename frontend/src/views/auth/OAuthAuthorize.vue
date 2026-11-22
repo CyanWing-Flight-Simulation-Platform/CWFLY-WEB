@@ -39,7 +39,7 @@
       :app-origin="appOrigin"
       :user-name="accountName"
       :cid="accountCid"
-      :scopes="CONSENT_SCOPES"
+      :scopes="consentScopes"
       @approve="grant"
       @deny="cancel"
       @close="cancel"
@@ -65,8 +65,13 @@ const granted = ref(false)
 const consentOpen = ref(false)
 const accountName = ref('')
 const accountCid = ref('')
-// 本次授权将交给第三方读取的字段（纯文本展示）
-const CONSENT_SCOPES = ['用户名', 'CID', '权限等级', '登录凭证']
+// 本次授权将交给第三方读取的字段（左列字段名 / 右列数据）
+const consentScopes = computed(() => [
+  { label: '用户名', value: accountName.value || '可读取' },
+  { label: 'CID', value: accountCid.value || '可读取' },
+  { label: '权限等级', value: '可读取' },
+  { label: '登录凭证', value: '可读取' },
+])
 
 function requestConsent() {
   consentOpen.value = true
