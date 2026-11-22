@@ -47,7 +47,6 @@ const props = defineProps({
 const emit = defineEmits(['update:open', 'approve', 'deny', 'close'])
 
 const cardRef = ref(null)
-const primaryRef = ref(null)
 let lastActive = null
 let lockedScroll = false
 
@@ -131,7 +130,9 @@ watch(
   (open) => {
     if (open) {
       lockScroll()
-      nextTick(() => primaryRef.value?.focus({ preventScroll: true }))
+      // 焦点落在对话框本身：屏幕阅读器直接朗读标题与说明，
+      // 同时避免按钮一出现就带一圈高亮描边（视觉噪音）
+      nextTick(() => cardRef.value?.focus({ preventScroll: true }))
     } else {
       unlockScroll()
     }
@@ -190,7 +191,6 @@ onBeforeUnmount(unlockScroll)
                 <p class="oc-account">当前授权账户：{{ accountLine }}</p>
                 <div class="oc-actions">
                   <button
-                    ref="primaryRef"
                     type="button"
                     class="oc-btn oc-btn--primary"
                     :disabled="loading"
