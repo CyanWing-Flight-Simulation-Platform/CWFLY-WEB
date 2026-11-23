@@ -129,33 +129,6 @@
           <input v-model="form.remarks" class="input" placeholder="可选备注信息" @input="sanitizeInput('remarks')" />
         </div>
 
-        <!-- ICAO 飞行计划报文 -->
-        <div class="mb-md fp-full">
-          <div class="fp-icao-head">
-            <label class="text-sm font-bold">
-              ICAO 飞行计划报文
-              <span class="text-muted" style="font-weight:400;">（标准 FPL 格式，可直接粘贴 VATSIM / SimBrief 报文）</span>
-            </label>
-            <div class="flex gap-xs">
-              <button class="btn btn-outline btn-sm" type="button" @click="refreshIcao" :disabled="icaoBusy">由表单生成</button>
-              <button class="btn btn-outline btn-sm" type="button" @click="parseIcaoText" :disabled="icaoBusy">解析报文</button>
-              <button class="btn btn-outline btn-sm" type="button" @click="copyIcao">复制</button>
-            </div>
-          </div>
-          <textarea
-            v-model="form.icaoText"
-            class="input fp-icao"
-            rows="6"
-            spellcheck="false"
-            placeholder="(FPL-CPA1025-IX&#10;-A359/H-S/C&#10;-VHHH0815&#10;-N0492F410 V12 EPDOS L642 ...&#10;-WSSS0342 WMKK&#10;-DOF/261128 REG/A-BCD RMK/TEST)"
-            @input="icaoDirty = true"
-          ></textarea>
-          <p v-if="icaoError" class="text-sm mt-sm" style="color:var(--c-danger);">{{ icaoError }}</p>
-          <p v-else class="text-sm text-muted mt-sm" style="margin:0;">
-            提交时以报文为准：后端会重新解析并保存规范报文；留空则按上方表单自动生成。
-          </p>
-        </div>
-
         <!-- 同步到 FSD（强制同步，不显示选项） -->
         <input v-model="form.syncFsd" type="hidden" value="true" />
 
@@ -238,10 +211,6 @@
             <button class="btn btn-outline btn-sm" @click="copyShareCode">复制</button>
           </div>
         </div>
-        <div class="mb-md">
-          <label class="text-sm font-bold mb-sm" style="display:block;">ICAO 飞行计划报文</label>
-          <pre class="fp-icao-share">{{ currentPlan?.icaoText || '（该计划暂无报文）' }}</pre>
-        </div>
         <button class="btn btn-outline w-full" @click="shareModal=false">关闭</button>
       </div>
     </div>
@@ -267,7 +236,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { flightplanApi } from '@/api'
 
@@ -292,118 +261,10 @@ const form = ref({
   endurance: '',
   route: '',
   remarks: '',
-  icaoText: '',
   syncFsd: true
 })
 
 const myPlans = ref([])
-
-// ===== ICAO 报文 =====
-const icaoDirty = ref(false)   // 用户手改过报文后不再覆盖
-const icaoBusy = ref(false)
-const icaoError = ref('')
-let icaoPreviewTimer = null
-
-function icaoPayload() {
-  const f = form.value
-  return {
-    callsign: f.callsign,
-    flightType: f.flightType,
-    typeOfFlight: f.typeOfFlight,
-    aircraft: f.aircraft,
-    wakeCategory: f.wakeCategory,
-    equipment: f.equipment,
-    transponder: f.transponder,
-    depIcao: f.depIcao,
-    depTime: f.depTime,
-    cruiseAlt: f.cruiseAlt,
-    cruiseSpeed: f.cruiseSpeed,
-    arrIcao: f.arrIcao,
-    alternate: f.alternate,
-    flightTime: f.flightTime,
-    route: f.route,
-    remarks: f.remarks
-  }
-}
-
-/** 表单变化后 400ms 自动刷新报文预览（手改过则跳过） */
-function scheduleIcaoPreview() {
-  if (icaoDirty.value) return
-  clearTimeout(icaoPreviewTimer)
-  icaoPreviewTimer = setTimeout(refreshIcao, 400)
-}
-
-async function refreshIcao() {
-  icaoDirty.value = false
-  icaoError.value = ''
-  // 关键字段没填时不生成，避免出现 N00000 之类的占位报文
-  if (!form.value.callsign && !form.value.depIcao && !form.value.arrIcao) {
-    form.value.icaoText = ''
-    return
-  }
-  try {
-    const res = await flightplanApi.previewIcao(icaoPayload())
-    form.value.icaoText = res?.data?.icao || ''
-  } catch (e) {
-    icaoError.value = e?.response?.data?.message || '报文生成失败'
-  }
-}
-
-async function parseIcaoText() {
-  const text = String(form.value.icaoText || '').trim()
-  if (!text) {
-    icaoError.value = '请先粘贴 ICAO 报文'
-    return
-  }
-  icaoBusy.value = true
-  icaoError.value = ''
-  try {
-    const res = await flightplanApi.parseIcao(text)
-    const d = res?.data || {}
-    Object.assign(form.value, {
-      callsign: d.callsign || form.value.callsign,
-      flightType: d.flightType || form.value.flightType,
-      typeOfFlight: d.typeOfFlight || form.value.typeOfFlight,
-      aircraft: d.aircraft || '',
-      wakeCategory: d.wakeCategory || '',
-      equipment: d.equipment ?? '',
-      transponder: d.transponder || '',
-      depIcao: d.depIcao || '',
-      depTime: d.depTime || '',
-      cruiseAlt: d.cruiseAlt || '',
-      cruiseSpeed: d.cruiseSpeed || '',
-      arrIcao: d.arrIcao || '',
-      alternate: d.alternate || '',
-      flightTime: d.flightTime || '',
-      route: d.route || '',
-      remarks: d.remarks || ''
-    })
-    icaoDirty.value = true
-    showToast('已按报文填回表单')
-  } catch (e) {
-    icaoError.value = e?.response?.data?.message || '报文解析失败'
-  } finally {
-    icaoBusy.value = false
-  }
-}
-
-async function copyIcao() {
-  const text = String(form.value.icaoText || '').trim()
-  if (!text) return showToast('暂无报文可复制', 'error')
-  try {
-    await navigator.clipboard.writeText(text)
-    showToast('ICAO 报文已复制')
-  } catch {
-    showToast('复制失败，请手动选中复制', 'error')
-  }
-}
-
-watch(
-  () => icaoPayload(),
-  () => scheduleIcaoPreview(),
-  { deep: true }
-)
-
 
 // ===== 飞行计划字段格式校验（与后端一致）: 不匹配的字段提交时清空抛弃 =====
 const FP_PATTERNS = {
@@ -622,10 +483,8 @@ function loadPlan(p) {
     endurance: p.endurance,
     route: p.route,
     remarks: p.remarks,
-    icaoText: p.icaoText || '',
     syncFsd: false
   }
-  icaoDirty.value = true // 已保存计划的报文原样带出，不被自动生成覆盖
   currentPlan.value = p
 }
 
@@ -755,35 +614,6 @@ function copyShareCode() {
 </script>
 
 <style scoped>
-.fp-icao-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-  margin-bottom: 8px;
-}
-.fp-icao {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 12.5px;
-  line-height: 1.7;
-  white-space: pre;
-  overflow-x: auto;
-  resize: vertical;
-}
-.fp-icao-share {
-  margin: 0;
-  padding: 12px 14px;
-  max-height: 240px;
-  overflow: auto;
-  border: 1px solid var(--c-border-light);
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--c-text) 4%, transparent);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 12.5px;
-  line-height: 1.7;
-  white-space: pre;
-}
 
 .fp-form {
   width: 100%;
