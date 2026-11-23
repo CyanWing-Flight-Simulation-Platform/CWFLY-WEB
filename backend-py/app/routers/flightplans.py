@@ -326,6 +326,8 @@ async def submit_plan(
 
     callsign = clean(raw.get("callsign"), P["callsign"])
     flight_type = clean(raw.get("flightType"), P["flightType"]) or "IFR"
+    type_of_flight = clean(raw.get("typeOfFlight"), P.get("typeOfFlight")) or "S"
+    type_of_flight = type_of_flight.upper()
     aircraft = clean(raw.get("aircraft"), P["aircraft"])
     wake_category = clean(raw.get("wakeCategory"), P["wakeCategory"])
     equipment = clean(raw.get("equipment"), P["equipment"])
@@ -343,7 +345,6 @@ async def submit_plan(
     # ---- ICAO 报文：粘贴了报文则以服务端解析结果为准 ----
     raw_icao = str(raw.get("icaoText") or raw.get("icao") or "").strip()
     dof = ""
-    type_of_flight = "S"
     if raw_icao:
         try:
             parsed = icao_fpl.parse(raw_icao)

@@ -38,6 +38,10 @@
             <label class="text-sm font-bold mb-sm" style="display:block;">* 飞行类型</label>
             <SelectMenu v-model="form.flightType" :options="[{ value: 'IFR', label: 'IFR（仪表飞行）' }, { value: 'VFR', label: 'VFR（目视飞行）' }]" />
           </div>
+          <div class="form-col">
+            <label class="text-sm font-bold mb-sm" style="display:block;">飞行种类 (ICAO 第 8 位)</label>
+            <SelectMenu v-model="form.typeOfFlight" :options="[{ value: 'S', label: 'S 定期航班' }, { value: 'N', label: 'N 非定期' }, { value: 'G', label: 'G 通用航空' }, { value: 'M', label: 'M 军用' }, { value: 'X', label: 'X 其他' }]" />
+          </div>
         </div>
 
         <!-- 第二行：飞机类型 + 二次雷达代码 -->
@@ -273,6 +277,7 @@ const router = useRouter()
 const form = ref({
   callsign: '',
   flightType: 'IFR',
+  typeOfFlight: 'S',
   aircraft: '',
   wakeCategory: '',
   equipment: '',
@@ -304,6 +309,7 @@ function icaoPayload() {
   return {
     callsign: f.callsign,
     flightType: f.flightType,
+    typeOfFlight: f.typeOfFlight,
     aircraft: f.aircraft,
     wakeCategory: f.wakeCategory,
     equipment: f.equipment,
@@ -357,6 +363,7 @@ async function parseIcaoText() {
     Object.assign(form.value, {
       callsign: d.callsign || form.value.callsign,
       flightType: d.flightType || form.value.flightType,
+      typeOfFlight: d.typeOfFlight || form.value.typeOfFlight,
       aircraft: d.aircraft || '',
       wakeCategory: d.wakeCategory || '',
       equipment: d.equipment ?? '',
@@ -402,6 +409,7 @@ watch(
 const FP_PATTERNS = {
   callsign: /^[A-Za-z0-9]{1,7}$/,       // 呼号: 英文+数字 最大7位
   flightType: /^(IFR|VFR)$/i,           // 飞行类型
+  typeOfFlight: /^(S|N|G|M|X)$/i,       // 飞行种类
   aircraft: /^[A-Za-z0-9]{1,5}$/,       // 飞机类型: 英文+数字 最大5位
   transponder: /^[A-Za-z0-9]+$/,        // 二次雷达代码: 英文+数字 无位数限制
   wakeCategory: /^(L|M|H|J)$/i,         // 尾流分类代码
@@ -418,7 +426,7 @@ const FP_PATTERNS = {
   remarks: /^[A-Za-z0-9\s]+$/           // 备注: 英文+数字(含空格) 无位数限制
 }
 const FP_FIELD_NAMES = {
-  callsign: '呼号', flightType: '飞行类型', aircraft: '飞机类型',
+  callsign: '呼号', flightType: '飞行类型', typeOfFlight: '飞行种类', aircraft: '飞机类型',
   transponder: '二次雷达代码', wakeCategory: '尾流分类', cruiseAlt: '巡航高度',
   depIcao: '离场机场', arrIcao: '到达机场', alternate: '备降机场',
   depTime: '离场时间', flightTime: '飞行时间', cruiseSpeed: '巡航真空速',
@@ -599,6 +607,7 @@ function loadPlan(p) {
   form.value = {
     callsign: p.callsign,
     flightType: p.flightType,
+    typeOfFlight: (String(p.icaoText || '').match(/-[IVYZX]([SNGMX])/) || [])[1] || 'S',
     aircraft: String(p.aircraft || '').split('/')[0],
     wakeCategory: p.wakeCategory,
     equipment: p.equipment,

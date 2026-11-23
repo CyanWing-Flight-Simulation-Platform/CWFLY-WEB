@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 FP_PATTERNS: dict[str, re.Pattern[str]] = {
     "callsign": re.compile(r"^[A-Za-z0-9]{1,7}$"),
     "flightType": re.compile(r"^(IFR|VFR)$", re.I),
+    "typeOfFlight": re.compile(r"^(S|N|G|M|X)$", re.I),
     "aircraft": re.compile(r"^[A-Za-z0-9]{1,5}$"),
     "transponder": re.compile(r"^[A-Za-z0-9]+$"),
     "wakeCategory": re.compile(r"^(L|M|H|J)$", re.I),
