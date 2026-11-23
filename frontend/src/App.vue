@@ -31,7 +31,6 @@ import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { getSocket } from '@/utils/socket'
 import { useOnlineUsersStore } from '@/store/onlineUsers'
 import { useUserStore } from '@/store/user'
-import { profileApi } from '@/api'
 import { getTimeBgState, getUpcomingBg } from '@/utils/timeBg'
 import { themeMode, isDarkTheme, scheduleApplyTheme } from '@/utils/theme'
 import FloatingButton from '@/components/FloatingButton.vue'
@@ -394,23 +393,22 @@ function checkCustomBg() {
 }
 
 /** 加载自定义背景图（登录时） */
-/** 加载自定义背景图（登录/刷新后） */
+/** 加载自定义背景图：只读本机 localStorage（服务端不再存图） */
 function loadBg() {
-  const cid = user.profile?.cid
-  if (!cid) return
-  profileApi.get().then(res => {
-    // 请求返回时账号已变化（退出/切换账号）→ 丢弃旧账号背景
-    if (user.profile?.cid !== cid) return
-    const bg = (res.data?.bgImage || '').trim()
-    const full = bg ? bg + '?t=' + Date.now() : ''
-    if (full) {
-      document.documentElement.style.setProperty('--custom-bg', `url(${JSON.stringify(full)})`)
-    } else {
-      document.documentElement.style.removeProperty('--custom-bg')
-    }
-    lastCustomBgValue = full
-    applyCustomBg(full)
-  }).catch(() => {})
+  let saved = ''
+  try {
+    saved = localStorage.getItem('cw_bg_image') || ''
+  } catch {
+    saved = ''
+  }
+  const value = saved.trim()
+  if (value) {
+    document.documentElement.style.setProperty('--custom-bg', `url(${JSON.stringify(value)})`)
+  } else {
+    document.documentElement.style.removeProperty('--custom-bg')
+  }
+  lastCustomBgValue = value
+  applyCustomBg(value)
 }
 
 // 监听登录账号变化（Cookie 会话没有前端 token，必须用 profile.cid 判断）

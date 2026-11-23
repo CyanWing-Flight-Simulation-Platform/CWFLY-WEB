@@ -136,15 +136,15 @@
     <!-- 自定义背景图 -->
     <div class="card p-lg mb-lg">
       <h3 class="mb-md">自定义背景图</h3>
-      <p class="text-sm text-muted mb-md">上传一张图片作为平台的全局背景（支持 JPG/PNG，最大 10MB）</p>
+      <p class="text-sm text-muted mb-md">选择一张图片作为平台背景。图片会压缩后只保存在本机浏览器，不会上传到服务器，换设备或清理浏览器数据后需重新选择。</p>
       <div class="flex items-center gap-md flex-wrap">
         <div class="bg-preview" v-if="currentBg">
           <img :src="currentBg" style="width:100%;max-height:150px;object-fit:cover;border-radius:8px;" />
         </div>
         <div>
           <input type="file" accept="image/*" ref="bgFileInput" style="display:none;" @change="uploadBgImage" />
-          <button class="btn btn-primary btn-sm" @click="$refs.bgFileInput.click()" :disabled="bgUploading">{{ bgUploading ? '上传中...' : '上传背景图' }}</button>
-          <button v-if="profileData?.bgImage" class="btn btn-outline btn-sm ml-sm" @click="resetBgImage" :disabled="bgUploading">恢复默认</button>
+          <button class="btn btn-primary btn-sm" @click="$refs.bgFileInput.click()" :disabled="bgUploading">{{ bgUploading ? '处理中...' : '选择背景图' }}</button>
+          <button v-if="currentBg" class="btn btn-outline btn-sm ml-sm" @click="resetBgImage" :disabled="bgUploading">恢复默认</button>
           <p v-if="bgMsg" class="text-sm mt-sm" :style="{ color: bgMsgType === 'ok' ? 'var(--c-success)' : 'var(--c-danger)' }">{{ bgMsg }}</p>
         </div>
       </div>
@@ -230,12 +230,16 @@ const pwdLoading = ref(false)
 const pwdMsg = ref('')
 const pwdMsgType = ref('ok')
 
-// 自定义背景图
+// 自定义背景图（只存本机 localStorage，不上传服务器）
+const BG_STORAGE_KEY = 'cw_bg_image'
+const BG_MAX_EDGE = 1920          // 压缩后最长边
+const BG_MAX_CHARS = 2_600_000    // base64 字符上限，避免撑爆 localStorage 5MB 配额
 const bgFileInput = ref(null)
 const bgUploading = ref(false)
 const bgMsg = ref('')
 const bgMsgType = ref('ok')
-const currentBg = computed(() => profileData.value?.bgImage ? getBgUrl(profileData.value.bgImage) : null)
+const localBg = ref('')
+const currentBg = computed(() => localBg.value || null)
 
 // 标准 WebAuthn / Passkey
 const passkeys = ref([])
@@ -291,10 +295,11 @@ onMounted(async () => {
     profileData.value = res.data
     bind.email = res.data.email || ''
     bind.qq = res.data.qq || ''
-    applyBg(res.data.bgImage)
   } catch { /* ignore */ } finally {
     loading.value = false
   }
+  // 背景图只在本机：直接读 localStorage
+  applyBg(readLocalBg())
   loadPasskeys()
   loadOauthApps()
 })
@@ -334,52 +339,91 @@ async function revokeOauthApp(app) {
   }
 }
 
-// 背景图相关
-function getBgUrl(url) {
-  return url ? url + '?t=' + Date.now() : ''
+// 背景图相关：只在本机浏览器保存（localStorage 存压缩后的 data URL），不经过服务器
+function readLocalBg() {
+  try {
+    return localStorage.getItem(BG_STORAGE_KEY) || ''
+  } catch {
+    return ''
+  }
 }
+
 function applyBg(url) {
-  const bg = getBgUrl(url)
-  if (bg) {
-    document.documentElement.style.setProperty('--custom-bg', `url(${JSON.stringify(bg)})`)
+  const value = String(url || '').trim()
+  localBg.value = value
+  if (value) {
+    document.documentElement.style.setProperty('--custom-bg', `url(${JSON.stringify(value)})`)
   } else {
     document.documentElement.style.removeProperty('--custom-bg')
   }
-  // 通知 App.vue 的背景层做 3 秒渐变显示
-  window.dispatchEvent(new CustomEvent('cw:custom-bg', { detail: bg }))
+  // 通知 App.vue 的背景层做渐变显示
+  window.dispatchEvent(new CustomEvent('cw:custom-bg', { detail: value }))
+}
+
+/** 浏览器端压缩：限制最长边 + 二分下调 JPEG 质量，直到能放进 localStorage */
+async function compressBg(file) {
+  const bitmap = await createImageBitmap(file)
+  const scale = Math.min(1, BG_MAX_EDGE / Math.max(bitmap.width, bitmap.height))
+  const width = Math.max(1, Math.round(bitmap.width * scale))
+  const height = Math.max(1, Math.round(bitmap.height * scale))
+  const canvas = document.createElement('canvas')
+  canvas.width = width
+  canvas.height = height
+  const ctx = canvas.getContext('2d')
+  if (!ctx) throw new Error('当前浏览器不支持图片处理')
+  ctx.drawImage(bitmap, 0, 0, width, height)
+  bitmap.close?.()
+
+  let quality = 0.86
+  let dataUrl = canvas.toDataURL('image/jpeg', quality)
+  while (dataUrl.length > BG_MAX_CHARS && quality > 0.42) {
+    quality -= 0.1
+    dataUrl = canvas.toDataURL('image/jpeg', quality)
+  }
+  if (dataUrl.length > BG_MAX_CHARS) {
+    throw new Error('图片过于复杂，请换一张更小的图片')
+  }
+  return dataUrl
 }
 
 async function uploadBgImage(e) {
-  const file = e.target.files[0]
+  const file = e.target.files?.[0]
+  if (e.target) e.target.value = '' // 允许重复选择同一张图
   if (!file) return
+  if (!file.type.startsWith('image/')) {
+    bgMsg.value = '请选择图片文件'
+    bgMsgType.value = 'err'
+    return
+  }
   bgUploading.value = true
   bgMsg.value = ''
   try {
-    const fd = new FormData()
-    fd.append('bgImage', file)
-    const res = await api.post('/profile/bg-image', fd, { headers: { 'Content-Type': undefined } })
-    profileData.value.bgImage = res.data.bgImage
-    applyBg(res.data.bgImage)
-    bgMsg.value = '背景图已更新'
+    const dataUrl = await compressBg(file)
+    try {
+      localStorage.setItem(BG_STORAGE_KEY, dataUrl)
+    } catch {
+      throw new Error('本机存储空间不足，请换一张更小的图片')
+    }
+    applyBg(dataUrl)
+    bgMsg.value = '背景图已保存到本机浏览器'
     bgMsgType.value = 'ok'
-  } catch (e) {
-    bgMsg.value = '上传失败: ' + (e.response?.data?.message || e.message)
+  } catch (err) {
+    bgMsg.value = '设置失败：' + (err?.message || err)
     bgMsgType.value = 'err'
-  } finally { bgUploading.value = false }
+  } finally {
+    bgUploading.value = false
+  }
 }
 
-async function resetBgImage() {
-  bgUploading.value = true
+function resetBgImage() {
   try {
-    await api.delete('/profile/bg-image')
-    profileData.value.bgImage = ''
-    applyBg('')
-    bgMsg.value = '已恢复默认背景'
-    bgMsgType.value = 'ok'
-  } catch (e) {
-    bgMsg.value = '操作失败: ' + e.message
-    bgMsgType.value = 'err'
-  } finally { bgUploading.value = false }
+    localStorage.removeItem(BG_STORAGE_KEY)
+  } catch {
+    /* 忽略隐私模式下的写入异常 */
+  }
+  applyBg('')
+  bgMsg.value = '已恢复默认背景'
+  bgMsgType.value = 'ok'
 }
 
 async function sendVerifyCode() {
