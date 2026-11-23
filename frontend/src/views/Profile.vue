@@ -136,14 +136,13 @@
     <!-- 自定义背景图 -->
     <div class="card p-lg mb-lg">
       <h3 class="mb-md">自定义背景图</h3>
-      <p class="text-sm text-muted mb-md">选择一张图片作为平台背景。图片会压缩后只保存在本机浏览器，不会上传到服务器，换设备或清理浏览器数据后需重新选择。</p>
       <div class="flex items-center gap-md flex-wrap">
         <div class="bg-preview" v-if="currentBg">
           <img :src="currentBg" style="width:100%;max-height:150px;object-fit:cover;border-radius:8px;" />
         </div>
         <div>
           <input type="file" accept="image/*" ref="bgFileInput" style="display:none;" @change="uploadBgImage" />
-          <button class="btn btn-primary btn-sm" @click="$refs.bgFileInput.click()" :disabled="bgUploading">{{ bgUploading ? '处理中...' : '选择背景图' }}</button>
+          <button class="btn btn-primary btn-sm" @click="$refs.bgFileInput.click()" :disabled="bgUploading">{{ bgUploading ? '处理中...' : '选择一张背景图' }}</button>
           <button v-if="currentBg" class="btn btn-outline btn-sm ml-sm" @click="resetBgImage" :disabled="bgUploading">恢复默认</button>
           <p v-if="bgMsg" class="text-sm mt-sm" :style="{ color: bgMsgType === 'ok' ? 'var(--c-success)' : 'var(--c-danger)' }">{{ bgMsg }}</p>
         </div>
