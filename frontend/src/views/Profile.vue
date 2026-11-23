@@ -136,6 +136,8 @@
     <!-- 自定义背景图 -->
     <div class="card p-lg mb-lg">
       <h3 class="mb-md">自定义背景图</h3>
+      <p class="text-sm text-muted mb-md">
+        上传一张图片作为您的个人资料背景。  </p>
       <div class="flex items-center gap-md flex-wrap">
         <div class="bg-preview" v-if="currentBg">
           <img :src="currentBg" style="width:100%;max-height:150px;object-fit:cover;border-radius:8px;" />
