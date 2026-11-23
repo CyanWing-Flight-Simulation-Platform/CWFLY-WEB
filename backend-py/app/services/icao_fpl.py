@@ -101,8 +101,16 @@ def _other_info(plan: dict[str, Any], dof: str) -> str:
     return " ".join(parts)
 
 
+def _today_dof() -> str:
+    """DOF/ 默认值：北京时间当天 YYMMDD。"""
+    import datetime as dt
+
+    return (dt.datetime.now(dt.timezone.utc) + dt.timedelta(hours=8)).strftime("%y%m%d")
+
+
 def build(plan: dict[str, Any], *, dof: str = "") -> str:
     """把结构化字段拼成 ICAO 报文（多行，\\r\\n 分隔）。"""
+    dof = dof or _today_dof()
     callsign = (str(plan.get("callsign") or "").strip().upper() or "N00000")[:7]
     rules = _flight_type(plan)
     fkind = _type_of_flight(plan)
@@ -117,8 +125,13 @@ def build(plan: dict[str, Any], *, dof: str = "") -> str:
         f"-{dep}{_norm_time(plan.get('depTime'))}",
         f"-{_norm_speed(plan)}{_norm_level(plan)} {route}".rstrip(),
         f"-{arr}{_norm_time(plan.get('flightTime'))}" + (f" {alternate}" if alternate else ""),
-        f"-{_other_info(plan, dof)})" if _other_info(plan, dof) else "-)",
     ]
+    other = _other_info(plan, dof)
+    if other:
+        lines.append(f"-{other})")
+    else:
+        # 无第 18 项：闭合括号挂到最后一行，避免出现没有内容的 "-)"
+        lines[-1] = f"{lines[-1]})"
     return "\r\n".join(lines)
 
 

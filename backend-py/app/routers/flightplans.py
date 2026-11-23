@@ -370,6 +370,8 @@ async def submit_plan(
 
     if not callsign or not dep_icao or not arr_icao:
         return _fail(400, "请填写呼号、起降机场")
+    if not re.fullmatch(r"\d{4}", flight_time or ""):
+        return _fail(400, "请填写预计航时（ICAO 第 16 项 EET，如 0230）")
 
     wake = wake_category.upper()
     fsd_aircraft = aircraft.upper() + (("/" + wake) if wake and wake != "M" else "")

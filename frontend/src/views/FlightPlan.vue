@@ -651,6 +651,9 @@ async function submitPlan() {
   if (!form.value.callsign || !form.value.depIcao || !form.value.arrIcao) {
     return showToast('请填写呼号、离场机场和到达机场', 'error')
   }
+  if (!/^\d{4}$/.test(String(form.value.flightTime || '').trim())) {
+    return showToast('请填写预计航时（ICAO 第 16 项 EET，如 0230）', 'error')
+  }
   // 防重复提交：使用表单快照做唯一标识
   const snapshot = JSON.stringify(form.value)
   if (submittedIds.value.has(snapshot)) {
