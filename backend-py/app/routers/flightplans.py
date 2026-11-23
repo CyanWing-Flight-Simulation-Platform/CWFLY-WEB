@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_db
 from app.deps import CurrentUser, get_current_user
 from app.services import flightplans as fp
+from app.services import icao_fpl
 from app.services.fsd_mgmt import notify_fsd
 from app.utils.json_compat import JSJSONResponse, js_iso
 
@@ -271,6 +272,23 @@ async def simbrief_import(
                 "flightTime": flight_time,
                 "endurance": endurance,
                 "route": route,
+                "icaoText": icao_fpl.build(
+                    {
+                        "callsign": callsign,
+                        "flightType": "VFR" if flight_type == "V" else "IFR",
+                        "aircraft": aircraft_code,
+                        "wakeCategory": "",
+                        "equipment": equipment,
+                        "depIcao": dep_icao,
+                        "depTime": dep_time,
+                        "cruiseAlt": cruise_alt,
+                        "cruiseSpeed": cruise_speed,
+                        "arrIcao": arr_icao,
+                        "alternate": alternate_icao,
+                        "flightTime": flight_time,
+                        "route": route,
+                    }
+                ),
                 "shareId": fp.generate_share_id(),
                 "filedAt": fp.zh_now_string(),
                 "syncFsd": False,
@@ -311,8 +329,6 @@ async def submit_plan(
     aircraft = clean(raw.get("aircraft"), P["aircraft"])
     wake_category = clean(raw.get("wakeCategory"), P["wakeCategory"])
     equipment = clean(raw.get("equipment"), P["equipment"])
-    wake = wake_category.upper()
-    fsd_aircraft = aircraft.upper() + (("/" + wake) if wake and wake != "M" else "")
     transponder = clean(raw.get("transponder"), P["transponder"])
     dep_icao = clean(raw.get("depIcao"), P["depIcao"])
     dep_time = clean(raw.get("depTime"), P["depTime"])
@@ -324,9 +340,61 @@ async def submit_plan(
     endurance = clean(raw.get("endurance"), P["endurance"])
     route = clean(raw.get("route"), P["route"])
     remarks = clean(raw.get("remarks"), P["remarks"])
+    # ---- ICAO 报文：粘贴了报文则以服务端解析结果为准 ----
+    raw_icao = str(raw.get("icaoText") or raw.get("icao") or "").strip()
+    dof = ""
+    type_of_flight = "S"
+    if raw_icao:
+        try:
+            parsed = icao_fpl.parse(raw_icao)
+        except ValueError as exc:
+            return _fail(400, f"ICAO 报文格式不正确：{exc}")
+        callsign = parsed.get("callsign") or callsign
+        flight_type = parsed.get("flightType") or flight_type or "IFR"
+        aircraft = parsed.get("aircraft") or aircraft
+        wake_category = parsed.get("wakeCategory") or wake_category
+        equipment = parsed.get("equipment") or equipment
+        transponder = parsed.get("transponder") or transponder
+        dep_icao = parsed.get("depIcao") or dep_icao
+        dep_time = parsed.get("depTime") or dep_time
+        cruise_speed = parsed.get("cruiseSpeed") or cruise_speed
+        cruise_alt = parsed.get("cruiseAlt") or cruise_alt
+        route = parsed.get("route") or route
+        arr_icao = parsed.get("arrIcao") or arr_icao
+        flight_time = parsed.get("flightTime") or flight_time
+        alternate = parsed.get("alternate") or alternate
+        remarks = parsed.get("remarks") or remarks
+        dof = str(parsed.get("dof") or "")
+        type_of_flight = str(parsed.get("typeOfFlight") or "S")
 
     if not callsign or not dep_icao or not arr_icao:
         return _fail(400, "请填写呼号、起降机场")
+
+    wake = wake_category.upper()
+    fsd_aircraft = aircraft.upper() + (("/" + wake) if wake and wake != "M" else "")
+
+    # 规范报文（表单填写与报文粘贴共用同一套拼装逻辑）
+    icao_text = icao_fpl.build(
+        {
+            "callsign": callsign,
+            "flightType": flight_type,
+            "typeOfFlight": type_of_flight,
+            "aircraft": aircraft,
+            "wakeCategory": wake,
+            "equipment": equipment,
+            "transponder": transponder,
+            "depIcao": dep_icao,
+            "depTime": dep_time,
+            "cruiseAlt": cruise_alt,
+            "cruiseSpeed": cruise_speed,
+            "arrIcao": arr_icao,
+            "alternate": alternate,
+            "flightTime": flight_time,
+            "route": route,
+            "remarks": remarks,
+        },
+        dof=dof,
+    )
 
     plan_data = {
         "userId": current.cid,
@@ -346,6 +414,7 @@ async def submit_plan(
         "endurance": endurance,
         "route": route,
         "remarks": remarks,
+        "icaoText": icao_text,
         "filedAt": fp.zh_now_string(),
         "syncFsd": False,
     }
@@ -378,6 +447,43 @@ async def submit_plan(
     except Exception as exc:
         log.error("[flightplans.py] POST 提交失败: %s", exc)
         return _fail(500, "提交失败")
+
+
+@router.post("/icao/preview")
+async def icao_preview(
+    request: Request, current: CurrentUser = Depends(get_current_user)
+) -> JSJSONResponse:
+    """由表单字段实时生成 ICAO 报文（不落库，提交前预览用）。"""
+    try:
+        body = await request.json()
+    except Exception:  # noqa: BLE001
+        body = {}
+    if not isinstance(body, dict):
+        body = {}
+    try:
+        text = icao_fpl.build(body, dof=str(body.get("dof") or ""))
+    except Exception as exc:  # noqa: BLE001
+        return _fail(400, f"生成失败：{exc}")
+    return JSJSONResponse({"success": True, "data": {"icao": text}})
+
+
+@router.post("/icao/parse")
+async def icao_parse(
+    request: Request, current: CurrentUser = Depends(get_current_user)
+) -> JSJSONResponse:
+    """解析粘贴的 ICAO 报文 → 表单字段（前端回填用）。"""
+    try:
+        body = await request.json()
+    except Exception:  # noqa: BLE001
+        body = {}
+    text = str((body or {}).get("icao") or "").strip()
+    if not text:
+        return _fail(400, "请先粘贴 ICAO 报文")
+    try:
+        parsed = icao_fpl.parse(text)
+    except ValueError as exc:
+        return _fail(400, f"ICAO 报文格式不正确：{exc}")
+    return JSJSONResponse({"success": True, "data": parsed})
 
 
 @router.post("/{plan_id}/fsd-sync")

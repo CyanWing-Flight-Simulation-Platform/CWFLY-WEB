@@ -34,12 +34,12 @@ SHARE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 _COLUMNS = (
     "id, userId, callsign, flightType, aircraft, wakeCategory, equipment, transponder, "
     "depIcao, depTime, cruiseAlt, cruiseSpeed, arrIcao, alternate, flightTime, endurance, "
-    "route, remarks, shareId, filedAt, syncFsd"
+    "route, remarks, icaoText, shareId, filedAt, syncFsd"
 )
 
 _SHARE_COLUMNS = (
     "id, callsign, flightType, aircraft, wakeCategory, equipment, transponder, depIcao, depTime, "
-    "cruiseAlt, cruiseSpeed, arrIcao, alternate, flightTime, endurance, route, remarks, shareId, filedAt"
+    "cruiseAlt, cruiseSpeed, arrIcao, alternate, flightTime, endurance, route, remarks, icaoText, shareId, filedAt"
 )
 
 
@@ -67,6 +67,14 @@ def normalize_row(row: Any) -> dict[str, Any]:
     data = dict(row._mapping)
     if "syncFsd" in data:
         data["syncFsd"] = bool(data["syncFsd"])
+    if not data.get("icaoText"):
+        # 老数据没存报文：按字段即时生成，保证前端始终能展示 ICAO 报文
+        try:
+            from app.services import icao_fpl
+
+            data["icaoText"] = icao_fpl.build(data)
+        except Exception:  # noqa: BLE001
+            data.setdefault("icaoText", "")
     return data
 
 
@@ -138,6 +146,7 @@ async def create_plan(db: AsyncSession, data: dict[str, Any]) -> dict[str, Any]:
         "endurance": data.get("endurance", ""),
         "route": data.get("route", ""),
         "remarks": data.get("remarks", ""),
+        "icaoText": data.get("icaoText") or "",
         "filedAt": data.get("filedAt") or zh_now_string(),
         "shareId": data.get("shareId") or generate_share_id(),
         "syncFsd": 1 if data.get("syncFsd") else 0,
@@ -147,10 +156,10 @@ async def create_plan(db: AsyncSession, data: dict[str, Any]) -> dict[str, Any]:
         text(
             "INSERT INTO `FlightPlan` (userId, callsign, flightType, aircraft, wakeCategory, equipment, "
             "transponder, depIcao, depTime, cruiseAlt, cruiseSpeed, arrIcao, alternate, flightTime, "
-            "endurance, route, remarks, filedAt, shareId, syncFsd) VALUES "
+            "endurance, route, remarks, icaoText, filedAt, shareId, syncFsd) VALUES "
             "(:userId, :callsign, :flightType, :aircraft, :wakeCategory, :equipment, :transponder, "
             ":depIcao, :depTime, :cruiseAlt, :cruiseSpeed, :arrIcao, :alternate, :flightTime, "
-            ":endurance, :route, :remarks, :filedAt, :shareId, :syncFsd)"
+            ":endurance, :route, :remarks, :icaoText, :filedAt, :shareId, :syncFsd)"
         ),
         payload,
     )
@@ -178,6 +187,7 @@ async def update_plan(db: AsyncSession, plan_id: int, data: dict[str, Any]) -> d
         "endurance": "endurance",
         "route": "route",
         "remarks": "remarks",
+        "icaoText": "icaoText",
         "filedAt": "filedAt",
         "shareId": "shareId",
         "syncFsd": "syncFsd",
