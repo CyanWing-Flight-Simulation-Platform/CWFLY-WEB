@@ -52,6 +52,7 @@
             <router-link to="/user-agreement">用户协议</router-link>
             <router-link to="/privacy-policy">隐私政策</router-link>
             <router-link to="/cookie-policy">Cookie 政策</router-link>
+            <router-link to="/security">安全披露</router-link>
             <span class="footer-note">仅供模拟飞行使用</span>
           </div>
         </div>
