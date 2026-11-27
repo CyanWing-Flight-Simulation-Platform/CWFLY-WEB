@@ -505,7 +505,9 @@ async function registerPasskey() {
     passkeyMsg.value = 'Passkey 绑定成功'
     passkeyMsgType.value = 'ok'
   } catch (e) {
-    if (e?.name === 'NotAllowedError') passkeyMsg.value = 'Passkey 绑定已取消或验证超时'
+    if (/credential manager/i.test(String(e?.message || ''))) {
+      passkeyMsg.value = '系统凭据管理器不可用：请先在本机启用 Windows Hello（PIN/指纹），或在手机上完成绑定'
+    } else if (e?.name === 'NotAllowedError') passkeyMsg.value = 'Passkey 绑定已取消或验证超时'
     else passkeyMsg.value = e?.response?.data?.message || e.message || 'Passkey 绑定失败'
     passkeyMsgType.value = 'err'
   } finally {

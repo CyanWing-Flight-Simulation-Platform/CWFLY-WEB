@@ -221,6 +221,32 @@ async function confirmLoginVerify() {
   }
 }
 
+/**
+ * WebAuthn 错误翻译：浏览器/系统侧的原文对用户没有意义，这里按成因给出可操作提示。
+ */
+function describePasskeyError(e) {
+  const serverMsg = e?.response?.data?.message
+  if (serverMsg) return serverMsg
+  const name = String(e?.name || '')
+  const msg = String(e?.message || '')
+  if (/credential manager/i.test(msg) || /talking to the credential/i.test(msg)) {
+    return '系统凭据管理器不可用：请先在本机启用 Windows Hello（设置 → 账户 → 登录选项 → PIN/指纹），或改用手机扫码、密码登录'
+  }
+  if (name === 'NotAllowedError' || name === 'AbortError') {
+    return 'Passkey 登录已取消或验证超时，可重试或用密码登录'
+  }
+  if (name === 'SecurityError') {
+    return '当前页面来源与 Passkey 绑定时不一致（域名变了），请用密码登录后在个人中心重新绑定'
+  }
+  if (name === 'InvalidStateError') {
+    return '该设备已存在同一账号的 Passkey，请直接登录'
+  }
+  if (name === 'NotSupportedError') {
+    return '当前浏览器或系统不支持 Passkey，请改用密码登录'
+  }
+  return msg || 'Passkey 登录失败，请使用密码登录'
+}
+
 async function loginWithPasskey() {
   passkeyErr.value = ''
   const cid = String(form.value.cid || '').trim()
@@ -243,8 +269,7 @@ async function loginWithPasskey() {
     userStore.applyLogin(verifyRes.data)
     postLoginPath()
   } catch (e) {
-    if (e?.name === 'NotAllowedError') passkeyErr.value = 'Passkey 登录已取消或验证超时'
-    else passkeyErr.value = e?.response?.data?.message || e.message || 'Passkey 登录失败，请使用密码登录'
+    passkeyErr.value = describePasskeyError(e)
   } finally {
     passkeyLoading.value = false
   }
