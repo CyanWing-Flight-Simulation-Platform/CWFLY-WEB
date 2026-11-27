@@ -63,12 +63,15 @@
       </div>
       <p v-if="!passkeys.length" class="text-sm text-muted">还没有绑定 Passkey。</p>
 
-      <div class="passkey-form">
+      <div v-if="passkeySupported" class="passkey-form">
         <input v-model="passkeyPassword" class="input" type="password" autocomplete="current-password" placeholder="当前密码（用于确认身份）" />
         <button type="button" class="btn btn-primary btn-sm" :disabled="passkeyLoading" @click="registerPasskey">
           {{ passkeyLoading ? '正在唤起设备验证…' : '绑定 Passkey' }}
         </button>
       </div>
+      <p v-else class="text-sm text-muted">
+        当前浏览器不支持 Passkey，请改用 Chrome / Edge 后再绑定。
+      </p>
       <p v-if="passkeyMsg" class="text-sm mt-sm" :style="{ color: passkeyMsgType === 'ok' ? 'var(--c-success)' : 'var(--c-danger)' }">{{ passkeyMsg }}</p>
     </div>
     <!-- 绑定信息 -->
@@ -203,7 +206,7 @@ import { ref, reactive, onMounted, computed } from 'vue'
 import { useUserStore } from '@/store/user'
 import { navLayout, narrowScreen, setNavLayout } from '@/utils/navLayout'
 import api, { authApi, profileApi, userOauthApi } from '@/api'
-import { createPasskey, isPlatformPasskeyAvailable } from '@/utils/passkey'
+import { createPasskey, isPlatformPasskeyAvailable, isPasskeyUnsupportedBrowser } from '@/utils/passkey'
 import { confirmDialog } from '@/utils/confirm'
 import { showToast } from '@/utils/banner'
 import Skeleton from '@/components/base/Skeleton.vue'
@@ -245,6 +248,7 @@ const currentBg = computed(() => localBg.value || null)
 // 标准 WebAuthn / Passkey
 const passkeys = ref([])
 const passkeyPassword = ref('')
+const passkeySupported = ref(!isPasskeyUnsupportedBrowser())
 const passkeyLoading = ref(false)
 const passkeyMsg = ref('')
 const passkeyMsgType = ref('ok')

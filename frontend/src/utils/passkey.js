@@ -73,6 +73,19 @@ function serializeAuthenticationCredential(credential) {
   }
 }
 
+/**
+ * 国产 Chromium 系浏览器（360/QQ/搜狗/微信…）普遍裁剪了 WebAuthn 的
+ * hybrid（手机扫码）与部分平台认证器实现，调用时会直接抛
+ * "An unknown error occurred while talking to the credential manager."。
+ * 这类环境直接隐藏 Passkey 入口，引导用户用 Chrome / Edge。
+ */
+const UNSUPPORTED_UA = /(QQBrowser|MQQBrowser|QQLiveBrowser|360SE|360EE|QihooBrowser|SogouExplorer|Maxthon|UCBrowser|MicroMessenger|DingTalk|Weibo|baidubrowser|BIDUBrowser|LBBROWSER|2345Explorer|TheWorld|LieBaoFast|Quark|HuaweiBrowser|HonorBrowser|MiuiBrowser|VivoBrowser|OPPOBrowser|HeyTapBrowser)/i
+
+export function isPasskeyUnsupportedBrowser() {
+  const ua = String(navigator.userAgent || '')
+  return UNSUPPORTED_UA.test(ua)
+}
+
 export async function isPlatformPasskeyAvailable() {
   if (!window.PublicKeyCredential?.isUserVerifyingPlatformAuthenticatorAvailable) return false
   try {

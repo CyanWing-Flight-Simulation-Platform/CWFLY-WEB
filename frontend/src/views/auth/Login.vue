@@ -41,6 +41,7 @@
         <SubmitButton :status="status" label="登 录" @settle="status = 'idle'" />
 
         <button
+          v-if="passkeySupported"
           type="button"
           class="btn btn-outline btn-block mt-sm"
           :disabled="passkeyLoading"
@@ -48,6 +49,9 @@
         >
           {{ passkeyLoading ? '正在唤起 Passkey…' : '使用 Passkey 登录' }}
         </button>
+        <p v-else class="text-xs mt-sm text-muted" style="text-align:center;">
+          当前浏览器不支持 Passkey，请改用 Chrome / Edge，或直接密码登录
+        </p>
         <p v-if="passkeyErr" class="text-xs mt-sm" style="color:var(--c-danger);text-align:center;">{{ passkeyErr }}</p>
 
         <!-- 新设备/IP 登录二次验证：果冻弹出邮箱验证码框 -->
@@ -92,7 +96,7 @@ import { getDeviceFp } from '@/utils/deviceFp'
 import { waitForPowToken } from '@/utils/pow'
 import { useFieldFeedback } from '@/utils/fieldFeedback'
 import { applyPostLoginPath } from '@/utils/redirect'
-import { getPasskey } from '@/utils/passkey'
+import { getPasskey, isPasskeyUnsupportedBrowser } from '@/utils/passkey'
 
 const route = useRoute()
 const router = useRouter()
@@ -116,6 +120,7 @@ const verifyErr = ref('')
 let cooldownTimer = null
 
 const passkeyLoading = ref(false)
+const passkeySupported = ref(!isPasskeyUnsupportedBrowser())
 const passkeyErr = ref('')
 
 /** 脱敏邮箱用于展示，如 ab***@x.com */
