@@ -71,8 +71,11 @@
         <div class="portal-nav__spacer"></div>
 
         <div class="portal-nav__auth">
-          <router-link to="/login" class="portal-nav__login" @click="closeMenu">登录</router-link>
-          <router-link to="/register" class="portal-nav__register" @click="closeMenu">注册</router-link>
+          <router-link v-if="userStore.isLoggedIn" to="/dashboard" class="portal-nav__login" @click="closeMenu">控制台</router-link>
+          <template v-else>
+            <router-link to="/login" class="portal-nav__login" @click="closeMenu">登录</router-link>
+            <router-link to="/register" class="portal-nav__register" @click="closeMenu">注册</router-link>
+          </template>
         </div>
 
         <div class="theme-toggle" role="group" aria-label="主题切换">
@@ -95,6 +98,9 @@
 <script setup>
 import { onMounted, onUnmounted, ref } from 'vue'
 import { themeMode, setThemeMode } from '@/utils/theme'
+import { useUserStore } from '@/store/user'
+
+const userStore = useUserStore()
 
 const themeOptions = [
   { id: 'auto', label: 'Auto' },

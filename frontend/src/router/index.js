@@ -1,6 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { touchLastActive } from '@/utils/jwt'
-import { loginLocation } from '@/utils/redirect'
+import { loginLocation, safeRedirectPath } from '@/utils/redirect'
 
 const routes = [
   /* ========== 首页 ========== */
@@ -132,7 +132,19 @@ router.beforeEach(async (to, from, next) => {
 
   // 公开页面直接放行（但登录页也记录一下活跃时间，方便回登录后判定）
   if (publicPages.includes(to.path)) {
-    if (loggedIn) touchLastActive()
+    if (loggedIn) {
+      touchLastActive()
+      // 已登录再访问登录/注册页：直接回到目标页，避免「明明登录了还要再登一次」
+      if (to.path === '/login' || to.path === '/register') {
+        const target = safeRedirectPath(to.query && to.query.redirect) || '/dashboard'
+        if (target.startsWith('/api/')) {
+          window.location.replace(target)
+          return
+        }
+        next(target)
+        return
+      }
+    }
     next()
     return
   }

@@ -5,8 +5,13 @@
       <div class="hero__content">
         <h1 class="hero__title">CWFLY·青翼模拟飞行连飞平台</h1>
         <div class="hero__actions">
-          <router-link to="/register" class="btn-primary">立即注册</router-link>
-          <router-link to="/login" class="btn-outline">已有账号？登录</router-link>
+          <template v-if="userStore.isLoggedIn">
+            <router-link to="/dashboard" class="btn-primary">进入控制台</router-link>
+          </template>
+          <template v-else>
+            <router-link to="/register" class="btn-primary">立即注册</router-link>
+            <router-link to="/login" class="btn-outline">已有账号？登录</router-link>
+          </template>
           <a target="_blank" rel="noopener" :href="qqGroupUrl" class="btn-qq">加入 QQ 群</a>
         </div>
       </div>
