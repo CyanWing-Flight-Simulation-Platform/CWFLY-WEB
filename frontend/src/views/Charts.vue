@@ -621,8 +621,8 @@ watch(activeChart, (c) => {
 <style scoped>
 .toast-container {
   position: fixed;
+  top: calc(var(--header-h, 60px) + 14px);
   left: 50%;
-  bottom: calc(28px + env(safe-area-inset-bottom, 0px));
   transform: translateX(-50%);
   z-index: 9999;
   display: flex;
@@ -652,7 +652,7 @@ watch(activeChart, (c) => {
 .toast-error { border-left: 3px solid #f87171; }
 .toast-info { border-left: 3px solid #60a5fa; }
 @keyframes toastIn {
-  from { opacity: 0; transform: translateY(10px); }
+  from { opacity: 0; transform: translateY(-8px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
