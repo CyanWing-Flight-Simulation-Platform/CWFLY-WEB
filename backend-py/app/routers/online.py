@@ -265,14 +265,18 @@ async def message(
         return _fail(400, "消息长度不能超过 300 字")
     # 只有机组本人、管制或管理员能给在线客户端发游戏内消息
     me = await _own_callsigns(db, str(current.cid))
-    is_admin = bool(current.permissions or "").strip()
-    if callsign not in me and not is_admin and str(current.rating or 0) < 5:
+    perms = {item.strip() for item in str(current.permissions or "").split(",") if item.strip()}
+    is_admin = "user" in perms or int(current.rating or 0) >= 8
+    if callsign not in me and not is_admin and int(current.rating or 0) < 5:
         log.info("[online] 越权消息尝试 cid=%s cs=%s", current.cid, callsign)
         return _fail(403, "只有本人、管制或管理员可以发送游戏内消息")
     try:
         await fsd_console.say(callsign, text_value)
     except fsd_console.FsdConsoleError as exc:
-        return _fail(400, str(exc))
+        msg = str(exc)
+        if "unknown client" in msg.lower():
+            return _fail(400, "对方已不在线，消息未送达")
+        return _fail(400, msg)
     return _ok({"callsign": callsign})
 
 
@@ -281,7 +285,10 @@ async def _own_callsigns(db: AsyncSession, cid: str) -> set[str]:
     try:
         rows = (
             await db.execute(
-                text("SELECT callsign FROM `FlightController` WHERE cid = :cid"),
+                text(
+                    "SELECT callsign FROM `FlightController` WHERE cid = :cid "
+                    "UNION SELECT callsign FROM `FlightPilot` WHERE cid = :cid"
+                ),
                 {"cid": cid},
             )
         ).all()
