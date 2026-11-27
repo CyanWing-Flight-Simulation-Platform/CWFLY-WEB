@@ -222,10 +222,10 @@ async def list_online_pilots(db: AsyncSession) -> list[dict[str, Any]]:
     rows = (
         await db.execute(
             text(
-                "SELECT p.callsign, p.cid, p.realname, p.longitude AS lon, p.latitude AS lat, "
+                "SELECT p.callsign, p.cid, p.realname, p.home, p.longitude AS lon, p.latitude AS lat, "
                 "p.altitude, p.groundspd, p.transponder, p.transpondermd, p.updatedAt, "
                 "p.heading, p.bank, p.pitch, fp.aircraft, fp.depIcao AS dep, "
-                "fp.arrIcao AS dest, fp.route "
+                "fp.arrIcao AS dest, fp.route, fp.alternate, fp.remarks "
                 "FROM FlightPilot p "
                 "LEFT JOIN (SELECT callsign, MAX(id) AS max_id FROM FlightPlan GROUP BY callsign) t "
                 "ON t.callsign = p.callsign "
