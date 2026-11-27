@@ -131,6 +131,13 @@ async def lifespan(app: FastAPI):
             log.info("[CWFLY] BACKGROUND_JOBS=0：定时任务由 worker 进程负责")
     except Exception as exc:  # noqa: BLE001
         log.warning("[CWFLY] 定时任务未启用: %s", exc)
+    # 机场地面数据覆盖索引：前端据此只请求真实存在的覆盖文件，避免逐机场 404
+    try:
+        from app.services.airport_data import refresh_override_index
+
+        refresh_override_index()
+    except Exception as exc:  # noqa: BLE001
+        log.warning("[CWFLY] 机场覆盖索引刷新失败: %s", exc)
     log.info("[CWFLY] FastAPI 后端已启动（PORT=%s, env=%s）", settings.PORT, settings.NODE_ENV)
     try:
         yield

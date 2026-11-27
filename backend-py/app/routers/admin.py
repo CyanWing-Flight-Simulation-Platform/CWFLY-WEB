@@ -2785,6 +2785,13 @@ async def submit_airport_data(
     (AIRPORT_DATA_DIR / f"{code}.json").write_text(
         json.dumps(geojson, ensure_ascii=False, separators=(",", ":")), encoding="utf-8"
     )
+    # 同步覆盖索引（前端只对索引内机场请求覆盖文件）
+    try:
+        from app.services.airport_data import refresh_override_index
+
+        refresh_override_index()
+    except Exception:  # noqa: BLE001
+        pass
     await _write_audit(
         db, "edit_map", f"User {current.cid or 'unknown'} update MAP-{code}", current.cid
     )

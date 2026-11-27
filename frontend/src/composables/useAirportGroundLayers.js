@@ -23,6 +23,49 @@
 import { isDarkTheme } from '@/utils/theme'
 import { is3D, toGcj02 } from '@/components/map/mapCore'
 
+/**
+ * 机场地面数据覆盖索引：/uploads/airports/index.json 列出超管在机场编辑器里提交过
+ * 覆盖数据的 ICAO（服务端 app/data 目录）。先读索引再决定是否请求覆盖文件，
+ * 避免对每个没有覆盖数据的机场都先打一次 404。
+ * 每个页面会话只请求一次；索引缺失或异常时视为「无覆盖」，直接用内置数据。
+ */
+let airportOverrideIndexPromise = null
+function getAirportOverrideIndex() {
+  if (!airportOverrideIndexPromise) {
+    airportOverrideIndexPromise = fetch('/uploads/airports/index.json', { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        const list = data && Array.isArray(data.icaos) ? data.icaos : []
+        return new Set(list.map((c) => String(c || '').toUpperCase()).filter(Boolean))
+      })
+      .catch(() => new Set())
+  }
+  return airportOverrideIndexPromise
+}
+
+/**
+ * 读取机场地面 GeoJSON：索引内的机场优先取覆盖数据，否则取内置数据；
+ * 两者都不存在时返回 null（调用方按无数据降级）。
+ */
+async function fetchAirportGeoJson(icao) {
+  const code = String(icao || '').toUpperCase()
+  if (!code) return null
+  let overrides = null
+  try { overrides = await getAirportOverrideIndex() } catch { overrides = new Set() }
+  if (overrides && overrides.has(code)) {
+    try {
+      const gj = await fetch(`/uploads/airports/${code}.json`, { cache: 'no-store' })
+        .then((r) => (r.ok ? r.json() : null))
+      if (gj) return gj
+      overrides.delete(code)   // 覆盖数据已被删除：后续直接使用内置数据
+    } catch { overrides.delete(code) }
+  }
+  try {
+    return await fetch(`/airports/${code}.json`, { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+  } catch { return null }
+}
+
 export function useAirportGroundLayers(ctx) {
   // ===== 机场地面图层（跑道/滑行道/停机坪，GeoJSON 懒加载）=====
   // 数据来源: X-Plane Scenery Gateway apt.dat → tools/apt2geojson.py 转换
@@ -225,8 +268,7 @@ export function useAirportGroundLayers(ctx) {
       if (airportGjCache.has(icao)) {
         gj = airportGjCache.get(icao)
       } else {
-        try { gj = await fetch(`/uploads/airports/${icao}.json`, { cache: 'no-store' }).then(r => r.ok ? r.json() : null) } catch { gj = null }
-        if (!gj) gj = await fetch(`/airports/${icao}.json`, { cache: 'no-store' }).then(r => r.ok ? r.json() : null)
+        try { gj = await fetchAirportGeoJson(icao) } catch { gj = null }
         if (gj) airportGjCache.set(icao, gj)
       }
       if (!gj || !ctx.mapboxMap || !is3D(ctx.activeLayer.value)) { airportLayersLoaded.delete(icao); return }
@@ -436,8 +478,7 @@ export function useAirportGroundLayers(ctx) {
   async function loadAirportLayerAMap(icao) {
     if (!ctx.map || amapAirportLayers[icao]) return
     let gj = null
-    try { gj = await fetch(`/uploads/airports/${icao}.json`, { cache: 'no-store' }).then(r => r.ok ? r.json() : null) } catch { gj = null }
-    if (!gj) gj = await fetch(`/airports/${icao}.json`, { cache: 'no-store' }).then(r => r.ok ? r.json() : null)
+    try { gj = await fetchAirportGeoJson(icao) } catch { gj = null }
     if (!gj || !ctx.map || is3D(ctx.activeLayer.value)) return
     // 懒创建共享标签层（canvas 高性能渲染）
     if (!amapAirportLabelsLayer) {
