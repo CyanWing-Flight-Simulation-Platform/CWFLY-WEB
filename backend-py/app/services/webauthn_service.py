@@ -167,14 +167,36 @@ async def list_credentials(db: AsyncSession, cid: str) -> list[dict[str, Any]]:
     ]
 
 
+def _split_transports(raw: Any) -> list[Any] | None:
+    """库里以逗号分隔存储（internal,hybrid），转成 WebAuthn 的 transports 枚举列表。"""
+    if not raw:
+        return None
+    from webauthn.helpers.structs import AuthenticatorTransport
+
+    valid = {t.value: t for t in AuthenticatorTransport}
+    items = [str(x).strip().lower() for x in str(raw).split(",") if str(x).strip()]
+    out = [valid[item] for item in items if item in valid]
+    return out or None
+
+
 async def _raw_credentials(db: AsyncSession, cid: str) -> list[PublicKeyCredentialDescriptor]:
     rows = (
         await db.execute(
-            text("SELECT credential_id FROM `webauthn_credentials` WHERE cid = :cid"),
+            text("SELECT credential_id, transports FROM `webauthn_credentials` WHERE cid = :cid"),
             {"cid": cid},
         )
     ).all()
-    return [PublicKeyCredentialDescriptor(id=b64url_decode(r._mapping["credential_id"])) for r in rows]
+    out: list[PublicKeyCredentialDescriptor] = []
+    for r in rows:
+        d = r._mapping
+        kwargs: dict[str, Any] = {"id": b64url_decode(d["credential_id"])}
+        transports = _split_transports(d.get("transports"))
+        if transports:
+            # 关键：告诉浏览器凭据可能在手机上（hybrid）或在本地（internal），
+            # 否则 Chrome 只会尝试本地凭据管理器，手机上的 Passkey 永远唤不起来。
+            kwargs["transports"] = transports
+        out.append(PublicKeyCredentialDescriptor(**kwargs))
+    return out
 
 
 async def has_credentials(db: AsyncSession, cid: str) -> bool:

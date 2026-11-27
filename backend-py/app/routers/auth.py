@@ -568,13 +568,20 @@ async def passkey_register_verify(
     credential = body.get("credential")
     if not isinstance(credential, dict):
         return fail(400, "缺少 Passkey 凭据")
+    # transports 决定登录时浏览器怎么找这把钥匙：手机上的凭据需要 "hybrid"，
+    # 本地 Windows Hello 需要 "internal"。前端可能没带，这里做一次兜底推断。
+    transports = body.get("transports")
+    if not transports:
+        transports = (credential.get("response") or {}).get("transports") or []
+    if not transports:
+        transports = ["internal", "hybrid"]
     try:
         saved = await wa.verification_response(
             db,
             current.cid,
             credential,
             str(body.get("name") or "Passkey"),
-            body.get("transports") or [],
+            transports,
         )
     except ValueError as exc:
         return fail(400, str(exc))

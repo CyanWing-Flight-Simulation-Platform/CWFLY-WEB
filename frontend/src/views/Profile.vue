@@ -495,7 +495,11 @@ async function registerPasskey() {
     }
     const optionsRes = await authApi.passkeyRegisterOptions({ password: passkeyPassword.value })
     const credential = await createPasskey(optionsRes.data?.options || {})
-    const res = await authApi.passkeyRegisterVerify({ credential, name: '我的 Passkey' })
+    const res = await authApi.passkeyRegisterVerify({
+      credential,
+      name: '我的 Passkey',
+      transports: credential.response.transports
+    })
     passkeys.value = res.data?.credentials || []
     passkeyPassword.value = ''
     passkeyMsg.value = 'Passkey 绑定成功'
