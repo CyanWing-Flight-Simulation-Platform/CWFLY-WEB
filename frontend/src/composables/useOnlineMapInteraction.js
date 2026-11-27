@@ -988,6 +988,10 @@ export function useOnlineMapInteraction(cfg) {
 
   function renderPilots() {
     if (!map || !window.AMap) return
+    if (pilotInfoWindow) {
+      try { pilotInfoWindow.close() } catch { /* ignore */ }
+      pilotInfoWindow = null
+    }
     markers.forEach(m => { map.remove(m.marker); if (m.polyline) map.remove(m.polyline) })
     markers = []
 
@@ -1020,6 +1024,9 @@ export function useOnlineMapInteraction(cfg) {
   // 颜色全部走 CSS 变量 + 主题选择器，禁止写死；浅色半透明白、暗色半透明深色毛玻璃。
   // ---------------------------------------------------------------------------
   const PILOT_POPUP_STYLE_ID = 'cwfp-pilot-popup-style'
+
+  /** 当前打开的机组弹窗（单例，避免多个弹窗叠在地图上关不掉） */
+  let pilotInfoWindow = null
 
   function ensurePilotPopupStyle() {
     if (document.getElementById(PILOT_POPUP_STYLE_ID)) return
@@ -1157,13 +1164,19 @@ html[data-theme='dark'] .cwfp-pop__remarks { color: #94a3b8; }
     })
     map.add(marker)
 
-    const info = new AMap.InfoWindow({
-      isCustom: true,
-      content: buildPilotInfoHtml(p),
-      offset: new AMap.Pixel(0, -14),
-    })
     marker.on('click', () => {
-      info.open(map, marker.getPosition())
+      // 同一时刻只保留一个弹窗；点击地图空白处自动关闭
+      if (pilotInfoWindow) {
+        try { pilotInfoWindow.close() } catch { /* ignore */ }
+      }
+      pilotInfoWindow = new AMap.InfoWindow({
+        isCustom: true,
+        closeWhenClickMap: true,
+        autoMove: true,
+        content: buildPilotInfoHtml(p),
+        offset: new AMap.Pixel(0, -14),
+      })
+      pilotInfoWindow.open(map, marker.getPosition())
     })
     return marker
   }
