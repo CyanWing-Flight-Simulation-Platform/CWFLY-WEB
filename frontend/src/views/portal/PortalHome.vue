@@ -6,7 +6,7 @@
         <h1 class="hero__title">CWFLY·青翼模拟飞行连飞平台</h1>
         <div class="hero__actions">
           <template v-if="userStore.isLoggedIn">
-            <router-link to="/dashboard" class="btn-primary">进入控制台</router-link>
+            <router-link to="/dashboard" class="btn-primary">进入飞控</router-link>
           </template>
           <template v-else>
             <router-link to="/register" class="btn-primary">立即注册</router-link>
@@ -562,10 +562,11 @@ html[data-theme='dark'] .portal-home {
   margin: 0 0 24px;
   color: #111827;
   font-family: "Inter", "PingFang SC", "OPPO Sans", "Source Han Sans SC", "Noto Sans SC", "Microsoft YaHei", sans-serif;
-  font-size: clamp(36px, 4.8vw, 58px);
+  font-size: clamp(18px, 4.2vw, 48px);
   font-weight: 600;
   letter-spacing: -.025em;
   line-height: 1.12;
+  white-space: nowrap;
   text-shadow: none;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -1351,7 +1352,7 @@ html[data-theme='light'] .portal-home .route-diagram__line svg {
   .bento-grid { grid-template-columns: 1fr; }
   .bento-card--hero { grid-column: auto; min-height: 280px; }
   .hero { padding: 62px 20px 42px; }
-  .hero__content h1 { font-size: 34px; }
+  .hero__content h1 { font-size: clamp(18px, 6.2vw, 26px); }
   .status-section { max-width: 100%; padding: 0 16px; }
   .status-bar { padding: 18px 16px; }
   .status-grid { flex-direction: column; }

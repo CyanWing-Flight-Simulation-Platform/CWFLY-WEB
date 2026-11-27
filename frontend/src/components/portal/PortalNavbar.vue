@@ -71,7 +71,7 @@
         <div class="portal-nav__spacer"></div>
 
         <div class="portal-nav__auth">
-          <router-link v-if="userStore.isLoggedIn" to="/dashboard" class="portal-nav__login" @click="closeMenu">控制台</router-link>
+          <router-link v-if="userStore.isLoggedIn" to="/dashboard" class="portal-nav__login" @click="closeMenu">飞控</router-link>
           <template v-else>
             <router-link to="/login" class="portal-nav__login" @click="closeMenu">登录</router-link>
             <router-link to="/register" class="portal-nav__register" @click="closeMenu">注册</router-link>
