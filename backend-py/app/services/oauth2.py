@@ -166,6 +166,143 @@ def client_credentials_match(client_id: str, client_secret: str) -> bool:
     return id_ok and secret_ok
 
 
+# --------------------------------------------------------------------------- #
+# 客户端注册表（DB）：管理员可在后台新增第三方应用，不再只能靠环境变量
+# --------------------------------------------------------------------------- #
+async def ensure_clients_schema(db: "AsyncSession") -> None:
+    await db.execute(
+        text(
+            "CREATE TABLE IF NOT EXISTS `oauth2_clients` ("
+            "`client_id` varchar(64) NOT NULL,"
+            "`secret_hash` char(64) NOT NULL,"
+            "`name` varchar(64) NOT NULL DEFAULT '',"
+            "`homepage` varchar(255) NOT NULL DEFAULT '',"
+            "`redirect_uris` text NOT NULL,"
+            "`scopes` varchar(255) NOT NULL DEFAULT '',"
+            "`enabled` tinyint NOT NULL DEFAULT 1,"
+            "`createdAt` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),"
+            "PRIMARY KEY (`client_id`)"
+            ") DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
+        )
+    )
+    await db.commit()
+
+
+def hash_client_secret(secret: str) -> str:
+    return hashlib.sha256(("oauth2:" + (secret or "")).encode("utf-8")).hexdigest()
+
+
+def _env_client() -> Optional[dict[str, Any]]:
+    client_id = (settings.OAUTH2_CLIENT_ID or "").strip()
+    if not client_id:
+        return None
+    return {
+        "id": client_id,
+        "name": settings.OAUTH2_CLIENT_NAME or "第三方应用",
+        "homepage": "https://merak.dubhenexus.io",
+        "redirectUris": list(settings.oauth2_redirect_uris),
+        "scopes": list(settings.oauth2_scopes),
+        "enabled": True,
+        "source": "env",
+    }
+
+
+async def get_client(db: "AsyncSession", client_id: str) -> Optional[dict[str, Any]]:
+    """按 client_id 取客户端：环境变量内置客户端优先，其次数据库注册表。"""
+    target = (client_id or "").strip()
+    if not target:
+        return None
+    env = _env_client()
+    if env and env["id"] == target:
+        return env
+    try:
+        row = (
+            await db.execute(
+                text(
+                    "SELECT client_id, name, homepage, redirect_uris, scopes, enabled "
+                    "FROM `oauth2_clients` WHERE client_id = :c LIMIT 1"
+                ),
+                {"c": target},
+            )
+        ).first()
+    except Exception as exc:  # noqa: BLE001
+        log.warning("[oauth2] 读取客户端失败: %s", exc)
+        return None
+    if row is None:
+        return None
+    d = dict(row._mapping)
+    uris = [u.strip() for u in str(d.get("redirect_uris") or "").splitlines() if u.strip()]
+    return {
+        "id": d["client_id"],
+        "name": d.get("name") or d["client_id"],
+        "homepage": d.get("homepage") or "",
+        "redirectUris": uris,
+        "scopes": [s for s in str(d.get("scopes") or "").split(",") if s],
+        "enabled": bool(int(d.get("enabled") or 0)),
+        "source": "db",
+    }
+
+
+async def verify_client(db: "AsyncSession", client_id: str, client_secret: str) -> bool:
+    target = (client_id or "").strip()
+    secret = (client_secret or "").strip()
+    env = _env_client()
+    if env and env["id"] == target:
+        return client_credentials_match(target, secret)
+    if not target or not secret:
+        return False
+    try:
+        row = (
+            await db.execute(
+                text("SELECT secret_hash, enabled FROM `oauth2_clients` WHERE client_id = :c LIMIT 1"),
+                {"c": target},
+            )
+        ).first()
+    except Exception as exc:  # noqa: BLE001
+        log.warning("[oauth2] 客户端校验失败: %s", exc)
+        return False
+    if row is None or not int(row._mapping["enabled"] or 0):
+        return False
+    return hmac.compare_digest(hash_client_secret(secret), str(row._mapping["secret_hash"]))
+
+
+async def redirect_uri_ok(db: "AsyncSession", client_id: str, uri: str) -> bool:
+    client = await get_client(db, client_id)
+    if client is None:
+        return False
+    target = (uri or "").strip()
+    return bool(target) and target in client["redirectUris"]
+
+
+async def app_meta(db: "AsyncSession", client_id: str) -> dict[str, Any]:
+    client = await get_client(db, client_id)
+    if client is None:
+        return {"id": client_id, "name": client_id or "未知应用", "icon": "", "homepage": "", "scopes": []}
+    return {
+        "id": client["id"],
+        "name": client["name"],
+        "icon": CLIENT_ICON_URLS.get(client["id"], ""),
+        "homepage": client["homepage"],
+        "scopes": client["scopes"],
+    }
+
+
+def parse_scope_for(raw: str, allowed: list[str]) -> Optional[list[str]]:
+    """按客户端的 scope 清单归一化；包含未授权 scope 时返回 None。"""
+    if not allowed:
+        return []
+    requested = (raw or "").replace(",", " ").split()
+    if not requested:
+        return list(allowed)
+    out: list[str] = []
+    for item in requested:
+        if item not in allowed:
+            return None
+        if item not in out:
+            out.append(item)
+    return out
+
+
 def parse_scope(raw: str) -> Optional[list[str]]:
     """把请求 scope 归一化；包含未授权 scope 时返回 None（invalid_scope）。"""
     allowed = settings.oauth2_scopes
@@ -234,6 +371,7 @@ def verify_approval(value: str) -> Optional[dict[str, Any]]:
 # 表结构
 # --------------------------------------------------------------------------- #
 async def ensure_schema(db: AsyncSession) -> None:
+    await ensure_clients_schema(db)
     for ddl in _DDL:
         await db.execute(text(ddl))
     await db.commit()

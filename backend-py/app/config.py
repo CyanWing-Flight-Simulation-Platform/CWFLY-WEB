@@ -101,6 +101,11 @@ class Settings(BaseSettings):
     FSD_WHAZZUP_FILE: str = ""
     FSD_SYS_CID: str = ""
     FSD_SYS_PASSWORD: str = ""
+    # FSD 管理控制台（3012）：在线列表/广播/踢人/私聊；口令留空时读 FSD_CONSOLE_CONFIG 的 [system] password
+    FSD_CONSOLE_HOST: str = "127.0.0.1"
+    FSD_CONSOLE_PORT: int = 3012
+    FSD_CONSOLE_PASSWORD: str = ""
+    FSD_CONSOLE_CONFIG: str = "/opt/cwfly/fsd-py/fsd-db.conf"
 
     @property
     def is_prod(self) -> bool:

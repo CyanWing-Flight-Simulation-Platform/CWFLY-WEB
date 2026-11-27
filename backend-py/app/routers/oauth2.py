@@ -143,7 +143,7 @@ def _login_url(request: Request) -> str:
 # 授权页
 # --------------------------------------------------------------------------- #
 @router.get("/authorize")
-async def authorize(request: Request) -> Response:
+async def authorize(request: Request, db: AsyncSession = Depends(get_db)) -> Response:
     if not oauth.is_configured():
         return _not_configured()
 
@@ -156,12 +156,13 @@ async def authorize(request: Request) -> Response:
     code_challenge = (params.get("code_challenge") or "").strip()
     code_challenge_method = (params.get("code_challenge_method") or "").strip().upper()
 
-    # 1) client_id（错误时不能回跳，直接给出错误页）
-    if client_id != (settings.OAUTH2_CLIENT_ID or "").strip():
+    # 1) client_id（环境变量内置客户端或数据库注册表）
+    client = await oauth.get_client(db, client_id)
+    if client is None or not client.get("enabled", True):
         return _html(400, "无效的客户端", "<p>client_id 未注册，拒绝授权请求。</p>")
 
-    # 2) redirect_uri 白名单（必须精确匹配，否则不回跳，避免开放重定向）
-    if not oauth.redirect_uri_allowed(redirect_uri):
+    # 2) redirect_uri 白名单（必须与客户端登记的回调完全一致，避免开放重定向）
+    if not await oauth.redirect_uri_ok(db, client_id, redirect_uri):
         return _html(
             400,
             "无效的回调地址",
@@ -175,7 +176,7 @@ async def authorize(request: Request) -> Response:
         )
 
     # 4) scope
-    scopes = oauth.parse_scope(raw_scope)
+    scopes = oauth.parse_scope_for(raw_scope, client["scopes"])
     if scopes is None:
         return _redirect_error(redirect_uri, state, "invalid_scope", "包含未授权的 scope")
 
@@ -223,7 +224,7 @@ async def authorize_decision(request: Request, db: AsyncSession = Depends(get_db
 
     redirect_uri = str(data.get("redirect_uri") or "")
     state = str(data.get("state") or "")
-    if not oauth.redirect_uri_allowed(redirect_uri):
+    if not await oauth.redirect_uri_ok(db, str(data.get("client_id") or ""), redirect_uri):
         return _html(400, "无效的回调地址", "<p>redirect_uri 不在白名单内。</p>")
 
     if (form.get("decision") or "deny") != "approve":
@@ -263,7 +264,7 @@ async def _consent_context(data: dict[str, Any], db: AsyncSession) -> dict[str, 
     """把签名载荷翻译成弹窗需要的展示数据。"""
     cid = str(data.get("cid") or "")
     client_id = str(data.get("client_id") or "")
-    meta = oauth._app_meta(client_id)
+    meta = await oauth.app_meta(db, client_id)
     user = await users_service.find_user_public(db, cid) or {}
     scopes = [s for s in str(data.get("scope") or "").split() if s]
     return {
@@ -303,7 +304,7 @@ async def consent_decision(request: Request, db: AsyncSession = Depends(get_db))
 
     redirect_uri = str(data.get("redirect_uri") or "")
     state = str(data.get("state") or "")
-    if not oauth.redirect_uri_allowed(redirect_uri):
+    if not await oauth.redirect_uri_ok(db, str(data.get("client_id") or ""), redirect_uri):
         return _json_error(400, "invalid_request", "redirect_uri 不在白名单内")
 
     user = _session_user(request)
@@ -364,7 +365,7 @@ async def token_endpoint(request: Request, db: AsyncSession = Depends(get_db)) -
     if not client_id:
         client_id = form.get("client_id") or ""
         client_secret = form.get("client_secret") or ""
-    if not oauth.client_credentials_match(client_id, client_secret):
+    if not await oauth.verify_client(db, client_id, client_secret):
         return _json_error(401, "invalid_client", "客户端认证失败")
 
     grant_type = (form.get("grant_type") or "").strip()
@@ -377,7 +378,7 @@ async def token_endpoint(request: Request, db: AsyncSession = Depends(get_db)) -
             return _json_error(400, "invalid_request", "缺少 code")
         if not redirect_uri:
             return _json_error(400, "invalid_request", "缺少 redirect_uri")
-        if not oauth.redirect_uri_allowed(redirect_uri):
+        if not await oauth.redirect_uri_ok(db, client_id, redirect_uri):
             return _json_error(400, "invalid_grant", "redirect_uri 不匹配")
         consumed = await oauth.consume_code(
             db,
@@ -436,7 +437,7 @@ async def revoke_endpoint(request: Request, db: AsyncSession = Depends(get_db)) 
     if not client_id:
         client_id = form.get("client_id") or ""
         client_secret = form.get("client_secret") or ""
-    if not oauth.client_credentials_match(client_id, client_secret):
+    if not await oauth.verify_client(db, client_id, client_secret):
         return _json_error(401, "invalid_client", "客户端认证失败")
     await oauth.revoke(db, form.get("token") or "")
     # RFC 7009：无论是否存在都返回 200

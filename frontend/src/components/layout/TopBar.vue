@@ -139,6 +139,7 @@
             </div>
           </Transition>
         </div>
+        <MessageCenter />
         <router-link to="/notifications" class="header-icon-btn" title="通知中心"><span class="header-icon-btn__icon" v-html="icons.bell"></span></router-link>
         <router-link to="/profile" class="header-avatar" title="个人中心">
           <img :src="avatarUrl" @error="onAvatarError" />
@@ -168,6 +169,7 @@ import { useRoute } from 'vue-router'
 import { useUserStore } from '@/store/user'
 import { useMapSettingsStore } from '@/store/mapSettings'
 import { icons, singleNavItems } from '@/utils/nav'
+    import MessageCenter from '@/components/layout/MessageCenter.vue'
 import { prefetchRoute } from '@/utils/prefetch'
 import { narrowScreen } from '@/utils/navLayout'
 import {

@@ -26,6 +26,7 @@ export const icons = {
   logout: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>',
   settings: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>',
   shop: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>',
+  mail: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/></svg>',
   close: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
 }
 
@@ -38,6 +39,7 @@ export const navGroups = [
       { path: '/map', label: '在线地图', desc: '实时连飞地图与空域态势', icon: S('<polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/>') },
       { path: '/flight-plan', label: '飞行计划', desc: '提交与查看连飞计划', icon: S('<path d="M12 19V5M5 12l7-7 7 7"/>') },
       { path: '/flight-archive', label: '飞行档案', desc: '历史航班与飞行记录', icon: S('<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>') },
+      { path: '/online-clients', label: '在线客户端', desc: '当前连飞的机组与管制', icon: S('<circle cx="12" cy="8" r="4"/><path d="M4 21v-2a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v2"/>') },
       { path: '/charts', label: '航情查询', desc: '机场、航路与航图数据', icon: S('<path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/>') },
     ],
   },
@@ -80,6 +82,7 @@ export const navGroups = [
       { path: '/admin/meetings', label: '会议记录管理', desc: '上传与管理会议纪要', icon: S('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/>'), requiredRating: 11 },
       { path: '/admin/events', label: '活动管理', desc: '活动与管制席位', icon: S('<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>'), requiredPermission: 'event' },
       { path: '/admin/tickets', label: '工单管理', desc: '处理用户工单', icon: S('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>'), requiredPermission: 'ticket' },
+      { path: '/admin/oauth-clients', label: 'OAuth2 客户端', desc: '第三方应用接入与密钥管理', icon: S('<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>'), requiredPermission: 'user' },
       { path: '/admin/permissions', label: '权限等级', desc: '权限等级定义', icon: S('<rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>'), requiredPermission: 'user' },
       { path: '/admin/rating', label: '权限管理', desc: '用户权限分配', icon: S('<path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>'), requiredPermission: 'user' },
       { path: '/admin/flightplans', label: '飞行计划管理', desc: '计划审核与检索', icon: S('<path d="M12 19V5M5 12l7-7 7 7"/>'), requiredPermission: 'flightplan' },

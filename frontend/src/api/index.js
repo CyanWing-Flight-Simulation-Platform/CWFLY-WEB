@@ -370,6 +370,27 @@ export const flightplanApi = {
   fsdBoundaries: () => api.get('/flightplans/fsd/boundaries')
 }
 
+adminApi.oauthClients = () => api.get('/admin/oauth-clients')
+adminApi.createOAuthClient = (data) => api.post('/admin/oauth-clients', data)
+adminApi.updateOAuthClient = (clientId, data) => api.patch(`/admin/oauth-clients/${clientId}`, data)
+adminApi.rotateOAuthClientSecret = (clientId) => api.post(`/admin/oauth-clients/${clientId}/rotate`)
+adminApi.deleteOAuthClient = (clientId) => api.delete(`/admin/oauth-clients/${clientId}`)
+
+export const onlineApi = {
+  clients: () => api.get('/online/clients'),
+  stats: () => api.get('/online/stats'),
+  message: (callsign, text) => api.post('/online/message', { callsign, text }),
+  broadcast: (text) => api.post('/online/broadcast', { text }),
+  kick: (callsign) => api.post('/online/kick', { callsign })
+}
+
+export const messageApi = {
+  unread: () => api.get('/messages/unread-count'),
+  conversations: () => api.get('/messages/conversations'),
+  thread: (peerCid) => api.get(`/messages/${peerCid}`),
+  send: (toCid, body) => api.post('/messages', { toCid, body })
+}
+
 export const chartApi = {
   query: (icao, provider = 'jeppesen', rules = 'IFR') => api.get('/charts', { params: { icao, provider, rules } }),
   route: (dep, arr, xt) => api.get('/charts/route', { params: { dep, arr, xt } }),

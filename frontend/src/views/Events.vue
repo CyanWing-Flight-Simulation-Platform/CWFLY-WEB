@@ -148,6 +148,13 @@
               <div class="info-item"><span class="info-label">飞行距离</span><span>{{ detailEvent.distance || '-' }}</span></div>
               <div class="info-item" v-if="detailEvent.notams"><span class="info-label">NOTAMS</span><span>{{ detailEvent.notams }}</span></div>
             </div>
+            <div v-if="eventWeather.length" class="event-metar">
+              <div class="event-metar__title">起降场天气（METAR）</div>
+              <div v-for="w in eventWeather" :key="w.icao" class="event-metar__item">
+                <div class="event-metar__icao">{{ w.icao }}</div>
+                <div class="event-metar__raw">{{ w.metar || '暂无 METAR' }}</div>
+              </div>
+            </div>
             <div v-if="detailEvent.desc" class="text-sm text-muted mt-sm">{{ detailEvent.desc }}</div>
             <div class="flex gap-sm mt-md">
               <button class="btn btn-primary" @click="showPilotModal = true" :disabled="detailEvent.status !== '报名中'">飞行员报名</button>
@@ -267,7 +274,7 @@
 <script setup>
 import { confirmDialog } from '@/utils/confirm'
 import { ref, computed, onMounted } from 'vue'
-import { eventsApi } from '@/api'
+import { eventsApi, weatherApi } from '@/api'
 import { useUserStore } from '@/store/user'
 
 const userStore = useUserStore()
@@ -288,6 +295,7 @@ const editingItem = ref(null)
 
 // 详情视图状态
 const detailEvent = ref(null)
+const eventWeather = ref([])
 const activeTab = ref('pilot')
 
 // 飞行员报名弹窗
@@ -384,9 +392,29 @@ async function openDetail(ev) {
     detailEvent.value = res.data
     activeTab.value = 'pilot'
     pilotMsg.value = ''
+    loadEventWeather(res.data)
   } catch (e) {
     alert(e.message)
   }
+}
+
+/** 活动详情：拉取起降机场实时 METAR（失败静默，不打断报名流程） */
+async function loadEventWeather(ev) {
+  eventWeather.value = []
+  const icaos = [ev?.dep, ev?.arr].map((x) => String(x || '').trim().toUpperCase()).filter(Boolean)
+  const unique = [...new Set(icaos)]
+  if (!unique.length) return
+  const results = await Promise.all(
+    unique.map(async (icao) => {
+      try {
+        const res = await weatherApi.query(icao)
+        return { icao, metar: res.data?.metar || '' }
+      } catch {
+        return { icao, metar: '' }
+      }
+    })
+  )
+  eventWeather.value = results
 }
 
 function closeDetail() {
@@ -478,6 +506,12 @@ async function joinControllerPosition(pos) {
 </script>
 
 <style scoped>
+.event-metar { margin-top: 14px; padding: 12px; border-radius: 10px; background: var(--c-bg-subtle, rgba(15, 23, 42, .03)); }
+.event-metar__title { font-size: 12px; font-weight: 700; color: var(--c-text-muted, #6b7280); margin-bottom: 8px; }
+.event-metar__item { display: flex; gap: 10px; align-items: baseline; padding: 4px 0; }
+.event-metar__icao { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 700; font-size: 13px; min-width: 52px; }
+.event-metar__raw { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; word-break: break-all; }
+
 /* 通用 */
 .pos-chip { display:inline-block; background:var(--c-bg-light); padding:2px 6px; border-radius:4px; font-size:11px; margin:2px; white-space:nowrap; }
 .event-poster { width:120px; height:80px; object-fit:cover; border-radius:8px; cursor:pointer; flex-shrink:0; }

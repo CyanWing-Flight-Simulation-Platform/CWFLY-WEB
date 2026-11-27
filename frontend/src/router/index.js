@@ -51,6 +51,8 @@ const routes = [
           // 新功能页面
       { path: 'notifications', name: 'Notifications', meta: { title: '通知中心' }, component: () => import('@/views/notifications/Notifications.vue') },
       { path: 'flight-archive', name: 'FlightArchive', meta: { title: '飞行档案' }, component: () => import('@/views/flight/FlightArchive.vue') },
+  { path: 'online-clients', name: 'OnlineClients', meta: { title: '在线客户端' }, component: () => import('@/views/OnlineClients.vue') },
+  { path: 'admin/oauth-clients', name: 'AdminOAuthClients', meta: { title: 'OAuth2 客户端', requiresAuth: true }, component: () => import('@/views/admin/OAuthClients.vue') },
       { path: 'points', name: 'Points', meta: { title: '积分成就' }, component: () => import('@/views/points/Points.vue') },
       { path: 'shop', name: 'Shop', meta: { title: '积分商城' }, component: () => import('@/views/points/Shop.vue') },
       { path: 'leaderboard', name: 'Leaderboard', meta: { title: '排行榜' }, component: () => import('@/views/points/Leaderboard.vue') },

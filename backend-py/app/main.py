@@ -81,6 +81,13 @@ async def lifespan(app: FastAPI):
 
         async with _SessionLocal() as _oauth2_db:
             await _ensure_oauth2_schema(_oauth2_db)
+        from app.routers.messages import ensure_table as _ensure_direct_message
+
+        try:
+            async with _SessionLocal() as _dm_db:
+                await _ensure_direct_message(_dm_db)
+        except Exception as _dm_exc:  # noqa: BLE001
+            log.warning("[CWFLY] DirectMessage 表初始化失败: %s", _dm_exc)
     except Exception as exc:  # noqa: BLE001
         log.warning("[CWFLY] 预热失败: %s", exc)
     # 预热：DB 连接池 + FIR 边界（消除每个 worker 的首请求冷启动）
