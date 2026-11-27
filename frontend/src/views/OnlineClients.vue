@@ -4,11 +4,10 @@
     <div class="ol-head">
       <div>
         <h1 class="ol-title">在线客户端</h1>
-        <p class="ol-desc">当前连接 FSD 的机组与管制；支持私信与（管理员）踢出。</p>
+        <p class="ol-desc">当前连接 FSD 的机组与管制，可与自己的机组/管制互发消息。</p>
       </div>
       <div class="ol-actions">
         <button class="btn btn-outline btn-sm" :disabled="loading" @click="load">刷新</button>
-        <button v-if="canAdmin" class="btn btn-outline btn-sm" @click="openBroadcast">全服广播</button>
       </div>
     </div>
 
@@ -36,8 +35,8 @@
         <span>{{ c.rating }}</span>
         <span>{{ c.idle }}s</span>
         <span class="ol-ops">
-          <button class="btn btn-outline btn-xs" @click="openMessage(c)">私信</button>
-          <button v-if="canAdmin" class="btn btn-danger btn-xs" @click="kick(c)">踢出</button>
+          <button v-if="canMessage(c)" class="btn btn-outline btn-xs" @click="openMessage(c)">私信</button>
+          <span v-else class="text-xs text-muted">—</span>
         </span>
       </div>
     </div>
@@ -55,18 +54,6 @@
       </div>
     </div>
 
-    <!-- 广播 -->
-    <div v-if="dialogs.broadcast" class="modal-overlay" @click.self="dialogs.broadcast = false">
-      <div class="modal card p-lg" style="max-width:480px;">
-        <h3 class="mb-sm">全服广播</h3>
-        <p class="text-xs text-muted mb-sm">所有在线客户端都会收到这条服务器消息。</p>
-        <textarea v-model="broadcastText" class="input" rows="3" maxlength="300" placeholder="输入广播内容…"></textarea>
-        <div class="flex gap-sm justify-end mt-md">
-          <button class="btn btn-outline" @click="dialogs.broadcast = false">取消</button>
-          <button class="btn btn-primary" :disabled="sending || !broadcastText.trim()" @click="sendBroadcast">广播</button>
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 
@@ -84,12 +71,16 @@ const stats = ref(null)
 const pilots = computed(() => items.value.filter((c) => c.type === 'PILOT').length)
 const pilotCount = pilots
 const atcCount = computed(() => items.value.length - pilots.value)
-const canAdmin = computed(() => (Number(userStore.rating) || 0) >= 8)
+const myCallSigns = ref(new Set())
+const isController = computed(() => (Number(userStore.rating) || 0) >= 8 || Number(userStore.profile?.fsdLevel) >= 5)
+/** 只有本人呼号、管制或管理员能发起私信（与后端限制一致） */
+function canMessage(client) {
+  return isController.value || String(client.cid) === String(userStore.profile?.cid || '') || myCallSigns.value.has(client.callsign)
+}
 
-const dialogs = ref({ message: false, broadcast: false })
+const dialogs = ref({ message: false })
 const messageTarget = ref(null)
 const messageText = ref('')
-const broadcastText = ref('')
 const sending = ref(false)
 let timer = null
 
@@ -99,6 +90,8 @@ async function load() {
   try {
     const res = await onlineApi.clients()
     items.value = res.data?.items || []
+    const mine = items.value.filter((c) => String(c.cid) === String(userStore.profile?.cid || ''))
+    myCallSigns.value = new Set(mine.map((c) => c.callsign))
     const s = await onlineApi.stats().catch(() => null)
     stats.value = s?.data || null
   } catch (e) {
@@ -128,34 +121,6 @@ async function sendMessage() {
   }
 }
 
-function openBroadcast() {
-  broadcastText.value = ''
-  dialogs.value.broadcast = true
-}
-
-async function sendBroadcast() {
-  sending.value = true
-  try {
-    const res = await onlineApi.broadcast(broadcastText.value.trim())
-    showToast(`已广播给 ${res.data?.delivered ?? 0} 个客户端`)
-    dialogs.value.broadcast = false
-  } catch (e) {
-    showToast(e?.response?.data?.message || '广播失败', { type: 'error' })
-  } finally {
-    sending.value = false
-  }
-}
-
-async function kick(client) {
-  if (!window.confirm(`确定踢出 ${client.callsign}？`)) return
-  try {
-    await onlineApi.kick(client.callsign)
-    showToast(`已踢出 ${client.callsign}`)
-    load()
-  } catch (e) {
-    showToast(e?.response?.data?.message || '踢出失败', { type: 'error' })
-  }
-}
 
 onMounted(() => {
   load()

@@ -78,6 +78,7 @@ export const navGroups = [
     items: [
       { path: '/admin/users', label: '用户管理', desc: '账号与管制等级', icon: S('<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>'), requiredPermission: 'user' },
       { path: '/admin/controllers', label: '管制管理', desc: '管制席位与在线状态', icon: S('<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>'), requiredPermission: 'controller' },
+      { path: '/admin/online-clients', label: '在线客户端', desc: '在线连接、踢出与全服广播', icon: S('<circle cx="12" cy="8" r="4"/><path d="M4 21v-2a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v2"/>'), requiredPermission: 'online' },
       { path: '/admin/announcements', label: '公告管理', desc: '发布站内公告', icon: S('<path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/>'), requiredPermission: 'staff' },
       { path: '/admin/meetings', label: '会议记录管理', desc: '上传与管理会议纪要', icon: S('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/>'), requiredRating: 11 },
       { path: '/admin/events', label: '活动管理', desc: '活动与管制席位', icon: S('<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>'), requiredPermission: 'event' },
