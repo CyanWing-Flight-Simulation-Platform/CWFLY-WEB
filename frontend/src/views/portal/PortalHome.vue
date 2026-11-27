@@ -3,8 +3,7 @@
     <!-- Hero -->
     <section class="hero">
       <div class="hero__content">
-        <h1 class="hero__title">让每一次连飞，都更接近真实</h1>
-        <p>加入 CWFLY，和飞行员、管制员一起，在真实的航路与空域中飞行。</p>
+        <h1 class="hero__title">CWFLY·青翼模拟飞行连飞平台</h1>
         <div class="hero__actions">
           <router-link to="/register" class="btn-primary">立即注册</router-link>
           <router-link to="/login" class="btn-outline">已有账号？登录</router-link>
