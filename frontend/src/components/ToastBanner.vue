@@ -32,8 +32,8 @@ import { removeToast, toastState } from '@/utils/banner'
 <style scoped>
 .toast-stack {
   position: fixed;
+  top: calc(var(--header-h, 60px) + 14px);
   left: 50%;
-  bottom: calc(28px + env(safe-area-inset-bottom, 0px));
   z-index: 3000;
   display: flex;
   flex-direction: column;
@@ -104,6 +104,6 @@ import { removeToast, toastState } from '@/utils/banner'
 
 .toast-enter-active,
 .toast-leave-active { transition: opacity .2s ease, transform .2s ease; }
-.toast-enter-from { opacity: 0; transform: translateY(10px); }
-.toast-leave-to { opacity: 0; transform: translateY(6px); }
+.toast-enter-from { opacity: 0; transform: translateY(-8px); }
+.toast-leave-to { opacity: 0; transform: translateY(-6px); }
 </style>
