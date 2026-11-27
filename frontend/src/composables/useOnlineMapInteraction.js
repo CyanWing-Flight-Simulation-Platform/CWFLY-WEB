@@ -1014,6 +1014,123 @@ export function useOnlineMapInteraction(cfg) {
     return polyline
   }
 
+  // ===== 机组信息弹窗（InfoWindow）=====
+  // ---------------------------------------------------------------------------
+  // 结构与样式：头部（呼号/CID/名称/基地/机型）→ 细分割线 → 航线与备注。
+  // 颜色全部走 CSS 变量 + 主题选择器，禁止写死；浅色半透明白、暗色半透明深色毛玻璃。
+  // ---------------------------------------------------------------------------
+  const PILOT_POPUP_STYLE_ID = 'cwfp-pilot-popup-style'
+
+  function ensurePilotPopupStyle() {
+    if (document.getElementById(PILOT_POPUP_STYLE_ID)) return
+    const style = document.createElement('style')
+    style.id = PILOT_POPUP_STYLE_ID
+    style.textContent = `
+.cwfp-pop {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 248px;
+  max-width: 320px;
+  padding: 14px 16px 15px;
+  border: 1px solid var(--c-border, rgba(15, 23, 42, .1));
+  border-radius: 14px;
+  background: rgba(255, 255, 255, .82);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  backdrop-filter: blur(18px) saturate(150%);
+  box-shadow: 0 16px 40px rgba(15, 23, 42, .16);
+  color: var(--c-text, #111827);
+  font-family: inherit;
+  line-height: 1.45;
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+html[data-theme='dark'] .cwfp-pop {
+  border-color: rgba(255, 255, 255, .12);
+  background: rgba(17, 24, 39, .78);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, .5);
+  color: #f8fafc;
+}
+.cwfp-pop__callsign {
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: .3px;
+  line-height: 1.2;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.cwfp-pop__meta { margin-top: 8px; display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; }
+.cwfp-pop__meta dt { font-size: 12px; color: var(--c-text-muted, #6b7280); }
+html[data-theme='dark'] .cwfp-pop__meta dt { color: #94a3b8; }
+.cwfp-pop__meta dd { margin: 0; font-size: 13px; font-weight: 600; }
+.cwfp-pop__rule {
+  height: 1px; margin: 12px 0;
+  background: var(--c-border, rgba(15, 23, 42, .09));
+  border: 0;
+}
+html[data-theme='dark'] .cwfp-pop__rule { background: rgba(255, 255, 255, .1); }
+.cwfp-pop__route { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 700; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.cwfp-pop__route span.cwfp-pop__arrow { color: var(--c-text-muted, #6b7280); font-weight: 500; }
+html[data-theme='dark'] .cwfp-pop__route span.cwfp-pop__arrow { color: #94a3b8; }
+.cwfp-pop__row { margin-top: 7px; display: flex; gap: 8px; font-size: 13px; }
+.cwfp-pop__label { flex: 0 0 auto; font-size: 12px; color: var(--c-text-muted, #6b7280); padding-top: 1px; }
+html[data-theme='dark'] .cwfp-pop__label { color: #94a3b8; }
+.cwfp-pop__value { flex: 1 1 auto; min-width: 0; font-weight: 600; }
+.cwfp-pop__route-text,
+.cwfp-pop__remarks {
+  margin-top: 6px;
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+.cwfp-pop__route-text { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.cwfp-pop__remarks { font-size: 11px; color: var(--c-text-muted, #6b7280); }
+html[data-theme='dark'] .cwfp-pop__remarks { color: #94a3b8; }
+`
+    document.head.appendChild(style)
+  }
+
+  function pick(p, ...keys) {
+    for (const key of keys) {
+      const value = key.split('.').reduce((acc, k) => (acc == null ? acc : acc[k]), p)
+      if (value !== undefined && value !== null && String(value).trim() !== '') return String(value).trim()
+    }
+    return ''
+  }
+
+  /** 机组弹窗 HTML：头部 5 项 + 分割线 + 航线 5 项 */
+  function buildPilotInfoHtml(p) {
+    ensurePilotPopupStyle()
+    const callsign = pick(p, 'callsign') || '-'
+    const cid = pick(p, 'cid') || '-'
+    const name = pick(p, 'realname', 'name', 'username') || '-'
+    const base = pick(p, 'home', 'base', 'plan.home') || '-'
+    const aircraft = pick(p, 'aircraft', 'plan.aircraft') || '-'
+    const dep = pick(p, 'plan.depairport', 'dep', 'depIcao') || '-'
+    const arr = pick(p, 'plan.destairport', 'arr', 'arrIcao') || '-'
+    const alternate = pick(p, 'plan.altairport', 'alternate', 'plan.alternate') || '-'
+    const route = pick(p, 'plan.route', 'route')
+    const remarks = pick(p, 'plan.remarks', 'remarks')
+    const esc = (v) => String(v).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
+    return `<div class="cwfp-pop">
+  <div class="cwfp-pop__callsign">${esc(callsign)}</div>
+  <dl class="cwfp-pop__meta">
+    <dt>CID</dt><dd>${esc(cid)}</dd>
+    <dt>名称</dt><dd>${esc(name)}</dd>
+    <dt>基地机场</dt><dd>${esc(base)}</dd>
+    <dt>执飞机型</dt><dd>${esc(aircraft)}</dd>
+  </dl>
+  <hr class="cwfp-pop__rule" />
+  <div class="cwfp-pop__route">
+    <b>${esc(dep)}</b><span class="cwfp-pop__arrow">→</span><b>${esc(arr)}</b>
+  </div>
+  <div class="cwfp-pop__row"><span class="cwfp-pop__label">备降场</span><span class="cwfp-pop__value">${esc(alternate)}</span></div>
+  ${route ? `<div class="cwfp-pop__label" style="margin-top:9px">航路</div><div class="cwfp-pop__route-text">${esc(route)}</div>` : ''}
+  ${remarks ? `<div class="cwfp-pop__label" style="margin-top:8px">备注</div><div class="cwfp-pop__remarks">${esc(remarks)}</div>` : ''}
+</div>`
+  }
+
   function renderPilotMarker(p, color) {
     const callsign = p.callsign || ''
     const icon = aircraftIconName(p.aircraft)
@@ -1041,14 +1158,9 @@ export function useOnlineMapInteraction(cfg) {
     map.add(marker)
 
     const info = new AMap.InfoWindow({
-      content: [
-        `<b>${callsign}</b>`,
-        `机型: ${p.aircraft || '-'}`,
-        `高度: ${p.altitude || '-'}ft`,
-        `速度: ${p.groundspeed || '-'}kt`,
-        `应答机: ${p.transponder || '-'}`,
-        `轨迹点: ${p.trail?.length || 0}`,
-      ].join('<br/>'),
+      isCustom: true,
+      content: buildPilotInfoHtml(p),
+      offset: new AMap.Pixel(0, -14),
     })
     marker.on('click', () => {
       info.open(map, marker.getPosition())
