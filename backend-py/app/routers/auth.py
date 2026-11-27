@@ -92,6 +92,18 @@ def fail(status_code: int, message: str, **extra: Any) -> JSJSONResponse:
 TRUSTED_DEVICE_COOKIE = "cw_trusted_device"
 
 
+async def _clear_login_limiter(ip: str | None) -> None:
+    """登录成功后清掉该 IP 的登录限流计数，避免正常用户被自己的重试次数拖住。"""
+    if not ip:
+        return
+    try:
+        from app.services import rate_limit_store
+
+        await rate_limit_store.reset_key(f"auth-login:{ip}")
+    except Exception:  # noqa: BLE001 - 限流清理失败不影响登录
+        pass
+
+
 def auth_ok(request: Request, token: str, data: Any = None, **extra: Any) -> JSJSONResponse:
     """成功响应 + 写入 HttpOnly 会话 Cookie。"""
     response = ok(data, **extra)
@@ -432,6 +444,7 @@ async def login(request: Request, db: AsyncSession = Depends(get_db)) -> Any:
             }
         )
 
+    await _clear_login_limiter(ip)
     await _safe_login_log(db, cid, ip, user_agent, device_fp, True, "")
     await audit_log.write(
         db,
@@ -594,7 +607,7 @@ async def passkey_delete_credential(
     return ok({"credentials": await wa.list_credentials(db, current.cid)})
 
 
-@router.post("/passkey/login/options", dependencies=[Depends(login_limiter)])
+@router.post("/passkey/login/options")
 async def passkey_login_options(
     request: Request,
     db: AsyncSession = Depends(get_db),
@@ -649,6 +662,7 @@ async def passkey_login_verify(
     if lock_msg:
         return fail(429, lock_msg)
     await clear_login_failures(db, actual_cid)
+    await _clear_login_limiter(ip)
     await _safe_login_log(db, actual_cid, ip, get_user_agent(request), device_fp, True, "passkey")
     await audit_log.write(
         db, "passkey_login", "Passkey 登录成功", actual_cid,

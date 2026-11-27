@@ -66,11 +66,14 @@ async def increment(rate_key: str, window_seconds: int) -> tuple[int, int]:
         async with SessionLocal() as db:
             await db.execute(
                 text(
+                    # resetAt 异常（已过期，或远超本窗口的未来值——历史数据/时钟跳变遗留）
+                    # 时按新窗口重新计数，避免个别 IP 被永久卡在限流上。
                     "INSERT INTO `RateLimit` (`rateKey`, `hits`, `resetAt`) "
                     "VALUES (:k, 1, DATE_ADD(NOW(3), INTERVAL :s SECOND)) "
                     "ON DUPLICATE KEY UPDATE "
-                    "`hits` = IF(`resetAt` <= NOW(3), 1, `hits` + 1), "
-                    "`resetAt` = IF(`resetAt` <= NOW(3), DATE_ADD(NOW(3), INTERVAL :s SECOND), `resetAt`)"
+                    "`hits` = IF(`resetAt` <= NOW(3) OR `resetAt` > DATE_ADD(NOW(3), INTERVAL :s SECOND), 1, `hits` + 1), "
+                    "`resetAt` = IF(`resetAt` <= NOW(3) OR `resetAt` > DATE_ADD(NOW(3), INTERVAL :s SECOND), "
+                    "DATE_ADD(NOW(3), INTERVAL :s SECOND), `resetAt`)"
                 ),
                 {"k": rate_key, "s": int(window_seconds)},
             )
