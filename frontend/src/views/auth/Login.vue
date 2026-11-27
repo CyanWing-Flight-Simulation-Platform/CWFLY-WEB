@@ -224,9 +224,15 @@ async function confirmLoginVerify() {
 async function loginWithPasskey() {
   passkeyErr.value = ''
   const cid = String(form.value.cid || '').trim()
+  // 没有 CID 时服务端无法限定凭据列表，浏览器会退化成「创建通行密钥」对话框，
+  // 所以必须先填 CID（WebAuthn 会按 allowCredentials 精确匹配已绑定的凭据）。
+  if (!cid) {
+    passkeyErr.value = '请先输入 CID，再使用 Passkey 登录'
+    return
+  }
   passkeyLoading.value = true
   try {
-    const optionsRes = await authApi.passkeyLoginOptions(cid ? { cid } : {})
+    const optionsRes = await authApi.passkeyLoginOptions({ cid })
     const options = optionsRes.data?.options || {}
     const credential = await getPasskey(options)
     const verifyRes = await authApi.passkeyLoginVerify({

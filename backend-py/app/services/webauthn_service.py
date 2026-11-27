@@ -177,6 +177,17 @@ async def _raw_credentials(db: AsyncSession, cid: str) -> list[PublicKeyCredenti
     return [PublicKeyCredentialDescriptor(id=b64url_decode(r._mapping["credential_id"])) for r in rows]
 
 
+async def has_credentials(db: AsyncSession, cid: str) -> bool:
+    """该账号是否绑定过 Passkey（登录前用它做前置判断，避免无凭据时唤起系统创建对话框）。"""
+    row = (
+        await db.execute(
+            text("SELECT COUNT(*) AS c FROM `webauthn_credentials` WHERE cid = :cid"),
+            {"cid": cid},
+        )
+    ).first()
+    return bool(row and int(row._mapping["c"]) > 0)
+
+
 async def registration_options(db: AsyncSession, cid: str, username: str) -> dict[str, Any]:
     exclude = await _raw_credentials(db, cid)
     options = generate_registration_options(

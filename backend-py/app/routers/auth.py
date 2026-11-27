@@ -604,6 +604,12 @@ async def passkey_login_options(
     except Exception:  # noqa: BLE001
         body = {}
     cid = str((body or {}).get("cid") or "").strip() or None
+    # 没有 CID 就无法限定 allowCredentials，浏览器在找不到凭据时会弹「创建通行密钥」，
+    # 因此这里前置拦截，避免把登录变成绑定。
+    if not cid:
+        return fail(400, "请先输入 CID，再使用 Passkey 登录")
+    if not await wa.has_credentials(db, cid):
+        return fail(400, "该账号还没有绑定 Passkey，请先用密码登录后在个人中心绑定")
     options = await wa.authentication_options(db, cid)
     return ok({"options": options, "challenge": options.get("challenge")})
 
