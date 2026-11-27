@@ -214,12 +214,6 @@
         <button class="btn btn-outline w-full" @click="shareModal=false">关闭</button>
       </div>
     </div>
-    <!-- 站内提示 Toast -->
-    <div class="toast-container">
-      <div v-for="t in toasts" :key="t.id" class="toast" :class="'toast-' + t.type" @click="removeToast(t.id)">
-        {{ t.message }}
-      </div>
-    </div>
 
     <!-- 确认弹窗 -->
     <div v-if="confirmDialog.show" class="modal-overlay" @click.self="cancelConfirm">
@@ -239,6 +233,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { flightplanApi } from '@/api'
+import { showToast } from '@/utils/banner'
 
 const route = useRoute()
 const router = useRouter()
@@ -342,20 +337,6 @@ const simbriefId = ref('')
 const shareModal = ref(false)
 const altWarning = ref('')
 const submittedIds = ref(new Set())
-let toastId = 0
-const toasts = ref([])
-function showToast(msg, type = 'success') {
-  const id = ++toastId
-  toasts.value.push({ id, message: msg, type })
-  const duration = type === 'error' ? 4000 : 3000
-  setTimeout(() => { removeToast(id) }, duration)
-  if (type === 'error') {
-    window.scrollTo({ top: 0, behavior: 'smooth' })
-  }
-}
-function removeToast(id) {
-  toasts.value = toasts.value.filter(t => t.id !== id)
-}
 const confirmDialog = ref({ show: false, message: '', resolve: null })
 function showConfirm(msg) {
   return new Promise(resolve => {
@@ -642,41 +623,6 @@ function copyShareCode() {
 .form-col {
   display: flex;
   flex-direction: column;
-}
-
-.toast-container {
-  position: fixed;
-  top: 20px;
-  right: 20px;
-  z-index: 99999;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  pointer-events: none;
-}
-.toast {
-  pointer-events: auto;
-  padding: 12px 20px;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
-  animation: toastIn 0.3s ease;
-  max-width: 360px;
-}
-.toast-success { background: #10b981; color: #fff; }
-.toast-error { background: #ef4444; color: #fff; font-size: 15px; padding: 14px 24px; animation: toastShake 0.5s ease; }
-
-@keyframes toastShake {
-  0%, 100% { transform: translateX(0); }
-  25% { transform: translateX(-8px); }
-  75% { transform: translateX(8px); }
-}
-.toast-info { background: #3b82f6; color: #fff; }
-@keyframes toastIn {
-  from { opacity: 0; transform: translateX(80px); }
-  to { opacity: 1; transform: translateX(0); }
 }
 
 .row-active {

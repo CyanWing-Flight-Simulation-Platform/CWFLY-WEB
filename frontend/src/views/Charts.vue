@@ -621,31 +621,39 @@ watch(activeChart, (c) => {
 <style scoped>
 .toast-container {
   position: fixed;
-  top: 20px;
-  right: 20px;
+  left: 50%;
+  bottom: calc(28px + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
   z-index: 9999;
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 8px;
   pointer-events: none;
 }
 .toast {
   pointer-events: auto;
-  padding: 12px 20px;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 600;
+  padding: 10px 16px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, .08);
+  background: rgba(17, 24, 39, .94);
+  color: #f8fafc;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.5;
   cursor: pointer;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
-  animation: toastIn 0.3s ease;
-  max-width: 360px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, .28);
+  backdrop-filter: blur(16px) saturate(130%);
+  -webkit-backdrop-filter: blur(16px) saturate(130%);
+  animation: toastIn 0.24s ease;
+  max-width: min(620px, calc(100vw - 32px));
 }
-.toast-success { background: #10b981; color: #fff; }
-.toast-error { background: #ef4444; color: #fff; }
-.toast-info { background: #3b82f6; color: #fff; }
+.toast-success { border-left: 3px solid #34d399; }
+.toast-error { border-left: 3px solid #f87171; }
+.toast-info { border-left: 3px solid #60a5fa; }
 @keyframes toastIn {
-  from { opacity: 0; transform: translateX(80px); }
-  to { opacity: 1; transform: translateX(0); }
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .charts-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px; }

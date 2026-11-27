@@ -32,8 +32,8 @@ import { removeToast, toastState } from '@/utils/banner'
 <style scoped>
 .toast-stack {
   position: fixed;
-  top: calc(var(--header-h, 60px) + 14px);
   left: 50%;
+  bottom: calc(28px + env(safe-area-inset-bottom, 0px));
   z-index: 3000;
   display: flex;
   flex-direction: column;
@@ -52,20 +52,19 @@ import { removeToast, toastState } from '@/utils/banner'
   width: max-content;
   max-width: min(620px, calc(100vw - 32px));
   padding: 11px 10px 11px 12px;
-  border: 1px solid rgba(15, 23, 42, .08);
-  border-left: 3px solid var(--toast-accent, #2563eb);
+  border: 1px solid rgba(255, 255, 255, .08);
   border-radius: 10px;
-  background: rgba(255, 255, 255, .96);
-  box-shadow: 0 10px 26px rgba(15, 23, 42, .13);
-  color: var(--c-text, #111827);
+  background: rgba(17, 24, 39, .94);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, .28);
+  color: #f8fafc;
   pointer-events: auto;
   cursor: pointer;
   backdrop-filter: blur(16px) saturate(130%);
   -webkit-backdrop-filter: blur(16px) saturate(130%);
 }
-.toast-card--success { --toast-accent: #16a34a; }
-.toast-card--error { --toast-accent: #dc2626; }
-.toast-card--info { --toast-accent: #2563eb; }
+.toast-card--success { --toast-accent: #34d399; }
+.toast-card--error { --toast-accent: #f87171; }
+.toast-card--info { --toast-accent: #60a5fa; }
 
 .toast-card__icon {
   display: flex;
@@ -101,18 +100,10 @@ import { removeToast, toastState } from '@/utils/banner'
   line-height: 1;
   cursor: pointer;
 }
-.toast-card__close:hover { background: rgba(15, 23, 42, .06); color: var(--c-text, #111827); }
-
-html[data-theme='dark'] .toast-card {
-  border-color: rgba(255, 255, 255, .10);
-  background: rgba(15, 23, 42, .95);
-  color: #f8fafc;
-}
-html[data-theme='dark'] .toast-card__close { color: #94a3b8; }
-html[data-theme='dark'] .toast-card__close:hover { background: rgba(255, 255, 255, .08); color: #fff; }
+.toast-card__close:hover { background: rgba(255, 255, 255, .1); color: #fff; }
 
 .toast-enter-active,
 .toast-leave-active { transition: opacity .2s ease, transform .2s ease; }
-.toast-enter-from { opacity: 0; transform: translateY(-8px); }
-.toast-leave-to { opacity: 0; transform: translateY(-6px); }
+.toast-enter-from { opacity: 0; transform: translateY(10px); }
+.toast-leave-to { opacity: 0; transform: translateY(6px); }
 </style>
