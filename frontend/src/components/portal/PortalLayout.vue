@@ -84,11 +84,15 @@ const qqGroupUrl = QQ_GROUP_URL
   padding-bottom: 40px;
 }
 
+/* 页脚：始终使用深色毛玻璃底 + 浅色文字，背景图轮换时对比度不受影响 */
 .portal__footer {
-  border-top: 1px solid var(--glass-border-strong);
-  background: var(--glass-bg-strong);
-  backdrop-filter: blur(var(--glass-blur-lg)) saturate(var(--glass-saturate));
-  -webkit-backdrop-filter: blur(var(--glass-blur-lg)) saturate(var(--glass-saturate));
+  position: relative;
+  z-index: 1;
+  border-top: 1px solid rgba(255, 255, 255, .12);
+  background: rgba(20, 25, 35, .88);
+  -webkit-backdrop-filter: blur(16px) saturate(1.2);
+  backdrop-filter: blur(16px) saturate(1.2);
+  box-shadow: 0 -24px 60px rgba(0, 0, 0, .35);
   padding: 36px 0 24px;
 }
 
@@ -204,22 +208,35 @@ const qqGroupUrl = QQ_GROUP_URL
 }
 
 
-/* 浅色模式 Footer：与首页一致的白磨砂玻璃 + 深色文字 */
-html[data-theme='light'] .portal__footer {
-  border-top: 0;
-  background: transparent;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
+/* 页脚（两套主题一致）：深色底 + 浅色文字，不随主题/背景图变化 */
+html[data-theme='light'] .portal__footer,
+html[data-theme='dark'] .portal__footer {
+  border-top: 1px solid rgba(255, 255, 255, .12);
+  background: rgba(20, 25, 35, .88);
+  -webkit-backdrop-filter: blur(16px) saturate(1.2);
+  backdrop-filter: blur(16px) saturate(1.2);
+  box-shadow: 0 -24px 60px rgba(0, 0, 0, .35);
 }
-html[data-theme='light'] .portal__footer-inner { color: #4B5563; }
-html[data-theme='light'] .footer-brand__name,
-html[data-theme='light'] .footer-column h4 { color: #111827; }
-html[data-theme='light'] .footer-brand p,
-html[data-theme='light'] .footer-column a,
-html[data-theme='light'] .footer-bottom p,
-html[data-theme='light'] .footer-links a,
-html[data-theme='light'] .footer-note { color: #4B5563; }
-html[data-theme='light'] .footer-bottom { border-top-color: rgba(15, 23, 42, .08); }
+.portal__footer-inner { color: rgba(255, 255, 255, .82); }
+.portal__footer .footer-brand__name,
+.portal__footer .footer-column h4 { color: #ffffff; }
+.portal__footer .footer-brand p,
+.portal__footer .footer-column a,
+.portal__footer .footer-bottom p,
+.portal__footer .footer-links a,
+.portal__footer .footer-note { color: rgba(255, 255, 255, .76); }
+.portal__footer .footer-brand__social { color: rgba(255, 255, 255, .76); }
+.portal__footer .footer-column a:hover,
+.portal__footer .footer-links a:hover,
+.portal__footer .footer-brand__social:hover { color: #93c5fd; }
+html[data-theme='light'] .portal__footer .footer-bottom,
+html[data-theme='dark'] .portal__footer .footer-bottom {
+  border-top-color: rgba(255, 255, 255, .14);
+}
+html[data-theme='light'] .portal__footer .footer-links a:not(:last-of-type)::after,
+html[data-theme='dark'] .portal__footer .footer-links a:not(:last-of-type)::after {
+  color: rgba(255, 255, 255, .38);
+}
 
 @media (max-width: 860px) {
   .footer-top { flex-direction: column; gap: 28px; }

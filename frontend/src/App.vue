@@ -18,8 +18,10 @@
       :class="{ 'is-active': i === rotBgIndex }"
       :style="{ backgroundImage: `url('${src}')` }"
     ></div>
-    <div class="rot-bg__scrim"></div>
   </div>
+  <!-- 首屏暗色遮罩：绝对定位（随页面滚动，不固定整页），只压暗第一屏并在底部渐隐，
+       第二屏往后不再覆盖，避免把页脚/正文一起压黑 -->
+  <div class="rot-scrim" aria-hidden="true"></div>
   <!-- 用户自定义背景层（上传后 3s 渐变显示, 覆盖在轮换背景/时段背景层之上） -->
   <div class="custom-bg-layer" v-show="customBgActive" ref="customBgLayer" aria-hidden="true"></div>
   <!-- 浅色/自动白天模式：在飞机底图上覆盖明亮柔光层，保证深色文字对比度 -->
@@ -567,8 +569,8 @@ html[data-theme='light'] .bg-mode-scrim {
   background: linear-gradient(180deg, rgba(255, 255, 255, .58) 0%, rgba(255, 255, 255, .44) 55%, rgba(255, 255, 255, .34) 100%);
 }
 
-/* 全站多图轮换背景：8 张图绝对定位叠加，只切 opacity（1.5s 交叉淡入），不重建 DOM；
-   上方固定暗色渐变遮罩保证白色文字与毛玻璃卡片可读。自定义背景层在其上（优先级更高）。 */
+/* 全站多图轮换背景：8 张图绝对定位叠加，只切 opacity（1.5s 交叉淡入），不重建 DOM。
+   背景图作为整页底图固定显示；暗色遮罩不再跟着 fixed，改由下面的 .rot-scrim 只压第一屏。 */
 .rot-bg {
   position: fixed;
   inset: 0;
@@ -590,14 +592,22 @@ html[data-theme='light'] .bg-mode-scrim {
 .rot-bg__img.is-active {
   opacity: 1;
 }
-.rot-bg__scrim {
+/* 首屏暗色遮罩：绝对定位跟随文档滚动，高度≈一屏多一点，底部渐隐过渡到正文，
+   第二屏往后彻底不再覆盖（页脚有自己的底色，不再被压黑）。 */
+.rot-scrim {
   position: absolute;
-  inset: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: calc(100vh + 160px);
+  z-index: -1;
+  pointer-events: none;
   background: linear-gradient(
     180deg,
     rgba(0, 0, 0, .55) 0%,
-    rgba(0, 0, 0, .48) 55%,
-    rgba(0, 0, 0, .60) 100%
+    rgba(0, 0, 0, .50) 58%,
+    rgba(0, 0, 0, .34) 84%,
+    rgba(0, 0, 0, 0) 100%
   );
 }
 @media (prefers-reduced-motion: reduce) {
