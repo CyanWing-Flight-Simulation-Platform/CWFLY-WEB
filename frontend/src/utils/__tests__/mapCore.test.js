@@ -3,8 +3,6 @@
  *
  * 覆盖点：
  * - 密钥与静态资源常量、Mapbox 本地/CDN 地址、轮询间隔与地图初始中心/缩放
- * - VITE_MAPBOX_TOKEN / VITE_OWM_KEY 的 env 读取（含空值回退空串）—— 用 vi.stubEnv + 模块重载验证
- * - GCJ-02 换算：gcjTransformLat/Lng 的真实数值、toGcj02 在上海/北京基准点的偏移量、
  *   境外与经纬度边界（72.004~137.8347 / 0.8293~55.8271）原样返回、确定性（同一入参结果稳定）
  * - 图层分组结构（3D 两条 / 2D 四条、id 唯一、label 非空）与 is3D 判定
  */
@@ -49,8 +47,9 @@ describe('常量与静态资源', () => {
   it('Mapbox 本地路径与 CDN 地址固定（CDN 带版本号 v3.16.0）', () => {
     expect(MAPBOX_LOCAL_JS).toBe('/vendor/mapbox-gl/mapbox-gl.js')
     expect(MAPBOX_LOCAL_CSS).toBe('/vendor/mapbox-gl/mapbox-gl.css')
-    expect(MAPBOX_CDN_JS).toBe('https://api.mapbox.com/mapbox-gl-js/v3.16.0/mapbox-gl.js')
-    expect(MAPBOX_CDN_CSS).toBe('https://api.mapbox.com/mapbox-gl-js/v3.16.0/mapbox-gl.css')
+    // CDN 兜底已改为本地路径（站点 CSP 只允许 self）
+    expect(MAPBOX_CDN_JS).toBe(MAPBOX_LOCAL_JS)
+    expect(MAPBOX_CDN_CSS).toBe(MAPBOX_LOCAL_CSS)
   })
 
   it('轮询间隔 5s、初始中心 [110,30]、缩放 5、上下拖动边界 ±85', () => {
@@ -70,43 +69,26 @@ describe('常量与静态资源', () => {
   })
 })
 
-describe('env 读取（VITE_MAPBOX_TOKEN / VITE_OWM_KEY）', () => {
-  it('未配置时回退空串，isMapboxConfigured() 为 false', async () => {
-    vi.stubEnv('VITE_MAPBOX_TOKEN', '')
-    vi.stubEnv('VITE_OWM_KEY', '')
+
+describe('Mapbox 代理模式（前端不再持有 token）', () => {
+  it('MAPBOX_TOKEN 恒为空，3D 可用性由服务端代理决定', async () => {
+    vi.stubEnv('VITE_MAPBOX_TOKEN', 'pk.test-token-123')
     vi.resetModules()
     const core = await import('@/components/map/mapCore.js')
     expect(core.MAPBOX_TOKEN).toBe('')
-    expect(core.OWM_KEY).toBe('')
-    expect(core.isMapboxConfigured()).toBe(false)
-  })
-
-  it('配置后从 import.meta.env 读取到真实值，isMapboxConfigured() 为 true', async () => {
-    vi.stubEnv('VITE_MAPBOX_TOKEN', 'pk.test-token-123')
-    vi.stubEnv('VITE_OWM_KEY', 'owm-key-abc')
-    vi.resetModules()
-    const core = await import('@/components/map/mapCore.js')
-    expect(core.MAPBOX_TOKEN).toBe('pk.test-token-123')
-    expect(core.OWM_KEY).toBe('owm-key-abc')
     expect(core.isMapboxConfigured()).toBe(true)
-    expect(core.OWM_RADAR_URL(1, 2, 3)).toBe(
-      'https://tile.openweathermap.org/map/precipitation_new/1/2/3.png?appid=owm-key-abc',
-    )
+    expect(core.MAPBOX_PROXY).toBe('/api/mapbox')
   })
 
-  it('isMapboxConfigured() 复用 mapboxHealth 的占位符判定：占位符 token 视为未配置', async () => {
-    vi.stubEnv('VITE_MAPBOX_TOKEN', 'your-token')
+  it('mapboxProxyUrl 拼接服务端代理地址', async () => {
     vi.resetModules()
     const core = await import('@/components/map/mapCore.js')
-    expect(core.MAPBOX_TOKEN).toBe('your-token')
-    expect(core.isMapboxConfigured()).toBe(false)
-  })
-
-  it('静态导入的 MAPBOX_TOKEN 与当前 env 状态一致（默认无 token）', () => {
-    // 该文件在 env 未 stub 时被静态导入，默认值应为空串而不是 undefined
-    expect(MAPBOX_TOKEN).toBe('')
-    expect(OWM_KEY).toBe('')
-    expect(isMapboxConfigured()).toBe(false)
+    expect(core.mapboxProxyUrl('styles/v1/mapbox/streets-v12')).toMatch(
+      /\/api\/mapbox\/styles\/v1\/mapbox\/streets-v12$/,
+    )
+    expect(core.mapboxProxyUrl('v4/mapbox.terrain-rgb.json')).toMatch(
+      /\/api\/mapbox\/v4\/mapbox\.terrain-rgb\.json$/,
+    )
   })
 })
 

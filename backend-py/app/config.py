@@ -25,6 +25,11 @@ class Settings(BaseSettings):
 
     # ---- 基础 ----
     NODE_ENV: str = "development"
+
+    # ---- Mapbox 反向代理（token 只在服务端，前端不允许持有）----
+    MAPBOX_TOKEN: str = ""
+    MAPBOX_MONTHLY_LIMIT: int = 10000
+    MAPBOX_ENABLED: str = "1"
     PORT: int = 3000
 
     # ---- 数据库（与 Node 同一个 mysql:// URL）----

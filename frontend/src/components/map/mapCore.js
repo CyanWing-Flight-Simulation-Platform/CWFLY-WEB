@@ -10,11 +10,23 @@
  * 入参：无。返回：均为具名导出常量/函数。
  * 副作用：无（不触碰 DOM、不注册监听、无定时器），因此无需清理。
  */
-import { hasMapboxToken } from '@/utils/mapboxHealth'
-
 export const AMAP_KEY = '89b5c51a7622408a444f2c62a7de6113'
 export const AMAP_SECURITY_CODE = 'a20594f2f5e875560ec09be0fca30a1a'
-export const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || ''
+
+// Mapbox 已改为「服务端反向代理」模式：access token 只存在后端环境变量，
+// 前端不再持有任何 token（VITE_MAPBOX_TOKEN 已废弃，留空仅为兼容旧构建脚本）。
+export const MAPBOX_TOKEN = ''
+
+// 服务端 Mapbox 代理前缀：样式、精灵图、字体、矢量/栅格瓦片、地形全部经此后端转发，
+// 后端按「真正回源次数」计数并限制每月额度（默认 10000 次）。
+export const MAPBOX_PROXY = '/api/mapbox'
+
+/** 拼出代理地址；返回绝对地址（AMap 瓦片、Mapbox GL 资源都要求可直接请求的地址） */
+export function mapboxProxyUrl(path) {
+  const clean = String(path || '').replace(/^\/+/, '')
+  const origin = typeof window !== 'undefined' && window.location ? window.location.origin : ''
+  return `${origin}${MAPBOX_PROXY}/${clean}`
+}
 
 /**
  * 当前构建是否配置了「可尝试使用」的 Mapbox 令牌（纯函数，便于单测）。
@@ -23,7 +35,9 @@ export const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || ''
  * @returns {boolean}
  */
 export function isMapboxConfigured() {
-  return hasMapboxToken(MAPBOX_TOKEN)
+  // 3D 服务是否可用由服务端代理决定（未配置 token / 额度耗尽时后端返回 503/429），
+  // 前端不再用「本地是否有 token」判断，避免把 token 打进 JS 包。
+  return true
 }
 // OpenWeatherMap 天气雷达（降水图层, 2D/3D 所有地图源通用叠加）
 export const OWM_KEY = import.meta.env.VITE_OWM_KEY || ''
@@ -31,8 +45,9 @@ export const OWM_RADAR_URL = (z, x, y) => `https://tile.openweathermap.org/map/p
 // Mapbox GL 脚本：优先加载本地打包文件（public/vendor/mapbox-gl/），若不存在则使用 CDN
 export const MAPBOX_LOCAL_JS = '/vendor/mapbox-gl/mapbox-gl.js'
 export const MAPBOX_LOCAL_CSS = '/vendor/mapbox-gl/mapbox-gl.css'
-export const MAPBOX_CDN_JS = 'https://api.mapbox.com/mapbox-gl-js/v3.16.0/mapbox-gl.js'
-export const MAPBOX_CDN_CSS = 'https://api.mapbox.com/mapbox-gl-js/v3.16.0/mapbox-gl.css'
+// 兜底同样用本地文件：站点 CSP 只允许 self，外链 CDN 会被浏览器拦截
+export const MAPBOX_CDN_JS = MAPBOX_LOCAL_JS
+export const MAPBOX_CDN_CSS = MAPBOX_LOCAL_CSS
 export const REFRESH_INTERVAL = 5000   // 机组位置轮询刷新间隔(5s)
 export const MAP_CENTER = [110, 30]    // AMap 使用 [lng, lat]
 export const MAP_ZOOM = 5

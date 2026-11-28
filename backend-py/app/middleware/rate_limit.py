@@ -106,7 +106,13 @@ class RateLimitMiddleware:
         self.limit = limit
 
     async def __call__(self, scope, receive, send):  # type: ignore[no-untyped-def]
-        if scope["type"] != "http" or not scope.get("path", "").startswith("/api"):
+        path = scope.get("path", "")
+        if scope["type"] != "http" or not path.startswith("/api"):
+            await self.app(scope, receive, send)
+            return
+        # 地图瓦片由 /api/mapbox 代理自身做「月度配额 + 缓存」控制，
+        # 不走全局 60 次/分钟的 IP 限流（否则一次 3D 地图加载就会被限流）。
+        if path.startswith("/api/mapbox/"):
             await self.app(scope, receive, send)
             return
         request = Request(scope)

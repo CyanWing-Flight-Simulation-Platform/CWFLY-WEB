@@ -47,9 +47,11 @@ import {
   MAPBOX_FALLBACK_LAYER,
   MAPBOX_INVALID_MESSAGE,
   MAPBOX_LOAD_FAILED_MESSAGE,
+  MAPBOX_QUOTA_MESSAGE,
   MAPBOX_UNAVAILABLE_MESSAGE,
   isMapboxDependentLayer,
   isMapboxMarkedInvalid,
+  isMapboxQuotaError,
   isMapboxTokenError,
   markMapboxInvalid,
   resolveMapboxFallback,
@@ -57,7 +59,8 @@ import {
 import {
   AMAP_KEY,
   AMAP_SECURITY_CODE,
-  MAPBOX_TOKEN,
+  MAPBOX_PROXY,
+  mapboxProxyUrl,
   OWM_KEY,
   OWM_RADAR_URL,
   MAPBOX_LOCAL_JS,
@@ -174,7 +177,8 @@ export function useOnlineMapInteraction(cfg) {
     mapboxLayer = new AMap.TileLayer({
       getTileUrl: function(x, y, z) {
         // Mapbox 使用标准 Slippy Map 坐标（y=0 顶部），与 AMap 一致，无需翻转
-        return `https://api.mapbox.com/styles/v1/mapbox/satellite-v9/tiles/${z}/${x}/${y}@2x?access_token=${MAPBOX_TOKEN}`
+        // 瓦片经服务端 /api/mapbox 代理，token 不出现在前端
+        return `${mapboxProxyUrl('styles/v1/mapbox/satellite-v9/tiles')}/${z}/${x}/${y}@2x`
       },
       minZoom: 3,
       maxZoom: 20,
@@ -266,9 +270,27 @@ export function useOnlineMapInteraction(cfg) {
   //  - mapbox3d     → standard（globe 投影，低缩放是地球，放大后显示 3D 建筑，与 ISFP 一致）
   //  - mapbox3d_sat → 卫星地球（globe，satellite-streets）
   function mapbox3DStyle() {
+    // 注意：Mapbox Standard 样式依赖 GL 私有 imports/config，代理模式下无法渲染，
+    // 这里统一用 v12 经典样式（矢量路网 / 卫星路网）。
     return activeLayer.value === 'mapbox3d_sat'
-      ? 'mapbox://styles/mapbox/satellite-streets-v12'
-      : 'mapbox://styles/mapbox/standard'
+      ? 'mapbox/satellite-streets-v12'
+      : 'mapbox/streets-v12'
+  }
+
+  /**
+   * 从服务端代理拉取样式 JSON（后端已把 sprite/glyphs/sources 改写为本站地址并去掉 token），
+   * 浏览器端因此不需要接触任何 Mapbox access token。
+   */
+  async function fetchMapboxStyle(stylePath) {
+    const res = await fetch(`${MAPBOX_PROXY}/styles/v1/${stylePath}`, {
+      headers: { Accept: 'application/json' },
+    })
+    if (!res.ok) {
+      const err = new Error(`style ${res.status}`)
+      err.status = res.status
+      throw err
+    }
+    return res.json()
   }
 
   // 加载 Mapbox GL 脚本（CDN，避免服务器重新 npm install）
@@ -332,15 +354,32 @@ export function useOnlineMapInteraction(cfg) {
       loading.value = false
       return
     }
-    mapboxgl.accessToken = MAPBOX_TOKEN
+    // 不再设置 accessToken：样式/瓦片/地形全部由服务端 /api/mapbox 代理提供
+    mapboxgl.accessToken = ''
+    let styleJson
+    try {
+      styleJson = await fetchMapboxStyle(mapbox3DStyle())
+    } catch (e) {
+      loading.value = false
+      mapboxFallbackDone = true
+      fallbackTo2D({
+        message: isMapboxQuotaError(e) ? MAPBOX_QUOTA_MESSAGE : MAPBOX_LOAD_FAILED_MESSAGE,
+      })
+      return
+    }
+    if (myToken !== engineToken || !is3D(activeLayer.value)) {
+      loading.value = false
+      return
+    }
     // 局部引用：回调闭包用 thisMap 而非全局 mapboxMap（后者在引擎切换时会被置空/重建，
     // 若 load 回调晚于切换触发，用全局变量会误判/操作到新地图）
     const thisMap = new mapboxgl.Map({
       container: mapContainer.value,
-      style: mapbox3DStyle(),
+      style: styleJson,
       center: MAP_CENTER,
       zoom: 1.5,
       projection: 'globe',   // 3D 地球
+      testMode: true,        // token 在服务端代理，关闭 GL 内置的 access token 校验/报错
       minZoom: 0,
       // 不限制最大缩放
       attributionControl: false,
@@ -369,7 +408,7 @@ export function useOnlineMapInteraction(cfg) {
       try {
         mapboxMap.addSource('mapbox-dem', {
           type: 'raster-dem',
-          url: 'mapbox://mapbox.terrain-rgb-v2',
+          url: mapboxProxyUrl('v4/mapbox.terrain-rgb.json'),
           tileSize: 512,
           maxzoom: 14,
         })
@@ -530,7 +569,8 @@ export function useOnlineMapInteraction(cfg) {
 
   /** 重新计算 3D 可用性（有令牌 & 本次会话未被判定失效），同步到 mapboxAvailable 并返回决策结果 */
   function refreshMapboxAvailability() {
-    const result = resolveMapboxFallback({ token: MAPBOX_TOKEN })
+    // 3D 可用性由服务端代理决定（前端不持有 token）
+    const result = resolveMapboxFallback({ token: 'server-proxy' })
     mapboxAvailable.value = result.available
     return result
   }
@@ -593,6 +633,11 @@ export function useOnlineMapInteraction(cfg) {
   /** Mapbox 运行期错误：仅令牌/鉴权类（style 401、invalid access token 等）触发一次自动回退 */
   function handleMapboxError(event) {
     if (mapboxFallbackDone) return
+    if (isMapboxQuotaError(event?.error ?? event)) {
+      mapboxFallbackDone = true
+      fallbackTo2D({ message: MAPBOX_QUOTA_MESSAGE })
+      return
+    }
     if (!isMapboxTokenError(event?.error ?? event)) return
     mapboxFallbackDone = true
     fallbackTo2D({ message: MAPBOX_INVALID_MESSAGE, persist: true })

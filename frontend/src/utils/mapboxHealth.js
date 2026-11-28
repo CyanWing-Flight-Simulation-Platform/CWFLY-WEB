@@ -182,3 +182,21 @@ export function resolveMapboxFallback(input = {}) {
   }
   return { available: true, reason: null, message: '' }
 }
+
+/** 月度调用额度耗尽（后端代理返回 429）时的提示文案 */
+export const MAPBOX_QUOTA_MESSAGE = '3D 地图本月调用额度已用完，已自动切换为 2D 高德地图'
+
+/**
+ * 判断 Mapbox 报错是否属于「代理额度耗尽/被限流」（后端 /api/mapbox 返回 429）。
+ * 兼容 map.on('error', e => e.error) 包装与直接错误对象。
+ * @param {unknown} error
+ * @returns {boolean}
+ */
+export function isMapboxQuotaError(error) {
+  const err = error && error.error ? error.error : error
+  if (!err) return false
+  const status = Number(err.status || err.statusCode || 0)
+  if (status === 429) return true
+  const msg = String(err.message || err || '')
+  return /quota|额度/i.test(msg)
+}
