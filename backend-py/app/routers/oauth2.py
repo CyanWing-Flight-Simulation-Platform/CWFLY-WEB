@@ -32,7 +32,7 @@ from app.config import settings
 from app.db.session import get_db
 from app.services import oauth2 as oauth
 from app.services import users as users_service
-from app.services.token import TokenError, TokenExpiredError, verify_token
+from app.services.token import TokenError, TokenExpiredError, sign_token, verify_token
 from app.utils.session_cookie import access_token_from_request
 
 router = APIRouter(prefix="/oauth", tags=["oauth2"])
@@ -187,6 +187,12 @@ async def authorize(request: Request, db: AsyncSession = Depends(get_db)) -> Res
         )
 
     # 6) 登录态
+    # 5.1) 公共客户端（原生 App）必须使用 PKCE，防止授权码被截获后直接兑换
+    if client.get("isPublic") and not code_challenge:
+        return _redirect_error(
+            redirect_uri, state, "invalid_request", "公共客户端必须使用 PKCE（code_challenge）"
+        )
+
     user = _session_user(request)
     if user is None:
         return RedirectResponse(_login_url(request), status_code=302, headers=_NO_STORE)
@@ -370,6 +376,13 @@ async def token_endpoint(request: Request, db: AsyncSession = Depends(get_db)) -
 
     grant_type = (form.get("grant_type") or "").strip()
     client_id = client_id.strip()
+    client_meta = await oauth.get_client(db, client_id)
+    if client_meta is None:
+        return _json_error(401, "invalid_client", "客户端不存在")
+    if client_meta.get("isPublic") and not (form.get("code_verifier") or "").strip():
+        return _json_error(
+            400, "invalid_request", "公共客户端必须使用 PKCE（缺少 code_verifier）"
+        )
 
     if grant_type == "authorization_code":
         code = form.get("code") or ""
@@ -392,6 +405,12 @@ async def token_endpoint(request: Request, db: AsyncSession = Depends(get_db)) -
         issued = await oauth.issue_token(
             db, cid=consumed["cid"], client_id=client_id, scope=consumed["scope"]
         )
+        # first-party 客户端（CW-link）：额外换发平台会话 JWT，桌面端登录后即可直接调用平台 API
+        if client_meta.get("firstParty"):
+            profile_user = await users_service.find_user_public(db, consumed["cid"])
+            if profile_user:
+                issued["platform_token"] = sign_token(profile_user)
+                issued["cid"] = str(consumed["cid"])
         return JSONResponse(issued, headers=_NO_STORE)
 
     if grant_type == "refresh_token":

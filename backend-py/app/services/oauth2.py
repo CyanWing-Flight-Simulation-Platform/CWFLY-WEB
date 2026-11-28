@@ -180,10 +180,53 @@ async def ensure_clients_schema(db: "AsyncSession") -> None:
             "`redirect_uris` text NOT NULL,"
             "`scopes` varchar(255) NOT NULL DEFAULT '',"
             "`enabled` tinyint NOT NULL DEFAULT 1,"
+            "`isPublic` tinyint NOT NULL DEFAULT 0,"
+            "`firstParty` tinyint NOT NULL DEFAULT 0,"
             "`createdAt` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),"
             "PRIMARY KEY (`client_id`)"
             ") DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
         )
+    )
+    await db.commit()
+    # 兼容旧表：补 isPublic / firstParty 两列
+    for col, ddl in (
+        (
+            "isPublic",
+            "ALTER TABLE `oauth2_clients` ADD COLUMN `isPublic` tinyint NOT NULL DEFAULT 0",
+        ),
+        (
+            "firstParty",
+            "ALTER TABLE `oauth2_clients` ADD COLUMN `firstParty` tinyint NOT NULL DEFAULT 0",
+        ),
+    ):
+        has = await db.execute(
+            text(
+                "SELECT COUNT(*) FROM information_schema.columns "
+                "WHERE table_schema = DATABASE() AND table_name = 'oauth2_clients' "
+                "AND column_name = :c"
+            ),
+            {"c": col},
+        )
+        if not int(has.scalar() or 0):
+            await db.execute(text(ddl))
+    await db.commit()
+    # 内置桌面客户端（CW-link）：公共客户端（PKCE，无 secret）+ 仅本机回环回调 + first-party 可换平台会话
+    await db.execute(
+        text(
+            "INSERT INTO `oauth2_clients` "
+            "(client_id, secret_hash, name, homepage, redirect_uris, scopes, enabled, isPublic, firstParty) "
+            "VALUES (:id, '', :name, :home, :redirects, :scopes, 1, 1, 1) "
+            "ON DUPLICATE KEY UPDATE name = VALUES(name), homepage = VALUES(homepage), "
+            "redirect_uris = VALUES(redirect_uris), scopes = VALUES(scopes), enabled = 1, "
+            "isPublic = 1, firstParty = 1"
+        ),
+        {
+            "id": "cwfly_link_desktop",
+            "name": "CW-link 桌面客户端",
+            "home": "https://www.cwflysim.cn",
+            "redirects": "http://127.0.0.1/callback\nhttp://localhost/callback",
+            "scopes": "profile openid",
+        },
     )
     await db.commit()
 
@@ -203,6 +246,8 @@ def _env_client() -> Optional[dict[str, Any]]:
         "redirectUris": list(settings.oauth2_redirect_uris),
         "scopes": list(settings.oauth2_scopes),
         "enabled": True,
+        "isPublic": False,
+        "firstParty": False,
         "source": "env",
     }
 
@@ -219,7 +264,7 @@ async def get_client(db: "AsyncSession", client_id: str) -> Optional[dict[str, A
         row = (
             await db.execute(
                 text(
-                    "SELECT client_id, name, homepage, redirect_uris, scopes, enabled "
+                    "SELECT client_id, name, homepage, redirect_uris, scopes, enabled, isPublic, firstParty "
                     "FROM `oauth2_clients` WHERE client_id = :c LIMIT 1"
                 ),
                 {"c": target},
@@ -237,8 +282,15 @@ async def get_client(db: "AsyncSession", client_id: str) -> Optional[dict[str, A
         "name": d.get("name") or d["client_id"],
         "homepage": d.get("homepage") or "",
         "redirectUris": uris,
-        "scopes": [s for s in str(d.get("scopes") or "").split(",") if s],
+        # 注册表里 scopes 可能写成 "profile openid" 或 "profile,openid"，两种都接受
+        "scopes": [
+            s
+            for s in str(d.get("scopes") or "").replace(",", " ").split()
+            if s
+        ],
         "enabled": bool(int(d.get("enabled") or 0)),
+        "isPublic": bool(int(d.get("isPublic") or 0)),
+        "firstParty": bool(int(d.get("firstParty") or 0)),
         "source": "db",
     }
 
@@ -249,12 +301,15 @@ async def verify_client(db: "AsyncSession", client_id: str, client_secret: str) 
     env = _env_client()
     if env and env["id"] == target:
         return client_credentials_match(target, secret)
-    if not target or not secret:
+    if not target:
         return False
     try:
         row = (
             await db.execute(
-                text("SELECT secret_hash, enabled FROM `oauth2_clients` WHERE client_id = :c LIMIT 1"),
+                text(
+                    "SELECT secret_hash, enabled, isPublic FROM `oauth2_clients` "
+                    "WHERE client_id = :c LIMIT 1"
+                ),
                 {"c": target},
             )
         ).first()
@@ -263,7 +318,34 @@ async def verify_client(db: "AsyncSession", client_id: str, client_secret: str) 
         return False
     if row is None or not int(row._mapping["enabled"] or 0):
         return False
+    # 公共客户端（原生 App）：不持有 secret，改用 PKCE；token 端点强制 code_verifier
+    if int(row._mapping.get("isPublic") or 0):
+        return True
+    if not secret:
+        return False
     return hmac.compare_digest(hash_client_secret(secret), str(row._mapping["secret_hash"]))
+
+
+_LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "::1"}
+
+
+def _loopback_redirect_match(client: dict[str, Any], target: str) -> bool:
+    """RFC 8252 原生 App：公共客户端的回环回调允许动态端口，但 scheme/host/path 必须匹配。"""
+    from urllib.parse import urlsplit
+
+    t = urlsplit(target)
+    if t.scheme != "http" or (t.hostname or "") not in _LOOPBACK_HOSTS:
+        return False
+    for registered in client.get("redirectUris") or []:
+        r = urlsplit((registered or "").strip())
+        if r.scheme != "http":
+            continue
+        if (r.hostname or "") != (t.hostname or ""):
+            continue
+        if (r.path or "/") != (t.path or "/"):
+            continue
+        return True
+    return False
 
 
 async def redirect_uri_ok(db: "AsyncSession", client_id: str, uri: str) -> bool:
@@ -271,7 +353,13 @@ async def redirect_uri_ok(db: "AsyncSession", client_id: str, uri: str) -> bool:
     if client is None:
         return False
     target = (uri or "").strip()
-    return bool(target) and target in client["redirectUris"]
+    if not target:
+        return False
+    if target in client["redirectUris"]:
+        return True
+    if not client.get("isPublic"):
+        return False
+    return _loopback_redirect_match(client, target)
 
 
 async def app_meta(db: "AsyncSession", client_id: str) -> dict[str, Any]:
