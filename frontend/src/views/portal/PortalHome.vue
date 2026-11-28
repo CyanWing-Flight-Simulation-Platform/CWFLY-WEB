@@ -1,5 +1,16 @@
 <template>
   <div class="portal-home fade-in">
+    <!-- 首页多图轮换背景：8 张图 6s 停留 / 1.5s 交叉淡入淡出，只改 opacity 不重建 DOM -->
+    <div class="home-bg" aria-hidden="true">
+      <div
+        v-for="(src, i) in HOME_BG_IMAGES"
+        :key="src"
+        class="home-bg__img"
+        :class="{ 'is-active': i === homeBgIndex }"
+        :style="{ backgroundImage: `url(${src})` }"
+      ></div>
+      <div class="home-bg__scrim"></div>
+    </div>
     <!-- Hero -->
     <section class="hero">
       <div class="hero__content">
@@ -211,6 +222,39 @@ import { useUserStore } from '@/store/user'
 import { QQ_GROUP_URL } from '@/utils/links'
 
 const qqGroupUrl = QQ_GROUP_URL
+
+// ===== 首页多图轮换背景 =====
+// 8 张图 6s 停留、1.5s 交叉淡入淡出、无限循环；图片在 onMounted 里统一预加载。
+const HOME_BG_IMAGES = [
+  '/images/backgrounds/bg-01.webp',
+  '/images/backgrounds/bg-02.webp',
+  '/images/backgrounds/bg-03.webp',
+  '/images/backgrounds/bg-04.webp',
+  '/images/backgrounds/bg-05.webp',
+  '/images/backgrounds/bg-06.webp',
+  '/images/backgrounds/bg-07.webp',
+  '/images/backgrounds/bg-08.webp',
+]
+const HOME_BG_INTERVAL = 6000
+const homeBgIndex = ref(0)
+let homeBgTimer = null
+
+onMounted(() => {
+  // 预加载：全部走浏览器缓存，切换时不会闪空白
+  HOME_BG_IMAGES.forEach((src) => {
+    const img = new Image()
+    img.decoding = 'async'
+    img.src = src
+  })
+  homeBgTimer = setInterval(() => {
+    homeBgIndex.value = (homeBgIndex.value + 1) % HOME_BG_IMAGES.length
+  }, HOME_BG_INTERVAL)
+})
+
+onUnmounted(() => {
+  if (homeBgTimer) clearInterval(homeBgTimer)
+  homeBgTimer = null
+})
 
 const userStore = useUserStore()
 const events = ref([])
@@ -543,6 +587,44 @@ html[data-theme='dark'] .portal-home {
   --status-border: rgba(255, 255, 255, .14);
   --status-tint: none;
   background: transparent;
+}
+
+/* ===== 首页多图轮换背景 =====
+   8 张图绝对定位叠加，只切 opacity（1.5s 交叉淡入淡出），不销毁/重建 DOM；
+   最上层固定暗色遮罩，保证白色标题与毛玻璃卡片在任何一张图上都清晰可读。 */
+.home-bg {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+  background: #0b1016;
+}
+.home-bg__img {
+  position: absolute;
+  inset: 0;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  opacity: 0;
+  transition: opacity 1.5s ease-in-out;
+  will-change: opacity;
+}
+.home-bg__img.is-active {
+  opacity: 1;
+}
+.home-bg__scrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(0, 0, 0, .55) 0%,
+    rgba(0, 0, 0, .48) 55%,
+    rgba(0, 0, 0, .60) 100%
+  );
+}
+@media (prefers-reduced-motion: reduce) {
+  .home-bg__img { transition: none; }
 }
 
 /* Hero */
