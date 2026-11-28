@@ -16,6 +16,7 @@ import SelectMenu from './components/SelectMenu.vue'
 import DatePicker from './components/DatePicker.vue'
 import SubmitButton from './components/SubmitButton.vue'
 import './assets/global.css'
+import './styles/portal-content.css'
 
 // HTTP → HTTPS 兜底升级（Nginx 301 是第一道，这里防止代理/端口直连导致明文访问）。
 // 本地开发（localhost / 127.0.0.1）跳过，避免 dev server 无证书时跳死。

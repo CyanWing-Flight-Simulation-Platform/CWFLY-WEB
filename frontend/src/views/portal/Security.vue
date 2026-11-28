@@ -235,22 +235,31 @@ gpg --encrypt --armor --recipient security@cwflysim.cn report.txt
 .sec-code {
   padding: 1px 6px;
   border-radius: 5px;
-  background: color-mix(in srgb, var(--c-text) 6%, transparent);
+  /* 实心底色：不跟随卡片/背景图透明，保证代码片段在任何背景上清晰 */
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  color: #111827;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 12.5px;
   word-break: break-all;
+}
+html[data-theme='dark'] .sec-code {
+  background: #1f2937;
+  border-color: #334155;
+  color: #F1F5F9;
 }
 .sec-pre {
   margin: 14px 0;
   padding: 14px 16px;
   overflow-x: auto;
-  border: 1px solid var(--glass-border-strong);
+  /* 代码块用深色实心底（两套主题一致），不透明、不跟卡片混色 */
+  border: 1px solid rgba(255, 255, 255, .10);
   border-radius: 10px;
-  background: color-mix(in srgb, var(--c-text) 4%, transparent);
+  background: #0f172a;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 12.5px;
   line-height: 1.8;
-  color: var(--c-text-secondary);
+  color: #e2e8f0;
 }
 
 /* 列表 */

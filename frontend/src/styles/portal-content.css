@@ -1,0 +1,78 @@
+/* 门户内容区文字对比度与代码块底色（全局样式，需穿透子组件的 scoped 作用域）
+ *
+ * 背景层（多图轮换 + 遮罩）固定在 z-index:-1 的最底层；内容区 .portal__main 用近不透明
+ * 毛玻璃托底。这里负责在托底之上强制正文/标题/链接/代码的对比度，避免任何主题下
+ * 出现「白底浅字」或「代码跟着卡片一起透明」的情况。
+ */
+
+/* ---------- 浅色模式：白底 → 深灰正文 / 纯黑标题 / 深蓝下划线链接 ---------- */
+html[data-theme='light'] .portal__main {
+  color: #374151;
+}
+html[data-theme='light'] .portal__main :is(h1, h2, h3, h4, h5, h6) {
+  color: #111827;
+}
+html[data-theme='light'] .portal__main :is(.legal, .card, .doc-content, .sec-summary) a:not(.btn):not(.btn-primary):not(.btn-outline):not(.btn-ghost):not([class*='btn']) {
+  color: #2563EB;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+html[data-theme='light'] .portal__main :is(.legal, .card, .doc-content, .sec-summary) a:not(.btn):not([class*='btn']):hover {
+  color: #1D4ED8;
+}
+
+/* ---------- 暗色模式：浅色正文 / 白色标题 ---------- */
+html[data-theme='dark'] .portal__main :is(h1, h2, h3, h4, h5, h6) {
+  color: #F8FAFC;
+}
+
+/* ---------- 行内代码：自己的实心底色，不跟着卡片透明 ---------- */
+.portal__main :is(code, kbd) {
+  padding: 1px 6px;
+  border-radius: 5px;
+  background: rgba(15, 23, 42, .08);
+  border: 1px solid rgba(15, 23, 42, .10);
+  color: #111827;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  font-size: .92em;
+  white-space: break-spaces;
+}
+html[data-theme='dark'] .portal__main :is(code, kbd) {
+  background: rgba(255, 255, 255, .12);
+  border-color: rgba(255, 255, 255, .18);
+  color: #F1F5F9;
+}
+
+/* ---------- 代码块：深色实底 + 浅色字，永远不透明 ---------- */
+.portal__main pre {
+  margin: 14px 0;
+  padding: 14px 16px;
+  border-radius: 10px;
+  overflow-x: auto;
+  background: #0f172a;
+  border: 1px solid rgba(255, 255, 255, .08);
+  color: #e2e8f0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  font-size: 13px;
+  line-height: 1.7;
+}
+.portal__main pre code,
+.portal__main pre kbd {
+  padding: 0;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  font-size: inherit;
+  white-space: pre;
+}
+
+/* ---------- 正文文字加深（覆盖 .text-secondary / .text-muted 等工具类带 !important 的浅灰） ---------- */
+html[data-theme='light'] .portal__main :is(p, li, td, dd, dt) {
+  color: #374151 !important;
+}
+html[data-theme='light'] .portal__main :is(p, li, td, dd, dt) :is(strong, b) {
+  color: #111827 !important;
+}
+html[data-theme='dark'] .portal__main :is(p, li, td, dd, dt) {
+  color: rgba(241, 245, 249, .88) !important;
+}

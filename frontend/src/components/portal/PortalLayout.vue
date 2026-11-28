@@ -3,8 +3,8 @@
     <!-- 顶部导航 -->
     <PortalNavbar />
 
-    <!-- 主内容 -->
-    <main class="portal__main">
+    <!-- 主内容：内容层托底（近不透明毛玻璃），背景轮换图只作为底层 fixed 背景 -->
+    <main class="portal__main" :class="{ 'portal__main--hero': isHome }">
       <router-view />
     </main>
 
@@ -65,8 +65,13 @@
 import PortalNavbar from './PortalNavbar.vue'
 import CookieConsent from '@/components/CookieConsent.vue'
 import { QQ_GROUP_URL } from '@/utils/links'
+import { computed } from 'vue'
+import { useRoute } from 'vue-router'
 
 const qqGroupUrl = QQ_GROUP_URL
+const route = useRoute()
+// 首页首屏是 Hero 大图，内容托底要从 Hero 下方渐入；其它页面（文档/列表）直接整块托底
+const isHome = computed(() => route.name === 'PortalHome')
 </script>
 
 <style scoped>
@@ -82,6 +87,38 @@ const qqGroupUrl = QQ_GROUP_URL
   flex: 1;
   padding-top: calc(var(--portal-header-h) + 18px);
   padding-bottom: 40px;
+  /* 内容层托底：近不透明毛玻璃，背景轮换图只作为底层 fixed 背景，不再靠暗色遮罩压字 */
+  background: rgba(255, 255, 255, .97);
+  -webkit-backdrop-filter: blur(24px) saturate(1.1);
+  backdrop-filter: blur(24px) saturate(1.1);
+}
+html[data-theme='dark'] .portal__main {
+  background: rgba(13, 17, 23, .88);
+}
+
+/* 首页：Hero 区保留背景图，从其下方渐入内容底板，避免首屏与下方生硬割裂 */
+.portal__main--hero {
+  background: transparent;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+html[data-theme='light'] .portal__main--hero {
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0) 44vh,
+    rgba(255, 255, 255, .94) 58vh,
+    rgba(255, 255, 255, .975) 100%
+  );
+}
+html[data-theme='dark'] .portal__main--hero {
+  background: linear-gradient(
+    180deg,
+    rgba(13, 17, 23, 0) 0%,
+    rgba(13, 17, 23, 0) 44vh,
+    rgba(13, 17, 23, .82) 58vh,
+    rgba(13, 17, 23, .92) 100%
+  );
 }
 
 /* 页脚：始终使用深色毛玻璃底 + 浅色文字，背景图轮换时对比度不受影响 */

@@ -19,8 +19,7 @@
       :style="{ backgroundImage: `url('${src}')` }"
     ></div>
   </div>
-  <!-- 首屏暗色遮罩：绝对定位（随页面滚动，不固定整页），只压暗第一屏并在底部渐隐，
-       第二屏往后不再覆盖，避免把页脚/正文一起压黑 -->
+  <!-- 背景层暗色遮罩：与轮换图一起固定在 z-index:-1，内容区不透明托底，互不干扰 -->
   <div class="rot-scrim" aria-hidden="true"></div>
   <!-- 用户自定义背景层（上传后 3s 渐变显示, 覆盖在轮换背景/时段背景层之上） -->
   <div class="custom-bg-layer" v-show="customBgActive" ref="customBgLayer" aria-hidden="true"></div>
@@ -592,22 +591,18 @@ html[data-theme='light'] .bg-mode-scrim {
 .rot-bg__img.is-active {
   opacity: 1;
 }
-/* 首屏暗色遮罩：绝对定位跟随文档滚动，高度≈一屏多一点，底部渐隐过渡到正文，
-   第二屏往后彻底不再覆盖（页脚有自己的底色，不再被压黑）。 */
+/* 背景层暗色遮罩：固定在 z-index:-1 的最底层，整页均匀（不再半路结束造成上下割裂）；
+   内容可读性由 .portal__main 的近不透明毛玻璃托底负责，不再依赖遮罩压字。 */
 .rot-scrim {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: calc(100vh + 160px);
+  position: fixed;
+  inset: 0;
   z-index: -1;
   pointer-events: none;
   background: linear-gradient(
     180deg,
-    rgba(0, 0, 0, .55) 0%,
-    rgba(0, 0, 0, .50) 58%,
-    rgba(0, 0, 0, .34) 84%,
-    rgba(0, 0, 0, 0) 100%
+    rgba(0, 0, 0, .52) 0%,
+    rgba(0, 0, 0, .46) 55%,
+    rgba(0, 0, 0, .52) 100%
   );
 }
 @media (prefers-reduced-motion: reduce) {
