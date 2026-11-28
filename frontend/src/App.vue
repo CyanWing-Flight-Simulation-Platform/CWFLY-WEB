@@ -9,7 +9,18 @@
     <div class="bg-time-img" ref="autoTransA"></div>
     <div class="bg-time-img" ref="autoTransB"></div>
   </div>
-  <!-- 用户自定义背景层（上传后 3s 渐变显示, 覆盖在时段背景层之上） -->
+  <!-- 全站多图轮换背景：8 张图 6s 停留 / 1.5s 交叉淡入淡出；用户自定义背景层在它之上，优先级更高 -->
+  <div class="rot-bg" aria-hidden="true">
+    <div
+      v-for="(src, i) in ROT_BG_IMAGES"
+      :key="src"
+      class="rot-bg__img"
+      :class="{ 'is-active': i === rotBgIndex }"
+      :style="{ backgroundImage: `url('${src}')` }"
+    ></div>
+    <div class="rot-bg__scrim"></div>
+  </div>
+  <!-- 用户自定义背景层（上传后 3s 渐变显示, 覆盖在轮换背景/时段背景层之上） -->
   <div class="custom-bg-layer" v-show="customBgActive" ref="customBgLayer" aria-hidden="true"></div>
   <!-- 浅色/自动白天模式：在飞机底图上覆盖明亮柔光层，保证深色文字对比度 -->
   <div class="bg-mode-scrim" aria-hidden="true"></div>
@@ -57,6 +68,23 @@ const bgTimeEl = ref(null)            // 正式时段背景层(.bg-time) DOM, cr
 let autoTransTimer = null
 let fade = 0                    // 当前渐变进度（普通变量, 不走响应式, 避免 60fps 重渲染干扰其它组件过渡）
 let bgTimer = null
+
+// ===== 全站多图轮换背景 =====
+// 8 张图 6s 停留、1.5s 交叉淡入淡出、无限循环；图片在 onMounted 里统一预加载。
+// 层级位于自定义背景层之下：用户设置了自己的背景时，自定义背景覆盖轮换图（自定义优先）。
+const ROT_BG_IMAGES = [
+  '/images/backgrounds/bg-01.webp',
+  '/images/backgrounds/bg-02.webp',
+  '/images/backgrounds/bg-03.webp',
+  '/images/backgrounds/bg-04.webp',
+  '/images/backgrounds/bg-05.webp',
+  '/images/backgrounds/bg-06.webp',
+  '/images/backgrounds/bg-07.webp',
+  '/images/backgrounds/bg-08.webp',
+]
+const ROT_BG_INTERVAL = 6000
+const rotBgIndex = ref(0)
+let rotBgTimer = null
 let customCheckTimer = null
 let customBgTimer = null
 let customBgSeq = 0
@@ -429,6 +457,15 @@ window.addEventListener('cw:custom-bg', onCustomBgEvent)
 
 onMounted(() => {
   updateTimeBg()
+  // 轮换背景：先预加载全部 8 张（走浏览器缓存，切换不闪空白），再开始 6s 轮换
+  ROT_BG_IMAGES.forEach((src) => {
+    const img = new Image()
+    img.decoding = 'async'
+    img.src = src
+  })
+  rotBgTimer = setInterval(() => {
+    rotBgIndex.value = (rotBgIndex.value + 1) % ROT_BG_IMAGES.length
+  }, ROT_BG_INTERVAL)
   checkCustomBg()
   bgTimer = setInterval(updateTimeBg, 10000)          // 每 10 秒刷新渐变进度
   customCheckTimer = setInterval(checkCustomBg, 2000)  // 每 2 秒检测自定义背景
@@ -470,6 +507,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   if (bgTimer) clearInterval(bgTimer)
+  if (rotBgTimer) clearInterval(rotBgTimer)
   if (customCheckTimer) clearInterval(customCheckTimer)
   if (customBgTimer) clearTimeout(customBgTimer)
   window.removeEventListener('cw:custom-bg', onCustomBgEvent)
@@ -527,6 +565,43 @@ onUnmounted(() => {
 }
 html[data-theme='light'] .bg-mode-scrim {
   background: linear-gradient(180deg, rgba(255, 255, 255, .58) 0%, rgba(255, 255, 255, .44) 55%, rgba(255, 255, 255, .34) 100%);
+}
+
+/* 全站多图轮换背景：8 张图绝对定位叠加，只切 opacity（1.5s 交叉淡入），不重建 DOM；
+   上方固定暗色渐变遮罩保证白色文字与毛玻璃卡片可读。自定义背景层在其上（优先级更高）。 */
+.rot-bg {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+  background: #0b1016;
+}
+.rot-bg__img {
+  position: absolute;
+  inset: 0;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  opacity: 0;
+  transition: opacity 1.5s ease-in-out;
+  will-change: opacity;
+}
+.rot-bg__img.is-active {
+  opacity: 1;
+}
+.rot-bg__scrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(0, 0, 0, .55) 0%,
+    rgba(0, 0, 0, .48) 55%,
+    rgba(0, 0, 0, .60) 100%
+  );
+}
+@media (prefers-reduced-motion: reduce) {
+  .rot-bg__img { transition: none; }
 }
 
 /* 用户自定义背景层：置于内容之下、时段背景层之上(DOM 顺序), 上传后 3s 渐变显示 */
