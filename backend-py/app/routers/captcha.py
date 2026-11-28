@@ -63,7 +63,15 @@ def _redis() -> Any:
     if _redis_checked:
         return _redis_client
     _redis_checked = True
-    url = (os.getenv("SOCKETIO_REDIS_URL") or os.getenv("REDIS_URL") or "").strip()
+    # 多 worker（pm2 --workers N）下必须用共享存储，否则 challenge 落在 A、verify 落到 B，
+    # 内存字典查不到 → 用户看到「人机验证未通过/已过期」的随机失败。
+    # 除专用 REDIS_URL 外，也复用已配置的 TOKEN_STATE_REDIS_URL（同一 Redis 实例）。
+    url = (
+        os.getenv("SOCKETIO_REDIS_URL")
+        or os.getenv("REDIS_URL")
+        or os.getenv("TOKEN_STATE_REDIS_URL")
+        or ""
+    ).strip()
     if not url:
         return None
     try:

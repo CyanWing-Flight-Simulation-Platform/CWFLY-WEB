@@ -17,7 +17,7 @@ export function setPowToken(token) {
 }
 
 /** 等待 PoW 令牌就绪（最多 timeoutMs，静默；超时返回空串交由后端判定）。 */
-export function waitForPowToken(timeoutMs = 2500) {
+export function waitForPowToken(timeoutMs = 6000) {
   if (powToken) return Promise.resolve(powToken)
   return new Promise((resolve) => {
     let settled = false
