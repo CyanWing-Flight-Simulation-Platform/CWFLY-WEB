@@ -17,6 +17,20 @@ import DatePicker from './components/DatePicker.vue'
 import SubmitButton from './components/SubmitButton.vue'
 import './assets/global.css'
 
+// HTTP → HTTPS 兜底升级（Nginx 301 是第一道，这里防止代理/端口直连导致明文访问）。
+// 本地开发（localhost / 127.0.0.1）跳过，避免 dev server 无证书时跳死。
+;(function forceHttps() {
+  try {
+    if (window.location.protocol !== 'http:') return
+    const host = window.location.hostname
+    if (/^(localhost|127\.0\.0\.1|\[::1\]|0\.0\.0\.0)$/i.test(host)) return
+    const { host: hostPort, pathname, search, hash } = window.location
+    window.location.replace(`https://${hostPort}${pathname}${search}${hash}`)
+  } catch {
+    /* 取不到 location 时忽略 */
+  }
+})()
+
 const app = createApp(App)
 app.use(router)
 app.use(pinia)

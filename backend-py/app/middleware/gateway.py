@@ -117,7 +117,11 @@ class GatewayMiddleware(BaseHTTPMiddleware):
                 ua = (request.headers.get("user-agent") or "").lower()
                 if not (ua.startswith("my-flight-sim/") or ("mozilla" in ua and "like gecko" in ua)):
                     if not ua.strip() or any(a.lower() in ua for a in BLOCKED_AGENTS):
-                        return Response(_REJECT, status_code=403, media_type="application/json")
+                        rejected = Response(_REJECT, status_code=403, media_type="application/json")
+                        # 提前返回也要带安全头（HSTS 等），避免被拦截的响应缺 HSTS
+                        for key, value in SECURITY_HEADERS.items():
+                            rejected.headers.setdefault(key, value)
+                        return rejected
 
         # ---- 2) IP 访问聚合 ----
         try:
